@@ -3,9 +3,9 @@ import { getTodayEvents, buildMessage } from "../services/eventService.js";
 import { sendMessage } from "../bot/telegramClient.js";
 
 export const startScheduler = () => {
-  console.log("🧪 TEST MODE: starts 2:55 PM IST, runs every 1 min");
+  console.log("🧪 TEST MODE: starts 3:00 PM IST, runs every 1 min");
 
-  cron.schedule("55-59/1 14 * * *", async () => {
+  cron.schedule("0-59/1 15 * * *", async () => {
     try {
       const events = await getTodayEvents();
       const message = buildMessage(events);
