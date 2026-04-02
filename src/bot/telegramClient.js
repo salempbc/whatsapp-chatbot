@@ -1,30 +1,23 @@
-import cron from "node-cron";
-import { getTodayEvents, buildMessage } from "../services/eventService.js";
-import { sendMessage } from "../bot/telegramClient.js";
+import TelegramBot from "node-telegram-bot-api";
 
-export const startScheduler = () => {
-  console.log("🧪 TEST MODE: starts 3:08 PM IST, runs every 1 min");
+let bot = null;
 
-  cron.schedule("8-59/1 15 * * *", async () => {
-    console.log("⏱️ CRON TRIGGERED:", new Date().toLocaleTimeString());
+export const initTelegram = () => {
+  bot = new TelegramBot(process.env.BOT_TOKEN);
 
-    try {
-      const events = await getTodayEvents();
-      const message = buildMessage(events);
+  console.log("🤖 Telegram bot ready");
+};
 
-      if (!message) {
-        console.log("⚠️ No events today");
-        return;
-      }
+export const sendMessage = async (text) => {
+  if (!bot) {
+    console.error("❌ Bot not initialized");
+    return;
+  }
 
-      console.log("📤 Sending Telegram message:\n", message);
-
-      await sendMessage(message);
-
-      console.log("✅ Message sent");
-
-    } catch (err) {
-      console.error("❌ Scheduler error:", err.message);
-    }
-  });
+  try {
+    const res = await bot.sendMessage(process.env.CHAT_ID, text);
+    console.log("✅ Telegram sent:", res.message_id);
+  } catch (err) {
+    console.error("❌ Telegram error:", err);
+  }
 };
