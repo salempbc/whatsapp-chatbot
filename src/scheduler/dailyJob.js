@@ -1,6 +1,15 @@
 import cron from "node-cron";
 import { getTodayEvents, buildMessage } from "../services/eventService.js";
-import { client } from "../bot/whatsappClient.js";
+import { getClient } from "../bot/whatsappClient.js";
+
+const client = getClient();
+
+if (!client) {
+  console.log("Client not ready");
+  return;
+}
+
+await client.sendMessage(process.env.GROUP_ID, message);
 
 /**
  * Tracks last sent date to prevent duplicates

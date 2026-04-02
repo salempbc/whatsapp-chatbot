@@ -5,26 +5,17 @@ import { connectDB } from "./config/db.js";
 import { initWhatsApp } from "./bot/whatsappClient.js";
 import { startScheduler } from "./scheduler/dailyJob.js";
 
-/**
- * Main application entry point
- */
 const startApp = async () => {
-  try {
-    console.log("🚀 Starting application...");
+  console.log("🚀 Starting application...");
 
-    // Connect to database
-    await connectDB();
+  // 1. Connect DB FIRST (required for RemoteAuth)
+  await connectDB();
 
-    // Initialize WhatsApp client
-    initWhatsApp();
+  // 2. Start WhatsApp (uses Mongo session)
+  await initWhatsApp();
 
-    // Start scheduler
-    startScheduler();
-
-  } catch (err) {
-    console.error("❌ App startup error:", err);
-    process.exit(1);
-  }
+  // 3. Start scheduler
+  startScheduler();
 };
 
 startApp();
