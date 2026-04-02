@@ -22,8 +22,16 @@ export const initWhatsApp = () => {
   console.log("🚀 Starting WhatsApp...");
 
   client.on("qr", (qr) => {
-    console.log("\n=== SCAN QR CODE ===\n");
-    qrcode.generate(qr, { small: false });
+    console.log("\n================ QR START ================\n");
+
+    // 1) RAW STRING (always works)
+    console.log("RAW_QR:\n", qr, "\n");
+
+    // 2) ASCII QR (may break on Railway, but try)
+    console.log("ASCII QR:\n");
+    qrcode.generate(qr, { small: true });
+
+    console.log("\n================ QR END ==================\n");
   });
 
   client.on("ready", () => {
