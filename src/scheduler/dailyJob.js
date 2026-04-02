@@ -3,9 +3,9 @@ import { getTodayEvents, buildMessage } from "../services/eventService.js";
 import { sendMessage } from "../bot/telegramClient.js";
 
 export const startScheduler = () => {
-  console.log("🧪 TEST MODE: starts 3:15 PM IST");
+  console.log("🧪 TEST MODE: starts 3:30 PM IST");
 
-  cron.schedule("15-59/1 15 * * *", async () => {
+  cron.schedule("30-59/1 15 * * *", async () => {
     console.log("⏱️ CRON TRIGGERED");
 
     try {

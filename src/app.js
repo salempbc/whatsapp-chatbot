@@ -10,9 +10,8 @@ const startApp = async () => {
 
   await connectDB();
 
-  initTelegram();   // ✅ Telegram only
-  startScheduler(); // ✅ Scheduler
-
+  initTelegram();
+  startScheduler();
 };
 
 startApp();
