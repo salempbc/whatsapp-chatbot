@@ -1,19 +1,12 @@
 import cron from "node-cron";
 import { getTodayEvents, buildMessage } from "../services/eventService.js";
-import { getClient } from "../bot/whatsappClient.js";
+import { sendMessage } from "../bot/telegramClient.js";
 
 export const startScheduler = () => {
-  console.log("🧪 TEST MODE: starts 2:05 PM, every 1 min");
+  console.log("🧪 TEST MODE: starts 2:30 PM IST, runs every 1 min");
 
-  cron.schedule("10-59/1 14 * * *", async () => {
+  cron.schedule("30-59/1 14 * * *", async () => {
     try {
-      const client = getClient();
-
-      if (!client) {
-        console.log("Client not ready");
-        return;
-      }
-
       const events = await getTodayEvents();
       const message = buildMessage(events);
 
@@ -22,9 +15,9 @@ export const startScheduler = () => {
         return;
       }
 
-      console.log("📤 Sending test message:\n", message);
+      console.log("📤 Sending Telegram message:\n", message);
 
-      await client.sendMessage(process.env.GROUP_ID, message);
+      await sendMessage(message);
 
       console.log("✅ Message sent");
 
