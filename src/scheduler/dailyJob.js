@@ -3,12 +3,12 @@ import { getTodayEvents, buildMessage } from "../services/eventService.js";
 import { sendMessage } from "../bot/telegramClient.js";
 
 export const startScheduler = () => {
-  console.log("⏰ Scheduler set for 6:00 AM IST daily");
+  console.log("📅 Scheduler started (6:00 AM IST)");
 
   cron.schedule("0 6 * * *", async () => {
-    console.log("⏱️ CRON TRIGGERED");
-
     try {
+      console.log("⏱️ CRON TRIGGERED");
+
       const events = await getTodayEvents();
       const message = await buildMessage(events);
 
@@ -19,7 +19,6 @@ export const startScheduler = () => {
 
       await sendMessage(message);
 
-      console.log("✅ Message sent");
     } catch (err) {
       console.error("❌ Scheduler error:", err.message);
     }

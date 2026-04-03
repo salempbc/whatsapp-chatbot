@@ -12,7 +12,7 @@
     "node-cron": "^4.2.1",
     "puppeteer": "^24.40.0",
     "qrcode-terminal": "^0.12.0",
-    "node-telegram-bot-api": "^0.61.0",
+    "node-telegram-bot-api": "^0.66.0",
     "wwebjs-mongo": "^1.1.0"
   }
 }

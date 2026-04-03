@@ -1,15 +1,8 @@
 import mongoose from "mongoose";
 
-const normalize = (v) => (v ? v.trim().toLowerCase() : v);
-
 const memberSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-      set: normalize
-    },
+    name: { type: String, required: true, unique: true, trim: true },
 
     gender: {
       type: String,
@@ -17,78 +10,48 @@ const memberSchema = new mongoose.Schema(
       required: true
     },
 
-    isChild: {
-      type: Boolean,
-      default: false
-    },
+    role: { type: String },
 
-    // 🎂 Birthday
-    dob: String,
-    birthday: String,
+    isChild: { type: Boolean, default: false },
+    isPastor: { type: Boolean, default: false },
 
-    // 💍 Wedding
-    isMarried: {
-      type: Boolean,
-      default: false
-    },
+    dob: { type: String }, // YYYY-MM-DD
+    birthday: { type: String }, // MM-DD
 
-    spouseName: {
-      type: String,
-      trim: true,
-      set: normalize
-    },
+    isMarried: { type: Boolean, default: false },
+    spouseName: { type: String, trim: true },
+    spouseGender: { type: String, enum: ["male", "female"] },
 
-    spouseGender: {
-      type: String,
-      enum: ["male", "female"]
-    },
-
-    weddingDate: String, // YYYY-MM-DD
-    wedding: String,
-
-    // ⛪ Roles
-    isPastor: {
-      type: Boolean,
-      default: false
-    },
-
-    role: {
-      type: String,
-      enum: ["treasurer", "secretary", null],
-      default: null
-    }
+    weddingDate: { type: String }, // YYYY-MM-DD
+    wedding: { type: String } // MM-DD
   },
   { timestamps: true }
 );
 
 /**
- * 🔥 VALIDATION: spouse must be opposite gender
+ * 🔒 VALIDATION
  */
 memberSchema.pre("save", function (next) {
-  if (this.isMarried && this.spouseGender) {
+  if (this.isMarried) {
+    if (!this.spouseName) {
+      return next(new Error("Spouse name required"));
+    }
+
     if (this.gender === this.spouseGender) {
-      return next(
-        new Error("❌ Spouse gender must be opposite")
-      );
+      return next(new Error("Invalid gender pairing"));
     }
   }
   next();
 });
 
 /**
- * UNIQUE INDEXES
+ * 🚫 UNIQUE NAME
  */
-memberSchema.index(
-  { name: 1, birthday: 1 },
-  { unique: true, partialFilterExpression: { birthday: { $exists: true } } }
-);
+memberSchema.index({ name: 1 }, { unique: true });
 
-memberSchema.index(
-  { name: 1, spouseName: 1, wedding: 1 },
-  {
-    unique: true,
-    partialFilterExpression: { isMarried: true }
-  }
-);
+/**
+ * ✅ IMPORTANT: DEFAULT EXPORT
+ */
+const Member = mongoose.model("Member", memberSchema);
 
-export default mongoose.model("Member", memberSchema);
+export default Member;
