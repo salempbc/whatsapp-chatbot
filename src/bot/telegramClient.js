@@ -1,9 +1,10 @@
 import TelegramBot from "node-telegram-bot-api";
 import Member from "../models/Member.js";
 import { ensureSpouse } from "../services/memberService.js";
+import fs from "fs";
 
 let bot;
-const S = new Map(); // per-chat state
+const S = new Map();
 
 const isAdmin = (msg) => {
   const envId = process.env.ADMIN_ID;
@@ -17,8 +18,28 @@ const ikb = (rows) => ({ reply_markup: { inline_keyboard: rows } });
 const mainMenu = kb([
   ["👥 Members", "➕ Add"],
   ["🔍 Search", "📊 Stats"],
-  ["ℹ️ Help", "🆔 My ID"]
+  ["📤 Export", "ℹ️ Help"],
+  ["🆔 My ID"]
 ]);
+
+const profileCard = (m) => {
+  return (
+`👤 *${m.name}*
+
+📌 *Basic*
+• Gender: ${m.gender}
+• Role: ${m.role || "—"}
+• Pastor: ${m.isPastor ? "Yes" : "No"}
+
+🎂 *Dates*
+• DOB: ${m.dob || "—"}
+• Birthday: ${m.birthday || "—"}
+
+💍 *Family*
+• Married: ${m.isMarried ? "Yes" : "No"}
+• Spouse: ${m.spouseName || "—"}`
+  );
+};
 
 export const initTelegram = () => {
   bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
@@ -34,13 +55,34 @@ export const initTelegram = () => {
 
   bot.onText(/ℹ️ Help/, (msg) => {
     if (!isAdmin(msg)) return;
-    bot.sendMessage(
-      msg.chat.id,
-      "Use buttons only.\nMembers → browse\nSearch → find\nAdd → create\nOpen member → View/Edit/Delete"
-    );
+    bot.sendMessage(msg.chat.id, "Fully button-driven CMS. Use menu.");
   });
 
-  // -------- LIST / PAGINATION --------
+  // EXPORT
+  bot.onText(/📤 Export/, async (msg) => {
+    if (!isAdmin(msg)) return;
+
+    const members = await Member.find();
+
+    const csv = [
+      ["Name","Gender","Role","DOB","Birthday","Married","Spouse","Pastor"],
+      ...members.map(m => [
+        m.name,
+        m.gender,
+        m.role || "",
+        m.dob || "",
+        m.birthday || "",
+        m.isMarried ? "Yes" : "No",
+        m.spouseName || "",
+        m.isPastor ? "Yes" : "No"
+      ])
+    ].map(r => r.join(",")).join("\n");
+
+    fs.writeFileSync("members.csv", csv);
+    bot.sendDocument(msg.chat.id, "members.csv");
+  });
+
+  // MEMBERS LIST
   bot.onText(/👥 Members/, async (msg) => {
     if (!isAdmin(msg)) return;
     await renderList(msg.chat.id, 0);
@@ -49,6 +91,7 @@ export const initTelegram = () => {
   const renderList = async (chatId, page = 0, q = "") => {
     const limit = 8;
     const filter = q ? { name: new RegExp(q, "i") } : {};
+
     const total = await Member.countDocuments(filter);
     const members = await Member.find(filter)
       .sort({ name: 1 })
@@ -67,226 +110,138 @@ export const initTelegram = () => {
     if (nav.length) rows.push(nav);
     rows.push([{ text: "🔙 Menu", callback_data: "menu" }]);
 
-    await bot.sendMessage(chatId, `👥 Members (${total})`, ikb(rows));
+    bot.sendMessage(chatId, `👥 Members (${total})`, ikb(rows));
   };
 
-  // -------- SEARCH (button-driven prompt) --------
+  // SEARCH
   bot.onText(/🔍 Search/, (msg) => {
     if (!isAdmin(msg)) return;
-    S.set(msg.chat.id, { step: "search_query" });
-    bot.sendMessage(msg.chat.id, "Type name to search:");
+    S.set(msg.chat.id, { step: "search" });
+    bot.sendMessage(msg.chat.id, "Type name:");
   });
 
-  // -------- ADD FLOW (buttons) --------
+  // ADD
   bot.onText(/➕ Add/, (msg) => {
     if (!isAdmin(msg)) return;
     S.set(msg.chat.id, { step: "add_name", data: {} });
     bot.sendMessage(msg.chat.id, "Enter Name:");
   });
 
-  // -------- STATS --------
+  // STATS
   bot.onText(/📊 Stats/, async (msg) => {
     if (!isAdmin(msg)) return;
+
     const total = await Member.countDocuments();
     const married = await Member.countDocuments({ isMarried: true });
-    const pastors = await Member.countDocuments({ isPastor: true });
-    bot.sendMessage(
-      msg.chat.id,
-      `📊 Stats\nTotal: ${total}\nMarried: ${married}\nPastors: ${pastors}`
-    );
+
+    bot.sendMessage(msg.chat.id, `Total: ${total}\nMarried: ${married}`);
   });
 
-  // -------- MESSAGE HANDLER (minimal typing only where needed) --------
   bot.on("message", async (msg) => {
     const st = S.get(msg.chat.id);
     if (!st || msg.text?.startsWith("/")) return;
 
     const t = msg.text;
 
-    // SEARCH
-    if (st.step === "search_query") {
-      S.delete(msg.chat.id);
-      return renderList(msg.chat.id, 0, t);
+    if (st.step === "search") {
+      const results = await Member.find({
+        name: new RegExp(t, "i")
+      }).limit(10);
+
+      const rows = results.map(m => [
+        { text: m.name, callback_data: `open_${m._id}` }
+      ]);
+
+      return bot.sendMessage(msg.chat.id, "Results:", ikb(rows));
     }
 
-    // ADD NAME
     if (st.step === "add_name") {
       st.data.name = t;
       st.step = "add_gender";
-      return bot.sendMessage(
-        msg.chat.id,
-        "Select Gender:",
-        ikb([
-          [
-            { text: "Male", callback_data: "g_male" },
-            { text: "Female", callback_data: "g_female" }
-          ]
-        ])
-      );
+      return bot.sendMessage(msg.chat.id, "Select Gender:", ikb([
+        [
+          { text: "Male", callback_data: "g_male" },
+          { text: "Female", callback_data: "g_female" }
+        ]
+      ]));
     }
 
-    // DOB (typed)
     if (st.step === "add_dob") {
       st.data.dob = t;
       st.data.birthday = `${t.split("-")[1]}-${t.split("-")[2]}`;
       st.step = "add_married";
-      return bot.sendMessage(
-        msg.chat.id,
-        "Married?",
-        ikb([
-          [
-            { text: "Yes", callback_data: "m_yes" },
-            { text: "No", callback_data: "m_no" }
-          ]
-        ])
-      );
+
+      return bot.sendMessage(msg.chat.id, "Married?", ikb([
+        [
+          { text: "Yes", callback_data: "m_yes" },
+          { text: "No", callback_data: "m_no" }
+        ]
+      ]));
     }
 
-    // SPOUSE NAME (typed)
     if (st.step === "add_spouse") {
       st.data.spouseName = t;
-      st.data.spouseGender =
-        st.data.gender === "male" ? "female" : "male";
-      await saveMember(msg.chat.id, st.data);
+      st.data.spouseGender = st.data.gender === "male" ? "female" : "male";
+
+      const m = new Member(st.data);
+      await m.save();
+      await ensureSpouse(m);
+
       S.delete(msg.chat.id);
       return bot.sendMessage(msg.chat.id, "✅ Saved", mainMenu);
     }
   });
 
-  // -------- CALLBACKS --------
   bot.on("callback_query", async (q) => {
     const chatId = q.message.chat.id;
     const data = q.data;
 
-    // menu
     if (data === "menu") {
-      await bot.sendMessage(chatId, "📊 Church CMS", mainMenu);
-      return;
+      return bot.sendMessage(chatId, "📊 Church CMS", mainMenu);
     }
 
-    // pagination
     if (data.startsWith("pg_")) {
       const [, p, query] = data.split("_");
       return renderList(chatId, Number(p), query || "");
     }
 
-    // open member
     if (data.startsWith("open_")) {
       const id = data.replace("open_", "");
       const m = await Member.findById(id);
-      if (!m) return bot.sendMessage(chatId, "Not found");
 
-      const txt =
-        `👤 ${m.name}\n` +
-        `Gender: ${m.gender}\n` +
-        `Role: ${m.role || "-"}\n` +
-        `DOB: ${m.dob || "-"}\n` +
-        `Birthday: ${m.birthday || "-"}\n` +
-        `Married: ${m.isMarried ? "Yes" : "No"}\n` +
-        `Spouse: ${m.spouseName || "-"}`;
-
-      return bot.sendMessage(
-        chatId,
-        txt,
-        ikb([
+      return bot.sendMessage(chatId, profileCard(m), {
+        parse_mode: "Markdown",
+        ...ikb([
           [
             { text: "✏️ Edit", callback_data: `edit_${id}` },
             { text: "❌ Delete", callback_data: `del_${id}` }
-          ],
-          [{ text: "🔙 Back", callback_data: "menu" }]
-        ])
-      );
-    }
-
-    // delete confirm
-    if (data.startsWith("del_")) {
-      const id = data.replace("del_", "");
-      return bot.sendMessage(
-        chatId,
-        "Confirm delete?",
-        ikb([
-          [
-            { text: "Yes", callback_data: `delc_${id}` },
-            { text: "No", callback_data: "menu" }
           ]
         ])
-      );
+      });
     }
 
-    if (data.startsWith("delc_")) {
-      const id = data.replace("delc_", "");
+    if (data.startsWith("del_")) {
+      const id = data.replace("del_", "");
       await Member.deleteOne({ _id: id });
       return bot.sendMessage(chatId, "🗑️ Deleted", mainMenu);
     }
 
-    // edit menu
-    if (data.startsWith("edit_")) {
-      const id = data.replace("edit_", "");
-      S.set(chatId, { step: "edit_pick", id });
-      return bot.sendMessage(
-        chatId,
-        "Select field:",
-        ikb([
-          [
-            { text: "Gender", callback_data: "ef_gender" },
-            { text: "Role", callback_data: "ef_role" }
-          ],
-          [
-            { text: "DOB", callback_data: "ef_dob" },
-            { text: "Marriage", callback_data: "ef_married" }
-          ],
-          [{ text: "🔙", callback_data: "menu" }]
-        ])
-      );
-    }
-
-    // add gender
     if (data === "g_male" || data === "g_female") {
       const st = S.get(chatId);
-      if (!st) return;
       st.data.gender = data === "g_male" ? "male" : "female";
-      st.step = "add_role";
-      return bot.sendMessage(
-        chatId,
-        "Select Role:",
-        ikb([
-          [
-            { text: "Pastor", callback_data: "r_pastor" },
-            { text: "Treasurer", callback_data: "r_treasurer" }
-          ],
-          [
-            { text: "Secretary", callback_data: "r_secretary" },
-            { text: "None", callback_data: "r_none" }
-          ]
-        ])
-      );
-    }
-
-    // add role
-    if (data.startsWith("r_")) {
-      const st = S.get(chatId);
-      if (!st) return;
-
-      const map = {
-        r_pastor: { isPastor: true },
-        r_treasurer: { role: "treasurer" },
-        r_secretary: { role: "secretary" },
-        r_none: {}
-      };
-
-      Object.assign(st.data, map[data]);
       st.step = "add_dob";
-      return bot.sendMessage(chatId, "Enter DOB (YYYY-MM-DD):");
+      return bot.sendMessage(chatId, "Enter DOB:");
     }
 
-    // married
     if (data === "m_yes" || data === "m_no") {
       const st = S.get(chatId);
-      if (!st) return;
-
       st.data.isMarried = data === "m_yes";
+
       if (!st.data.isMarried) {
-        await saveMember(chatId, st.data);
+        const m = new Member(st.data);
+        await m.save();
+        await ensureSpouse(m);
+
         S.delete(chatId);
         return bot.sendMessage(chatId, "✅ Saved", mainMenu);
       }
@@ -294,111 +249,9 @@ export const initTelegram = () => {
       st.step = "add_spouse";
       return bot.sendMessage(chatId, "Enter Spouse Name:");
     }
-
-    // edit fields
-    if (data.startsWith("ef_")) {
-      const st = S.get(chatId);
-      if (!st) return;
-
-      if (data === "ef_gender") {
-        st.step = "edit_gender";
-        return bot.sendMessage(
-          chatId,
-          "Select Gender:",
-          ikb([
-            [
-              { text: "Male", callback_data: "eg_male" },
-              { text: "Female", callback_data: "eg_female" }
-            ]
-          ])
-        );
-      }
-
-      if (data === "ef_role") {
-        st.step = "edit_role";
-        return bot.sendMessage(
-          chatId,
-          "Select Role:",
-          ikb([
-            [
-              { text: "Pastor", callback_data: "er_pastor" },
-              { text: "Treasurer", callback_data: "er_treasurer" }
-            ],
-            [
-              { text: "Secretary", callback_data: "er_secretary" },
-              { text: "None", callback_data: "er_none" }
-            ]
-          ])
-        );
-      }
-
-      if (data === "ef_dob") {
-        st.step = "edit_dob";
-        return bot.sendMessage(chatId, "Enter DOB (YYYY-MM-DD):");
-      }
-
-      if (data === "ef_married") {
-        st.step = "edit_married";
-        return bot.sendMessage(
-          chatId,
-          "Married?",
-          ikb([
-            [
-              { text: "Yes", callback_data: "em_yes" },
-              { text: "No", callback_data: "em_no" }
-            ]
-          ])
-        );
-      }
-    }
-
-    // edit gender
-    if (data === "eg_male" || data === "eg_female") {
-      const st = S.get(chatId);
-      if (!st) return;
-      const val = data === "eg_male" ? "male" : "female";
-      await Member.updateOne({ _id: st.id }, { gender: val });
-      return bot.sendMessage(chatId, "✅ Updated", mainMenu);
-    }
-
-    // edit role
-    if (data.startsWith("er_")) {
-      const st = S.get(chatId);
-      if (!st) return;
-
-      const map = {
-        er_pastor: { isPastor: true, role: null },
-        er_treasurer: { role: "treasurer", isPastor: false },
-        er_secretary: { role: "secretary", isPastor: false },
-        er_none: { role: null, isPastor: false }
-      };
-
-      await Member.updateOne({ _id: st.id }, map[data]);
-      return bot.sendMessage(chatId, "✅ Updated", mainMenu);
-    }
-
-    // edit married
-    if (data === "em_yes" || data === "em_no") {
-      const st = S.get(chatId);
-      if (!st) return;
-
-      const isMarried = data === "em_yes";
-      await Member.updateOne({ _id: st.id }, { isMarried });
-      if (isMarried) {
-        st.step = "edit_spouse";
-        return bot.sendMessage(chatId, "Enter Spouse Name:");
-      }
-      return bot.sendMessage(chatId, "✅ Updated", mainMenu);
-    }
   });
 
-  console.log("🤖 Telegram CMS UI ready");
-};
-
-const saveMember = async (chatId, data) => {
-  const m = new Member(data);
-  await m.save();
-  await ensureSpouse(m);
+  console.log("🤖 Production CMS ready");
 };
 
 export const sendMessage = async (text) => {
