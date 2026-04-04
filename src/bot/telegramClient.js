@@ -3,20 +3,17 @@ import Member from "../models/Member.js";
 import { ensureSpouse } from "../services/memberService.js";
 
 let bot;
-const ADMIN_ID = process.env.ADMIN_ID;
 
-// per-user state
 const userState = new Map();
 
-/**
- * 🔒 ADMIN CHECK
- */
-const isAdmin = (msg) =>
-  String(msg.from.id) === String(ADMIN_ID);
+const isAdmin = (msg) => {
+  const envId = process.env.ADMIN_ID;
 
-/**
- * 🎛️ MAIN MENU
- */
+  if (!envId) return true;
+
+  return String(msg.from.id).trim() === String(envId).trim();
+};
+
 const mainMenu = {
   reply_markup: {
     keyboard: [
@@ -29,14 +26,13 @@ const mainMenu = {
   }
 };
 
-/**
- * 🚀 INIT
- */
 export const initTelegram = () => {
   bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
   bot.onText(/\/start/, (msg) => {
-    if (!isAdmin(msg)) return bot.sendMessage(msg.chat.id, "❌ Unauthorized");
+    if (!isAdmin(msg)) {
+      return bot.sendMessage(msg.chat.id, "❌ Unauthorized");
+    }
 
     bot.sendMessage(
       msg.chat.id,
@@ -45,16 +41,10 @@ export const initTelegram = () => {
     );
   });
 
-  /**
-   * 🆔 ID
-   */
   bot.onText(/🆔 My ID/, (msg) => {
     bot.sendMessage(msg.chat.id, `Your ID: ${msg.from.id}`);
   });
 
-  /**
-   * ➕ ADD FLOW START
-   */
   bot.onText(/➕ Add Member/, (msg) => {
     if (!isAdmin(msg)) return;
 
@@ -62,9 +52,6 @@ export const initTelegram = () => {
     bot.sendMessage(msg.chat.id, "Enter Name:");
   });
 
-  /**
-   * 🔍 SEARCH
-   */
   bot.onText(/🔍 Search/, (msg) => {
     if (!isAdmin(msg)) return;
 
@@ -72,9 +59,6 @@ export const initTelegram = () => {
     bot.sendMessage(msg.chat.id, "Enter name to search:");
   });
 
-  /**
-   * ❌ DELETE FLOW
-   */
   bot.onText(/❌ Delete Member/, (msg) => {
     if (!isAdmin(msg)) return;
 
@@ -82,9 +66,6 @@ export const initTelegram = () => {
     bot.sendMessage(msg.chat.id, "Enter name to delete:");
   });
 
-  /**
-   * 📋 LIST
-   */
   bot.onText(/📋 List Members/, async (msg) => {
     if (!isAdmin(msg)) return;
 
@@ -98,9 +79,6 @@ export const initTelegram = () => {
     bot.sendMessage(msg.chat.id, text);
   });
 
-  /**
-   * 📊 STATS
-   */
   bot.onText(/📊 Stats/, async (msg) => {
     if (!isAdmin(msg)) return;
 
@@ -108,16 +86,12 @@ export const initTelegram = () => {
     bot.sendMessage(msg.chat.id, `Total Members: ${total}`);
   });
 
-  /**
-   * 🧠 MAIN MESSAGE HANDLER (FORM ENGINE)
-   */
   bot.on("message", async (msg) => {
     const state = userState.get(msg.chat.id);
     if (!state || msg.text.startsWith("/")) return;
 
     const text = msg.text;
 
-    // SEARCH
     if (state.step === "search") {
       const m = await Member.findOne({
         name: new RegExp(text, "i")
@@ -131,41 +105,35 @@ export const initTelegram = () => {
       );
     }
 
-    // DELETE
     if (state.step === "delete") {
       await Member.deleteOne({ name: text });
       userState.delete(msg.chat.id);
       return bot.sendMessage(msg.chat.id, `Deleted ${text}`);
     }
 
-    // ADD FLOW
     if (state.step === "name") {
       state.data.name = text;
       state.step = "gender";
-
-      return bot.sendMessage("Enter Gender (male/female):");
+      return bot.sendMessage(msg.chat.id, "Enter Gender (male/female):");
     }
 
     if (state.step === "gender") {
       state.data.gender = text.toLowerCase();
       state.step = "role";
-
-      return bot.sendMessage("Enter Role (or '-' to skip):");
+      return bot.sendMessage(msg.chat.id, "Enter Role (or '-' to skip):");
     }
 
     if (state.step === "role") {
       if (text !== "-") state.data.role = text;
       state.step = "dob";
-
-      return bot.sendMessage("Enter DOB (YYYY-MM-DD):");
+      return bot.sendMessage(msg.chat.id, "Enter DOB (YYYY-MM-DD):");
     }
 
     if (state.step === "dob") {
       state.data.dob = text;
       state.data.birthday = `${text.split("-")[1]}-${text.split("-")[2]}`;
       state.step = "married";
-
-      return bot.sendMessage("Married? (yes/no):");
+      return bot.sendMessage(msg.chat.id, "Married? (yes/no):");
     }
 
     if (state.step === "married") {
@@ -176,7 +144,7 @@ export const initTelegram = () => {
       }
 
       state.step = "spouseName";
-      return bot.sendMessage("Enter Spouse Name:");
+      return bot.sendMessage(msg.chat.id, "Enter Spouse Name:");
     }
 
     if (state.step === "spouseName") {
@@ -191,9 +159,6 @@ export const initTelegram = () => {
   console.log("🤖 Telegram FORM UI initialized");
 };
 
-/**
- * 💾 SAVE
- */
 const saveMember = async (msg, state) => {
   try {
     const member = new Member(state.data);
@@ -211,6 +176,5 @@ const saveMember = async (msg, state) => {
 
 export const sendMessage = async (text) => {
   if (!bot) return;
-
   await bot.sendMessage(process.env.CHAT_ID, text);
 };
