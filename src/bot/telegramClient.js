@@ -2,16 +2,17 @@ import TelegramBot from "node-telegram-bot-api";
 import Member from "../models/Member.js";
 import { ensureSpouse } from "../services/memberService.js";
 
-let bot; // ✅ shared instance
-
+let bot;
 const ADMIN_ID = process.env.ADMIN_ID;
+
+// per-user state
+const userState = new Map();
 
 /**
  * 🔒 ADMIN CHECK
  */
-const isAdmin = (msg) => {
-  return String(msg.from.id) === String(ADMIN_ID);
-};
+const isAdmin = (msg) =>
+  String(msg.from.id) === String(ADMIN_ID);
 
 /**
  * 🎛️ MAIN MENU
@@ -19,8 +20,9 @@ const isAdmin = (msg) => {
 const mainMenu = {
   reply_markup: {
     keyboard: [
-      ["➕ Add Member", "✏️ Update Member"],
+      ["➕ Add Member", "✏️ Edit Member"],
       ["❌ Delete Member", "📋 List Members"],
+      ["🔍 Search", "📊 Stats"],
       ["ℹ️ Help", "🆔 My ID"]
     ],
     resize_keyboard: true
@@ -28,181 +30,187 @@ const mainMenu = {
 };
 
 /**
- * 🚀 INIT TELEGRAM (FIXES YOUR ERROR)
+ * 🚀 INIT
  */
 export const initTelegram = () => {
-  bot = new TelegramBot(process.env.BOT_TOKEN, {
-    polling: true
-  });
+  bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
-  /**
-   * START
-   */
   bot.onText(/\/start/, (msg) => {
-    if (!isAdmin(msg)) {
-      return bot.sendMessage(msg.chat.id, "❌ Unauthorized");
-    }
+    if (!isAdmin(msg)) return bot.sendMessage(msg.chat.id, "❌ Unauthorized");
 
     bot.sendMessage(
       msg.chat.id,
-      `📊 *Church Member Control Panel*
-
-Use buttons below or commands.`,
-      { parse_mode: "Markdown", ...mainMenu }
+      "📊 Church Member Panel (Form Mode)",
+      mainMenu
     );
   });
 
   /**
-   * 🆔 GET ADMIN ID
+   * 🆔 ID
    */
   bot.onText(/🆔 My ID/, (msg) => {
-    bot.sendMessage(
-      msg.chat.id,
-      `🆔 Your Telegram ID:\n\n${msg.from.id}\n\n👉 Put this as ADMIN_ID`
-    );
+    bot.sendMessage(msg.chat.id, `Your ID: ${msg.from.id}`);
   });
 
   /**
-   * ℹ️ HELP
+   * ➕ ADD FLOW START
    */
-  bot.onText(/ℹ️ Help/, (msg) => {
+  bot.onText(/➕ Add Member/, (msg) => {
     if (!isAdmin(msg)) return;
 
-    bot.sendMessage(
-      msg.chat.id,
-      `📖 *Usage Guide*
-
-➕ Add:
-\`\`\`
-/add name,gender,role(optional),dob(YYYY-MM-DD),married(true/false),spouseName
-\`\`\`
-
-✏️ Update:
-/update name field=value
-
-❌ Delete:
-/delete name
-
-📋 List:
-/list`,
-      { parse_mode: "Markdown" }
-    );
+    userState.set(msg.chat.id, { step: "name", data: {} });
+    bot.sendMessage(msg.chat.id, "Enter Name:");
   });
 
   /**
-   * ➕ ADD
+   * 🔍 SEARCH
    */
-  bot.onText(/\/add (.+)/, async (msg, match) => {
+  bot.onText(/🔍 Search/, (msg) => {
     if (!isAdmin(msg)) return;
 
-    try {
-      const [name, gender, role, dob, married, spouseName] =
-        match[1].split(",");
-
-      const birthday = dob
-        ? `${dob.split("-")[1]}-${dob.split("-")[2]}`
-        : "";
-
-      const member = new Member({
-        name: name.trim(),
-        gender: gender.trim(),
-        role: role || null,
-        dob: dob || null,
-        birthday,
-        isMarried: married === "true",
-        spouseName: spouseName || null,
-        spouseGender: gender === "male" ? "female" : "male"
-      });
-
-      await member.save();
-      await ensureSpouse(member);
-
-      bot.sendMessage(msg.chat.id, `✅ Added: ${name}`);
-    } catch (err) {
-      bot.sendMessage(msg.chat.id, `❌ ${err.message}`);
-    }
+    userState.set(msg.chat.id, { step: "search" });
+    bot.sendMessage(msg.chat.id, "Enter name to search:");
   });
 
   /**
-   * ✏️ UPDATE
+   * ❌ DELETE FLOW
    */
-  bot.onText(/\/update (.+)/, async (msg, match) => {
+  bot.onText(/❌ Delete Member/, (msg) => {
     if (!isAdmin(msg)) return;
 
-    try {
-      const [name, update] = match[1].split(" ");
-      const [field, value] = update.split("=");
-
-      const member = await Member.findOne({ name });
-
-      if (!member) {
-        return bot.sendMessage(msg.chat.id, "❌ Member not found");
-      }
-
-      member[field] = value;
-      await member.save();
-
-      await ensureSpouse(member);
-
-      bot.sendMessage(msg.chat.id, `✅ Updated: ${name}`);
-    } catch (err) {
-      bot.sendMessage(msg.chat.id, `❌ ${err.message}`);
-    }
-  });
-
-  /**
-   * ❌ DELETE
-   */
-  bot.onText(/\/delete (.+)/, async (msg, match) => {
-    if (!isAdmin(msg)) return;
-
-    try {
-      const name = match[1].trim();
-
-      await Member.deleteOne({ name });
-
-      bot.sendMessage(msg.chat.id, `🗑️ Deleted: ${name}`);
-    } catch (err) {
-      bot.sendMessage(msg.chat.id, `❌ ${err.message}`);
-    }
+    userState.set(msg.chat.id, { step: "delete" });
+    bot.sendMessage(msg.chat.id, "Enter name to delete:");
   });
 
   /**
    * 📋 LIST
    */
-  bot.onText(/📋 List Members|\/list/, async (msg) => {
+  bot.onText(/📋 List Members/, async (msg) => {
     if (!isAdmin(msg)) return;
 
-    const members = await Member.find().limit(30);
+    const members = await Member.find().limit(50);
 
-    let text = "📋 *Members*\n\n";
-
+    let text = "📋 Members:\n\n";
     members.forEach((m) => {
-      text += `• ${m.name} (${m.gender})\n`;
+      text += `• ${m.name}\n`;
     });
 
-    bot.sendMessage(msg.chat.id, text, { parse_mode: "Markdown" });
+    bot.sendMessage(msg.chat.id, text);
   });
 
-  console.log("🤖 Telegram bot initialized");
+  /**
+   * 📊 STATS
+   */
+  bot.onText(/📊 Stats/, async (msg) => {
+    if (!isAdmin(msg)) return;
+
+    const total = await Member.countDocuments();
+    bot.sendMessage(msg.chat.id, `Total Members: ${total}`);
+  });
+
+  /**
+   * 🧠 MAIN MESSAGE HANDLER (FORM ENGINE)
+   */
+  bot.on("message", async (msg) => {
+    const state = userState.get(msg.chat.id);
+    if (!state || msg.text.startsWith("/")) return;
+
+    const text = msg.text;
+
+    // SEARCH
+    if (state.step === "search") {
+      const m = await Member.findOne({
+        name: new RegExp(text, "i")
+      });
+
+      if (!m) return bot.sendMessage(msg.chat.id, "Not found");
+
+      return bot.sendMessage(
+        msg.chat.id,
+        `Name: ${m.name}\nGender: ${m.gender}\nRole: ${m.role || "-"}`
+      );
+    }
+
+    // DELETE
+    if (state.step === "delete") {
+      await Member.deleteOne({ name: text });
+      userState.delete(msg.chat.id);
+      return bot.sendMessage(msg.chat.id, `Deleted ${text}`);
+    }
+
+    // ADD FLOW
+    if (state.step === "name") {
+      state.data.name = text;
+      state.step = "gender";
+
+      return bot.sendMessage("Enter Gender (male/female):");
+    }
+
+    if (state.step === "gender") {
+      state.data.gender = text.toLowerCase();
+      state.step = "role";
+
+      return bot.sendMessage("Enter Role (or '-' to skip):");
+    }
+
+    if (state.step === "role") {
+      if (text !== "-") state.data.role = text;
+      state.step = "dob";
+
+      return bot.sendMessage("Enter DOB (YYYY-MM-DD):");
+    }
+
+    if (state.step === "dob") {
+      state.data.dob = text;
+      state.data.birthday = `${text.split("-")[1]}-${text.split("-")[2]}`;
+      state.step = "married";
+
+      return bot.sendMessage("Married? (yes/no):");
+    }
+
+    if (state.step === "married") {
+      state.data.isMarried = text === "yes";
+
+      if (!state.data.isMarried) {
+        return saveMember(msg, state);
+      }
+
+      state.step = "spouseName";
+      return bot.sendMessage("Enter Spouse Name:");
+    }
+
+    if (state.step === "spouseName") {
+      state.data.spouseName = text;
+      state.data.spouseGender =
+        state.data.gender === "male" ? "female" : "male";
+
+      return saveMember(msg, state);
+    }
+  });
+
+  console.log("🤖 Telegram FORM UI initialized");
 };
 
 /**
- * 📤 SEND MESSAGE (USED BY SCHEDULER)
+ * 💾 SAVE
  */
-export const sendMessage = async (text) => {
+const saveMember = async (msg, state) => {
   try {
-    if (!bot) {
-      console.error("❌ Bot not initialized");
-      return;
-    }
+    const member = new Member(state.data);
+    await member.save();
 
-    await bot.sendMessage(process.env.CHAT_ID, text, {
-      parse_mode: "Markdown"
-    });
+    await ensureSpouse(member);
 
-    console.log("📤 Telegram message sent");
+    userState.delete(msg.chat.id);
+
+    bot.sendMessage(msg.chat.id, `✅ Saved: ${member.name}`);
   } catch (err) {
-    console.error("❌ Telegram send error:", err.message);
+    bot.sendMessage(msg.chat.id, `❌ ${err.message}`);
   }
+};
+
+export const sendMessage = async (text) => {
+  if (!bot) return;
+
+  await bot.sendMessage(process.env.CHAT_ID, text);
 };
