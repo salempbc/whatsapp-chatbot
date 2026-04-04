@@ -239,3 +239,29 @@ export const buildMessage = async ({ birthdays, weddings }) => {
 
   return msg.trim();
 };
+
+/**
+ * 📅 MONTHLY CALENDAR (FOR TELEGRAM UI)
+ */
+export const getMonthlyCalendar = async () => {
+  const members = await Member.find();
+
+  const map = {};
+
+  members.forEach((m) => {
+    const b = (m.birthday || "").trim();
+    const w = (m.wedding || "").trim();
+
+    if (b) {
+      map[b] = map[b] || [];
+      map[b].push(`🎂 ${m.name}`);
+    }
+
+    if (w && m.isMarried) {
+      map[w] = map[w] || [];
+      map[w].push(`💍 ${m.name}`);
+    }
+  });
+
+  return map;
+};
