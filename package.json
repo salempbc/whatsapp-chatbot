@@ -7,12 +7,14 @@
     "start": "node src/app.js"
   },
   "dependencies": {
+    "chart.js": "^4.5.1",
     "dotenv": "^17.4.0",
     "mongoose": "^9.3.3",
     "node-cron": "^4.2.1",
     "node-telegram-bot-api": "^0.66.0",
     "puppeteer": "^24.40.0",
     "qrcode-terminal": "^0.12.0",
+    "react-chartjs-2": "^5.3.1",
     "wwebjs-mongo": "^1.1.0"
   }
 }
