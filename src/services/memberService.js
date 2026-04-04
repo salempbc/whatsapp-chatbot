@@ -1,7 +1,21 @@
 import Member from "../models/Member.js";
 
 /**
- * Ensure spouse exists
+ * 🔍 DUPLICATE DETECTION (REQUIRED FOR TELEGRAM)
+ */
+export const findSimilar = async (name) => {
+  if (!name) return [];
+
+  const base = name.split(" ")[0];
+
+  return await Member.find({
+    name: new RegExp(base, "i"),
+    isDeleted: { $ne: true }
+  }).limit(5);
+};
+
+/**
+ * 💍 ENSURE SPOUSE EXISTS
  */
 export const ensureSpouse = async (member) => {
   if (!member.isMarried || !member.spouseName) return;
@@ -9,7 +23,6 @@ export const ensureSpouse = async (member) => {
   const existing = await Member.findOne({ name: member.spouseName });
 
   if (existing) {
-    // Sync gender if missing
     if (!existing.gender && member.spouseGender) {
       existing.gender = member.spouseGender;
       await existing.save();
@@ -17,10 +30,9 @@ export const ensureSpouse = async (member) => {
     return existing;
   }
 
-  // Create spouse entry automatically
   const spouse = new Member({
     name: member.spouseName,
-    gender: member.spouseGender || "female",
+    gender: member.spouseGender || (member.gender === "male" ? "female" : "male"),
     isMarried: true,
     spouseName: member.name,
     spouseGender: member.gender,
