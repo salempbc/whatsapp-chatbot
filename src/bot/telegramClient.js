@@ -2,19 +2,8 @@ import TelegramBot from "node-telegram-bot-api";
 import mongoose from "mongoose";
 import fs from "fs";
 import Member from "../models/Member.js";
-import { ensureSpouse } from "../services/memberService.js";
-
-/* ---------------- META (AUDIT) ---------------- */
-const MetaSchema = new mongoose.Schema({
-  type: String,
-  memberId: String,
-  action: String,
-  before: Object,
-  after: Object,
-  createdAt: { type: Date, default: Date.now }
-});
-const Meta = mongoose.models.Meta || mongoose.model("Meta", MetaSchema);
-
+import { ensureSpouse } from "../services/memberService.js";  
+import Meta from "../models/Meta.js";
 /* ---------------- INIT ---------------- */
 let bot;
 const S = new Map();
