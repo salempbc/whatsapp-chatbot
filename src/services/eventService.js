@@ -112,67 +112,63 @@ export const getTodayEvents = async () => {
 };
 
 /* ================= BUILD ================= */
-export const buildMessage = async ({ birthdays, weddings }) => {
-  if (!birthdays.length && !weddings.length) return null;
-
-  let msg = "";
+export const buildMessages = async ({ birthdays, weddings }) => {
+  const results = [];
 
   const bTpl = await pickTemplate("birthday", "b_tpl");
   const wTpl = await pickTemplate("wedding", "w_tpl");
 
-  /* ===== BIRTHDAYS ===== */
-  if (birthdays.length) {
-    msg += "🎉 *இன்றைய பிறந்தநாள் வாழ்த்துக்கள்*\n\n";
+  /* ===== BIRTHDAY ===== */
+  for (const m of birthdays) {
+    let text = (bTpl || "{designation} {name}-{suffix}")
+      .replace("{designation}", getDesignation(m))
+      .replace("{name}", m.name)
+      .replace("{suffix}", m.isChild ? "ஐ" : "அவர்களை");
 
-    for (const m of birthdays) {
-      let line = (bTpl || "{designation} {name}-{suffix}")
-        .replace("{designation}", getDesignation(m))
-        .replace("{name}", m.name)
-        .replace("{suffix}", m.isChild ? "ஐ" : "அவர்களை");
+    text = await enhanceTamil(text, {
+      type: "birthday",
+      member: m
+    });
 
-      /* ✅ IMPORTANT FIX: pass context */
-      line = await enhanceTamil(line, {
-        type: "birthday",
-        member: m
-      });
-
-      msg += line + "\n\n";
-    }
+    results.push({
+      type: "birthday",
+      text,
+      photo: m.photo || null
+    });
   }
 
-  /* ===== WEDDINGS ===== */
-  if (weddings.length) {
-    msg += "💍 *திருமண நாள் வாழ்த்துக்கள்*\n\n";
+  /* ===== WEDDING ===== */
+  for (const m of weddings) {
+    const husband =
+      m.gender === "male"
+        ? `சகோதரர் ${m.name}`
+        : `சகோதரர் ${m.spouseName}`;
 
-    for (const m of weddings) {
-      const husband =
-        m.gender === "male"
-          ? `சகோதரர் ${m.name}`
-          : `சகோதரர் ${m.spouseName}`;
+    const wife =
+      m.gender === "female"
+        ? `சகோதரி ${m.name}`
+        : `சகோதரி ${m.spouseName}`;
 
-      const wife =
-        m.gender === "female"
-          ? `சகோதரி ${m.name}`
-          : `சகோதரி ${m.spouseName}`;
+    let text = (wTpl || "{husband} மற்றும் {wife}")
+      .replace("{husband}", husband)
+      .replace("{wife}", wife);
 
-      let line = (wTpl || "{husband} மற்றும் {wife} அவர்கள்")
-        .replace("{husband}", husband)
-        .replace("{wife}", wife);
+    text = await enhanceTamil(text, {
+      type: "wedding",
+      member: m
+    });
 
-      /* ✅ IMPORTANT FIX: pass context */
-      line = await enhanceTamil(line, {
-        type: "wedding",
-        member: m
-      });
-
-      msg += line + "\n\n";
-    }
+    results.push({
+      type: "wedding",
+      text,
+      photo: m.photo || null
+    });
   }
 
-  return msg.trim();
+  return results;
 };
 
-/* ================= MONTHLY CALENDAR ================= */
+/* ================= CALENDAR ================= */
 export const getMonthlyCalendar = async (month) => {
   const members = await Member.find({
     isDeleted: { $ne: true }

@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { getTodayEvents, buildMessage } from "../services/eventService.js";
+import { getTodayEvents, buildMessages } from "../services/eventService.js";
 import { sendMessage } from "../bot/telegramClient.js";
 
 export const startScheduler = () => {
@@ -10,14 +10,19 @@ export const startScheduler = () => {
       console.log("⏱️ CRON TRIGGERED");
 
       const events = await getTodayEvents();
-      const message = await buildMessage(events);
+      const messages = await buildMessages(events);
 
-      if (!message) {
+      if (!messages.length) {
         console.log("⚠️ No events today");
         return;
       }
 
-      await sendMessage(message);
+      /* ✅ SEND ONE BY ONE (PHOTO SUPPORT) */
+      for (const m of messages) {
+        await sendMessage(m.text, { photo: m.photo });
+      }
+
+      console.log("✅ All messages sent");
 
     } catch (err) {
       console.error("❌ Scheduler error:", err.message);
