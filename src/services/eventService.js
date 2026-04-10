@@ -171,3 +171,37 @@ export const buildMessage = async ({ birthdays, weddings }) => {
 
   return msg.trim();
 };
+
+/* ================= MONTHLY CALENDAR ================= */
+export const getMonthlyCalendar = async (month) => {
+  const members = await Member.find({
+    isDeleted: { $ne: true }
+  });
+
+  const result = {
+    birthdays: {},
+    weddings: {}
+  };
+
+  members.forEach((m) => {
+    if (m.birthday) {
+      const [mm, dd] = m.birthday.split("-");
+
+      if (!month || mm === month) {
+        if (!result.birthdays[dd]) result.birthdays[dd] = [];
+        result.birthdays[dd].push(m.name);
+      }
+    }
+
+    if (m.wedding) {
+      const [mm, dd] = m.wedding.split("-");
+
+      if (!month || mm === month) {
+        if (!result.weddings[dd]) result.weddings[dd] = [];
+        result.weddings[dd].push(`${m.name} & ${m.spouseName}`);
+      }
+    }
+  });
+
+  return result;
+};
