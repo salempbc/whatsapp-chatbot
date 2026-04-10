@@ -2,9 +2,7 @@ import TelegramBot from "node-telegram-bot-api";
 import fs from "fs";
 import Member from "../models/Member.js";
 import Meta from "../models/Meta.js";
-import { ensureSpouse, findSimilar } from "../services/memberService.js";
 import { getMonthlyCalendar } from "../services/eventService.js";
-import { detectDuplicateAI } from "../services/aiService.js";
 
 let bot;
 const STATE = new Map();
@@ -24,17 +22,9 @@ const ikb = (rows) => ({
 
 const menu = kb([
   ["👥 Members", "➕ Add"],
-  ["🔍 Search", "📊 Stats"],
-  ["📅 Calendar", "📤 Backup"],
-  ["📥 Restore", "🗑 Trash"],
-  ["ℹ️ Help", "🆔 My ID"]
+  ["📅 Calendar", "📊 Stats"],
+  ["📤 Backup"]
 ]);
-
-const monthNames = {
-  "01": "January","02": "February","03": "March","04": "April",
-  "05": "May","06": "June","07": "July","08": "August",
-  "09": "September","10": "October","11": "November","12": "December"
-};
 
 export const initTelegram = () => {
   bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
@@ -45,111 +35,15 @@ export const initTelegram = () => {
     bot.sendMessage(msg.chat.id, "📊 Church CMS", menu);
   });
 
-  bot.onText(/🆔 My ID/, (msg) => {
-    bot.sendMessage(msg.chat.id, `🆔 ${msg.from.id}`);
-  });
-
-  /* ================= MEMBERS LIST ================= */
+  /* ================= MEMBERS ================= */
   bot.onText(/👥 Members/, async (msg) => {
-    renderList(msg.chat.id, 0);
-  });
-
-  const renderList = async (chatId, page = 0) => {
-    const limit = 5;
-
-    const members = await Member.find({ isDeleted: { $ne: true } })
-      .skip(page * limit)
-      .limit(limit);
+    const members = await Member.find({ isDeleted: { $ne: true } });
 
     const rows = members.map((m) => [
       { text: m.name, callback_data: `open_${m._id}` }
     ]);
 
-    rows.push([
-      { text: "◀️", callback_data: `pg_${page - 1}` },
-      { text: "▶️", callback_data: `pg_${page + 1}` }
-    ]);
-
-    rows.push([{ text: "🔙 Menu", callback_data: "menu" }]);
-
-    bot.sendMessage(chatId, "👥 Members", ikb(rows));
-  };
-
-  /* ================= SEARCH ================= */
-  bot.onText(/🔍 Search/, (msg) => {
-    STATE.set(msg.chat.id, { step: "search" });
-    bot.sendMessage(msg.chat.id, "Enter name to search:");
-  });
-
-  /* ================= ADD ================= */
-  bot.onText(/➕ Add/, (msg) => {
-    STATE.set(msg.chat.id, { step: "add_name" });
-    bot.sendMessage(msg.chat.id, "Enter name:");
-  });
-
-  /* ================= MESSAGE HANDLER ================= */
-  bot.on("message", async (msg) => {
-    const state = STATE.get(msg.chat.id);
-    if (!state || !msg.text) return;
-
-    /* SEARCH */
-    if (state.step === "search") {
-      const members = await Member.find({
-        name: { $regex: msg.text, $options: "i" }
-      });
-
-      if (!members.length) {
-        return bot.sendMessage(msg.chat.id, "No results");
-      }
-
-      const rows = members.map((m) => [
-        { text: m.name, callback_data: `open_${m._id}` }
-      ]);
-
-      STATE.delete(msg.chat.id);
-      return bot.sendMessage(msg.chat.id, "Results:", ikb(rows));
-    }
-
-    /* ADD NAME */
-    if (state.step === "add_name") {
-      const all = await Member.find().select("name");
-      const names = all.map((n) => n.name);
-
-      const aiMatch = await detectDuplicateAI(msg.text, names);
-
-      if (aiMatch && aiMatch.length > 3) {
-        return bot.sendMessage(
-          msg.chat.id,
-          `⚠️ Possible duplicates:\n${aiMatch}`
-        );
-      }
-
-      const m = new Member({ name: msg.text });
-      await m.save();
-
-      STATE.delete(msg.chat.id);
-      return bot.sendMessage(msg.chat.id, "✅ Member added");
-    }
-
-    /* EDIT FIELD */
-    if (state.step === "edit_value") {
-      const member = await Member.findById(state.id);
-
-      const before = { ...member.toObject() };
-
-      member[state.field] = msg.text;
-      await member.save();
-
-      await Meta.create({
-        memberId: member._id,
-        action: "update",
-        before,
-        after: member
-      });
-
-      STATE.delete(msg.chat.id);
-      return bot.sendMessage(msg.chat.id, "✅ Updated");
-    }
+    bot.sendMessage(msg.chat.id, "👥 Members", ikb(rows));
   });
 
   /* ================= CALLBACK ================= */
@@ -157,158 +51,171 @@ export const initTelegram = () => {
     const chatId = q.message.chat.id;
     const data = q.data;
 
-    /* MENU */
-    if (data === "menu") {
-      return bot.sendMessage(chatId, "📊 CMS", menu);
-    }
-
-    /* PAGINATION */
-    if (data.startsWith("pg_")) {
-      return renderList(chatId, Number(data.split("_")[1]));
-    }
-
-    /* OPEN PROFILE */
+    /* ================= PROFILE VIEW ================= */
     if (data.startsWith("open_")) {
-      const id = data.replace("open_", "");
+      const id = data.split("_")[1];
       const m = await Member.findById(id);
 
-      return bot.sendMessage(
-        chatId,
-        `👤 ${m.name}
+      const text = `
+👤 ${m.name}
 
 Gender: ${m.gender || "-"}
 Role: ${m.role || "-"}
 DOB: ${m.dob || "-"}
 Birthday: ${m.birthday || "-"}
+
 Married: ${m.isMarried ? "Yes" : "No"}
 Spouse: ${m.spouseName || "-"}
 
-Wedding: ${m.wedding || "-"}`,
-        ikb([
-          [
-            { text: "✏️ Edit", callback_data: `edit_${id}` },
-            { text: "🗑 Delete", callback_data: `del_${id}` }
-          ],
-          [
-            { text: "↩️ Undo", callback_data: `undo_${id}` },
-            { text: "📜 History", callback_data: `hist_${id}` }
-          ]
-        ])
-      );
+Wedding: ${m.wedding || "-"}
+`;
+
+      const buttons = [
+        [
+          { text: "✏️ Edit", callback_data: `edit_${id}` },
+          { text: "📸 Photo", callback_data: `photo_${id}` }
+        ],
+        [
+          { text: "💍 Link Spouse", callback_data: `link_${id}` },
+          { text: "🗑 Delete", callback_data: `del_${id}` }
+        ]
+      ];
+
+      if (m.photo) {
+        return bot.sendPhoto(chatId, m.photo, {
+          caption: text,
+          ...ikb(buttons)
+        });
+      }
+
+      return bot.sendMessage(chatId, text, ikb(buttons));
     }
 
-    /* EDIT MENU */
-    if (data.startsWith("edit_")) {
-      const id = data.replace("edit_", "");
-
-      return bot.sendMessage(
-        chatId,
-        "Select field:",
-        ikb([
-          [
-            { text: "Name", callback_data: `ef_${id}_name` },
-            { text: "Gender", callback_data: `ef_${id}_gender` }
-          ],
-          [
-            { text: "Role", callback_data: `ef_${id}_role` },
-            { text: "DOB", callback_data: `ef_${id}_dob` }
-          ]
-        ])
-      );
-    }
-
-    /* EDIT FIELD SELECT */
-    if (data.startsWith("ef_")) {
-      const [, id, field] = data.split("_");
+    /* ================= PHOTO ================= */
+    if (data.startsWith("photo_")) {
+      const id = data.split("_")[1];
 
       STATE.set(chatId, {
-        step: "edit_value",
-        id,
-        field
+        action: "upload_photo",
+        memberId: id
       });
 
-      return bot.sendMessage(chatId, `Enter new ${field}:`);
+      return bot.sendMessage(chatId, "📸 Send photo");
     }
 
-    /* DELETE */
+    /* ================= WEDDING LINKER ================= */
+    if (data.startsWith("link_")) {
+      const id = data.split("_")[1];
+
+      const others = await Member.find({
+        _id: { $ne: id },
+        isDeleted: { $ne: true }
+      });
+
+      const rows = others.map((m) => [
+        { text: m.name, callback_data: `linksel_${id}_${m._id}` }
+      ]);
+
+      return bot.sendMessage(chatId, "Select spouse:", ikb(rows));
+    }
+
+    /* ================= LINK CONFIRM ================= */
+    if (data.startsWith("linksel_")) {
+      const [, id, spouseId] = data.split("_");
+
+      const m1 = await Member.findById(id);
+      const m2 = await Member.findById(spouseId);
+
+      m1.isMarried = true;
+      m2.isMarried = true;
+
+      m1.spouseName = m2.name;
+      m2.spouseName = m1.name;
+
+      m1.spouseGender = m2.gender;
+      m2.spouseGender = m1.gender;
+
+      await m1.save();
+      await m2.save();
+
+      return bot.sendMessage(chatId, "💍 Linked successfully");
+    }
+
+    /* ================= DELETE ================= */
     if (data.startsWith("del_")) {
-      const id = data.replace("del_", "");
+      const id = data.split("_")[1];
       await Member.updateOne({ _id: id }, { isDeleted: true });
       return bot.sendMessage(chatId, "🗑 Deleted");
     }
 
-    /* UNDO */
-    if (data.startsWith("undo_")) {
-      const id = data.replace("undo_", "");
+    /* ================= EDIT ================= */
+    if (data.startsWith("edit_")) {
+      const id = data.split("_")[1];
 
-      const last = await Meta.findOne({ memberId: id })
-        .sort({ createdAt: -1 });
-
-      if (!last) return bot.sendMessage(chatId, "No history");
-
-      await Member.updateOne({ _id: id }, last.before);
-
-      return bot.sendMessage(chatId, "↩️ Undo done");
+      return bot.sendMessage(
+        chatId,
+        "Edit options",
+        ikb([
+          [
+            { text: "Toggle Pastor", callback_data: `toggle_${id}_pastor` },
+            { text: "Toggle Child", callback_data: `toggle_${id}_child` }
+          ]
+        ])
+      );
     }
 
-    /* HISTORY */
-    if (data.startsWith("hist_")) {
-      const id = data.replace("hist_", "");
+    /* ================= TOGGLE ================= */
+    if (data.startsWith("toggle_")) {
+      const [, id, field] = data.split("_");
 
-      const logs = await Meta.find({ memberId: id }).limit(5);
+      const m = await Member.findById(id);
 
-      let txt = "📜 History\n\n";
-      logs.forEach((l, i) => {
-        txt += `${i + 1}. ${l.createdAt.toLocaleString()}\n`;
-      });
+      if (field === "pastor") m.isPastor = !m.isPastor;
+      if (field === "child") m.isChild = !m.isChild;
 
-      return bot.sendMessage(chatId, txt);
-    }
+      await m.save();
 
-    /* CALENDAR */
-    if (data.startsWith("cal_")) {
-      const [, month] = data.split("_");
-
-      const map = await getMonthlyCalendar();
-      const days = map[month] || {};
-
-      let text = `📅 ${monthNames[month]}\n\n`;
-
-      Object.keys(days)
-        .sort()
-        .forEach((dd) => {
-          text += `${dd}:\n`;
-          days[dd].forEach((e) => {
-            if (e.type === "birthday") {
-              text += `🎂 ${e.name}\n`;
-            } else {
-              text += `💍 ${e.husband} & ${e.wife}\n`;
-            }
-          });
-          text += "\n";
-        });
-
-      return bot.sendMessage(chatId, text);
+      return bot.sendMessage(chatId, "🔁 Updated");
     }
   });
 
-  /* CALENDAR START */
-  bot.onText(/📅 Calendar/, async (msg) => {
-    bot.sendMessage(
-      msg.chat.id,
-      "📅 Select Month",
-      ikb([
-        [{ text: "Jan", callback_data: "cal_01" }],
-        [{ text: "Feb", callback_data: "cal_02" }],
-        [{ text: "Mar", callback_data: "cal_03" }],
-        [{ text: "Apr", callback_data: "cal_04" }],
-        [{ text: "May", callback_data: "cal_05" }],
-        [{ text: "Jun", callback_data: "cal_06" }]
-      ])
+  /* ================= PHOTO HANDLER ================= */
+  bot.on("photo", async (msg) => {
+    if (!isAdmin(msg)) return;
+
+    const state = STATE.get(msg.chat.id);
+    if (!state || state.action !== "upload_photo") return;
+
+    const fileId = msg.photo[msg.photo.length - 1].file_id;
+
+    await Member.updateOne(
+      { _id: state.memberId },
+      { photo: fileId }
     );
+
+    STATE.delete(msg.chat.id);
+
+    bot.sendMessage(msg.chat.id, "✅ Photo saved");
   });
 
-  /* STATS */
+  /* ================= CALENDAR ================= */
+  bot.onText(/📅 Calendar/, async (msg) => {
+    const data = await getMonthlyCalendar();
+
+    let text = "📅 Calendar\n\n";
+
+    Object.keys(data.birthdays).forEach((d) => {
+      text += `🎂 ${d}: ${data.birthdays[d].join(", ")}\n`;
+    });
+
+    Object.keys(data.weddings).forEach((d) => {
+      text += `💍 ${d}: ${data.weddings[d].join(", ")}\n`;
+    });
+
+    bot.sendMessage(msg.chat.id, text);
+  });
+
+  /* ================= STATS ================= */
   bot.onText(/📊 Stats/, async (msg) => {
     const total = await Member.countDocuments();
     const male = await Member.countDocuments({ gender: "male" });
@@ -320,21 +227,25 @@ Wedding: ${m.wedding || "-"}`,
     );
   });
 
-  /* BACKUP */
+  /* ================= BACKUP ================= */
   bot.onText(/📤 Backup/, async (msg) => {
     const data = await Member.find();
     fs.writeFileSync("backup.json", JSON.stringify(data, null, 2));
     bot.sendDocument(msg.chat.id, "backup.json");
   });
 
-  console.log("🤖 Telegram CMS Ready");
+  console.log("🤖 Telegram CMS READY");
 };
 
 /* ================= SEND ================= */
-export const sendMessage = async (text) => {
+export const sendMessage = async (text, member = null) => {
   if (!bot) return;
 
-  await bot.sendMessage(process.env.CHAT_ID, text, {
-    parse_mode: "Markdown"
-  });
+  if (member?.photo) {
+    await bot.sendPhoto(process.env.CHAT_ID, member.photo, {
+      caption: text
+    });
+  } else {
+    await bot.sendMessage(process.env.CHAT_ID, text);
+  }
 };
