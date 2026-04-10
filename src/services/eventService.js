@@ -1,23 +1,20 @@
 import Member from "../models/Member.js";
 import Meta from "../models/Meta.js";
+import Template from "../models/Template.js";
+import { enhanceTamil } from "./aiService.js";
 
-/**
- * IST date
- */
+/* ================= DATE ================= */
 const getTodayKey = () => {
   const ist = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
   );
 
-  const mm = String(ist.getMonth() + 1).padStart(2, "0");
-  const dd = String(ist.getDate()).padStart(2, "0");
-
-  return `${mm}-${dd}`;
+  return `${String(ist.getMonth() + 1).padStart(2, "0")}-${String(
+    ist.getDate()
+  ).padStart(2, "0")}`;
 };
 
-/**
- * Age
- */
+/* ================= AGE ================= */
 const getAge = (dob) => {
   if (!dob) return null;
 
@@ -32,132 +29,70 @@ const getAge = (dob) => {
   return age;
 };
 
-/**
- * Designation (FULL LOGIC PRESERVED)
- */
+/* ================= DESIGNATION ================= */
 const getDesignation = (m) => {
   const age = getAge(m.dob);
 
-  if (m.isChild) {
-    if (m.gender === "male") return "மகன்";
-    if (m.gender === "female") return "மகள்";
-    return "குழந்தை";
-  }
+  if (m.isChild) return m.gender === "male" ? "மகன்" : "மகள்";
 
-  if (age && age >= 60) {
-    if (m.gender === "male") return "ஐயா";
-    if (m.gender === "female") return "அம்மா";
-  }
+  if (age >= 60) return m.gender === "male" ? "ஐயா" : "அம்மா";
 
   if (m.isPastor) return "போதகர்";
-
-  if (m.name?.toLowerCase().includes("stalin")) return "ஊழியர்";
 
   if (m.role === "treasurer") return "பொருளாளர்";
   if (m.role === "secretary") return "செயலாளர்";
 
-  if (m.gender === "male") return "சகோதரர்";
-  if (m.gender === "female") return "சகோதரி";
-
-  return "அன்புத்";
+  return m.gender === "male" ? "சகோதரர்" : "சகோதரி";
 };
 
-/**
- * Wedding years
- */
-const getWeddingYears = (date) => {
-  if (!date) return null;
-
-  const today = new Date();
-  const wedding = new Date(date);
-
-  let years = today.getFullYear() - wedding.getFullYear();
-  const m = today.getMonth() - wedding.getMonth();
-
-  if (m < 0 || (m === 0 && today.getDate() < wedding.getDate())) {
-    years--;
-  }
-
-  return years;
-};
-
-/**
- * META HELPERS (DB STATE)
- */
-const getMeta = async (key, def) => {
+/* ================= META ================= */
+const getMeta = async (key) => {
   const doc = await Meta.findOne({ key });
-  if (!doc) return def;
-  return doc.value;
+  return doc?.value;
 };
 
 const setMeta = async (key, value) => {
-  await Meta.updateOne(
-    { key },
-    { $set: { value } },
-    { upsert: true }
-  );
+  await Meta.updateOne({ key }, { value }, { upsert: true });
 };
 
-/**
- * NON-REPEATING PICK
- */
-const pickNonRepeating = (arr, lastIndex) => {
-  let idx = Math.floor(Math.random() * arr.length);
+/* ================= TEMPLATE ================= */
+const pickTemplate = async (type, key) => {
+  const templates = await Template.find({ type });
 
-  if (arr.length > 1 && idx === lastIndex) {
-    idx = (idx + 1) % arr.length;
+  if (!templates.length) return null;
+
+  const last = await getMeta(key);
+
+  let filtered = templates;
+  if (last) {
+    filtered = templates.filter((t) => String(t._id) !== String(last));
   }
 
-  return { item: arr[idx], index: idx };
+  const chosen =
+    filtered[Math.floor(Math.random() * filtered.length)];
+
+  await setMeta(key, chosen._id);
+
+  return chosen.content;
 };
 
-/**
- * MESSAGE TEMPLATES
- */
-const birthdayTemplates = [
-  (d, n, s) =>
-    `🎉 இன்று பிறந்தநாள் காணும் ${d} ${n}-${s} கர்த்தர் ஆசீர்வதித்து காத்து என்றென்றும் வழிநடத்துவாராக.`,
-
-  (d, n, s) =>
-    `🎂 ${d} ${n}-${s} இன்று பிறந்தநாள் காண்கிறார். தேவனுடைய கிருபை அவர்களுடன் இருப்பதாக.`,
-
-  (d, n, s) =>
-    `✨ ${d} ${n}-${s} அவர்களுக்கு இனிய பிறந்தநாள் வாழ்த்துக்கள். கர்த்தர் அவர்களை ஆசீர்வதிப்பாராக.`
-];
-
-const weddingTemplates = [
-  (y, h, w) =>
-    `💍 இன்று ${y} திருமண நாளை காணும் ${h} மற்றும் ${w} அவர்களை கர்த்தர் ஆசீர்வதித்து காத்து வழிநடத்துவாராக.`,
-
-  (y, h, w) =>
-    `💑 ${h} மற்றும் ${w} தம்பதிகளுக்கு ${y} திருமண நாள் நல்வாழ்த்துக்கள். தேவன் உங்கள் குடும்பத்தை ஆசீர்வதிப்பாராக.`,
-
-  (y, h, w) =>
-    `🌸 ${y} திருமண நாளில் ${h} மற்றும் ${w} அவர்களுக்கு இனிய வாழ்த்துக்கள். சமாதானமும் அன்பும் நிலைத்திருக்கட்டும்.`
-];
-
-/**
- * GET EVENTS
- */
+/* ================= EVENTS ================= */
 export const getTodayEvents = async () => {
   const todayKey = getTodayKey();
-  console.log("📅 TODAY KEY:", todayKey);
 
-  const members = await Member.find();
-  console.log("👥 TOTAL MEMBERS:", members.length);
+  const members = await Member.find({ isDeleted: { $ne: true } });
 
   const birthdays = [];
   const weddings = [];
   const processed = new Set();
 
   for (const m of members) {
-    const bday = (m.birthday || "").trim();
-    const wed = (m.wedding || "").trim();
-
-    if (bday === todayKey) birthdays.push(m);
+    if ((m.birthday || "").trim() === todayKey) {
+      birthdays.push(m);
+    }
 
     if (
-      wed === todayKey &&
+      (m.wedding || "").trim() === todayKey &&
       m.isMarried &&
       m.spouseName &&
       !processed.has(m.name)
@@ -168,54 +103,37 @@ export const getTodayEvents = async () => {
     }
   }
 
-  console.log("🎂 MATCHED BIRTHDAYS:", birthdays.length);
-  console.log("💍 MATCHED WEDDINGS:", weddings.length);
-
   return { birthdays, weddings };
 };
 
-/**
- * BUILD MESSAGE (FINAL)
- */
+/* ================= BUILD ================= */
 export const buildMessage = async ({ birthdays, weddings }) => {
   if (!birthdays.length && !weddings.length) return null;
 
   let msg = "";
 
-  let last = await getMeta("template_state", {
-    birthdayIndex: -1,
-    weddingIndex: -1
-  });
+  const bTpl = await pickTemplate("birthday", "b_tpl");
+  const wTpl = await pickTemplate("wedding", "w_tpl");
 
-  // 🎂 Birthdays
   if (birthdays.length) {
     msg += "🎉 *இன்றைய பிறந்தநாள் வாழ்த்துக்கள்*\n\n";
 
-    const { item, index } = pickNonRepeating(
-      birthdayTemplates,
-      last.birthdayIndex
-    );
+    for (const m of birthdays) {
+      let line = (bTpl || "{designation} {name}-{suffix}")
+        .replace("{designation}", getDesignation(m))
+        .replace("{name}", m.name)
+        .replace("{suffix}", m.isChild ? "ஐ" : "அவர்களை");
 
-    birthdays.forEach((m) => {
-      const des = getDesignation(m);
-      const suffix = m.isChild ? "ஐ" : "அவர்களை";
+      line = await enhanceTamil(line);
 
-      msg += item(des, m.name, suffix) + "\n\n";
-    });
-
-    last.birthdayIndex = index;
+      msg += line + "\n\n";
+    }
   }
 
-  // 💍 Weddings
   if (weddings.length) {
     msg += "💍 *திருமண நாள் வாழ்த்துக்கள்*\n\n";
 
-    const { item, index } = pickNonRepeating(
-      weddingTemplates,
-      last.weddingIndex
-    );
-
-    weddings.forEach((m) => {
+    for (const m of weddings) {
       const husband =
         m.gender === "male"
           ? `சகோதரர் ${m.name}`
@@ -226,42 +144,15 @@ export const buildMessage = async ({ birthdays, weddings }) => {
           ? `சகோதரி ${m.name}`
           : `சகோதரி ${m.spouseName}`;
 
-      const years = getWeddingYears(m.weddingDate);
-      const yearText = years ? `${years}வது` : "";
+      let line = (wTpl || "{husband} {wife}")
+        .replace("{husband}", husband)
+        .replace("{wife}", wife);
 
-      msg += item(yearText, husband, wife) + "\n\n";
-    });
+      line = await enhanceTamil(line);
 
-    last.weddingIndex = index;
+      msg += line + "\n\n";
+    }
   }
 
-  await setMeta("template_state", last);
-
   return msg.trim();
-};
-
-/**
- * 📅 MONTHLY CALENDAR (FOR TELEGRAM UI)
- */
-export const getMonthlyCalendar = async () => {
-  const members = await Member.find();
-
-  const map = {};
-
-  members.forEach((m) => {
-    const b = (m.birthday || "").trim();
-    const w = (m.wedding || "").trim();
-
-    if (b) {
-      map[b] = map[b] || [];
-      map[b].push(`🎂 ${m.name}`);
-    }
-
-    if (w && m.isMarried) {
-      map[w] = map[w] || [];
-      map[w].push(`💍 ${m.name}`);
-    }
-  });
-
-  return map;
 };
