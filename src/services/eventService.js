@@ -35,7 +35,8 @@ const getDesignation = (m) => {
 
   if (m.isChild) return m.gender === "male" ? "மகன்" : "மகள்";
 
-  if (age >= 60) return m.gender === "male" ? "ஐயா" : "அம்மா";
+  if (age && age >= 60)
+    return m.gender === "male" ? "ஐயா" : "அம்மா";
 
   if (m.isPastor) return "போதகர்";
 
@@ -65,7 +66,9 @@ const pickTemplate = async (type, key) => {
 
   let filtered = templates;
   if (last) {
-    filtered = templates.filter((t) => String(t._id) !== String(last));
+    filtered = templates.filter(
+      (t) => String(t._id) !== String(last)
+    );
   }
 
   const chosen =
@@ -80,7 +83,9 @@ const pickTemplate = async (type, key) => {
 export const getTodayEvents = async () => {
   const todayKey = getTodayKey();
 
-  const members = await Member.find({ isDeleted: { $ne: true } });
+  const members = await Member.find({
+    isDeleted: { $ne: true }
+  });
 
   const birthdays = [];
   const weddings = [];
@@ -115,6 +120,7 @@ export const buildMessage = async ({ birthdays, weddings }) => {
   const bTpl = await pickTemplate("birthday", "b_tpl");
   const wTpl = await pickTemplate("wedding", "w_tpl");
 
+  /* ===== BIRTHDAYS ===== */
   if (birthdays.length) {
     msg += "🎉 *இன்றைய பிறந்தநாள் வாழ்த்துக்கள்*\n\n";
 
@@ -124,12 +130,17 @@ export const buildMessage = async ({ birthdays, weddings }) => {
         .replace("{name}", m.name)
         .replace("{suffix}", m.isChild ? "ஐ" : "அவர்களை");
 
-      line = await enhanceTamil(line);
+      /* ✅ IMPORTANT FIX: pass context */
+      line = await enhanceTamil(line, {
+        type: "birthday",
+        member: m
+      });
 
       msg += line + "\n\n";
     }
   }
 
+  /* ===== WEDDINGS ===== */
   if (weddings.length) {
     msg += "💍 *திருமண நாள் வாழ்த்துக்கள்*\n\n";
 
@@ -144,11 +155,15 @@ export const buildMessage = async ({ birthdays, weddings }) => {
           ? `சகோதரி ${m.name}`
           : `சகோதரி ${m.spouseName}`;
 
-      let line = (wTpl || "{husband} {wife}")
+      let line = (wTpl || "{husband} மற்றும் {wife} அவர்கள்")
         .replace("{husband}", husband)
         .replace("{wife}", wife);
 
-      line = await enhanceTamil(line);
+      /* ✅ IMPORTANT FIX: pass context */
+      line = await enhanceTamil(line, {
+        type: "wedding",
+        member: m
+      });
 
       msg += line + "\n\n";
     }
