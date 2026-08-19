@@ -180,10 +180,14 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 
   /* ===== BIRTHDAY ===== */
   for (const m of birthdays) {
-    let text = (bTpl || "{designation} {name}-{suffix}")
+    /* Under 18 (or flagged as child) → ஐ, else → அவர்களை */
+    const age = getAge(m.dob);
+    const suffix = (m.isChild || (age !== null && age < 18)) ? "ஐ" : "அவர்களை";
+
+    let text = (bTpl || "{designation} {name} {suffix}")
       .replace("{designation}", getDesignation(m))
       .replace("{name}", m.name)
-      .replace("{suffix}", m.isChild ? "ஐ" : "அவர்களை");
+      .replace("{suffix}", suffix);
 
     text = await enhanceTamil(text, {
       type: "birthday",
@@ -196,6 +200,7 @@ export const buildMessages = async ({ birthdays, weddings }) => {
       photo: m.photo || null
     });
   }
+
 
   /* ===== WEDDING ===== */
   for (const m of weddings) {
