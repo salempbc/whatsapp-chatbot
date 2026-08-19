@@ -1,9 +1,16 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+import http from "http";
 import { connectDB, disconnectDB } from "./config/db.js";
 import { initTelegram, stopTelegram } from "./bot/index.js";
 import { startScheduler } from "./scheduler/dailyJob.js";
+
+/* ── Render free tier requires an HTTP listener ── */
+const PORT = process.env.PORT || 3000;
+http.createServer((_, res) => res.end("OK")).listen(PORT, () =>
+  console.log(`🌐 Health-check server on :${PORT}`)
+);
 
 const REQUIRED_ENV = ["MONGO_URI", "BOT_TOKEN", "CHAT_ID"];
 
