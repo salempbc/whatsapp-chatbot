@@ -44,3 +44,10 @@ export const ensureSpouse = async (member) => {
 
   return spouse;
 };
+
+/**
+ * 🗑 SOFT DELETE
+ */
+export const softDeleteMember = async (id) => {
+  await Member.updateOne({ _id: id }, { isDeleted: true });
+};

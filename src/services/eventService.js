@@ -14,6 +14,22 @@ const getTodayKey = () => {
   ).padStart(2, "0")}`;
 };
 
+/* Returns every MM-DD key for the next `days` days (inclusive of today) */
+const getUpcomingKeys = (days = 30) => {
+  const ist = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+  );
+  const keys = new Set();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(ist);
+    d.setDate(ist.getDate() + i);
+    keys.add(
+      `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+    );
+  }
+  return keys;
+};
+
 /* ================= AGE ================= */
 const getAge = (dob) => {
   if (!dob) return null;
@@ -56,23 +72,28 @@ const setMeta = async (key, value) => {
   await Meta.updateOne({ key }, { value }, { upsert: true });
 };
 
-/* ================= TEMPLATE ================= */
 const pickTemplate = async (type, key) => {
   const templates = await Template.find({ type });
 
   if (!templates.length) return null;
 
-  const last = await getMeta(key);
+  const lastUsed = await getMeta(key);
 
-  let filtered = templates;
-  if (last) {
-    filtered = templates.filter(
-      (t) => String(t._id) !== String(last)
-    );
-  }
+  let available = templates.filter(
+    (t) => String(t._id) !== String(lastUsed)
+  );
 
-  const chosen =
-    filtered[Math.floor(Math.random() * filtered.length)];
+  if (!available.length) available = templates;
+
+  /* 🔥 SMART SORT (least used first) */
+  available.sort((a, b) => a.usageCount - b.usageCount);
+
+  const chosen = available[0];
+
+  /* ✅ UPDATE USAGE */
+  chosen.usageCount += 1;
+  chosen.lastUsedAt = new Date();
+  await chosen.save();
 
   await setMeta(key, chosen._id);
 
@@ -107,6 +128,45 @@ export const getTodayEvents = async () => {
       processed.add(m.spouseName);
     }
   }
+
+  return { birthdays, weddings };
+};
+
+/* ================= UPCOMING ================= */
+export const getUpcomingEvents = async (days = 30) => {
+  const keys = getUpcomingKeys(days);
+  const todayKey = getTodayKey();
+
+  const members = await Member.find({ isDeleted: { $ne: true } });
+
+  const birthdays = [];
+  const weddings = [];
+  const processed = new Set();
+
+  for (const m of members) {
+    const bKey = (m.birthday || "").trim();
+    if (bKey && keys.has(bKey)) {
+      birthdays.push({ member: m, mmdd: bKey, isToday: bKey === todayKey });
+    }
+
+    const wKey = (m.wedding || "").trim();
+    if (
+      wKey &&
+      keys.has(wKey) &&
+      m.isMarried &&
+      m.spouseName &&
+      !processed.has(m.name)
+    ) {
+      weddings.push({ member: m, mmdd: wKey, isToday: wKey === todayKey });
+      processed.add(m.name);
+      processed.add(m.spouseName);
+    }
+  }
+
+  /* Sort by MM-DD so the list reads chronologically */
+  const byKey = (a, b) => a.mmdd.localeCompare(b.mmdd);
+  birthdays.sort(byKey);
+  weddings.sort(byKey);
 
   return { birthdays, weddings };
 };
@@ -149,9 +209,22 @@ export const buildMessages = async ({ birthdays, weddings }) => {
         ? `சகோதரி ${m.name}`
         : `சகோதரி ${m.spouseName}`;
 
+    /* Anniversary year suffix — only shown when weddingDate is known */
+    let yearSuffix = "";
+    if (m.weddingDate) {
+      const weddingYear = new Date(m.weddingDate).getFullYear();
+      const thisYear = new Date(
+        new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+      ).getFullYear();
+      const years = thisYear - weddingYear;
+      if (years > 0) yearSuffix = ` (${years} ஆண்டுகள்)`;
+    }
+
     let text = (wTpl || "{husband} மற்றும் {wife}")
       .replace("{husband}", husband)
       .replace("{wife}", wife);
+
+    if (yearSuffix) text = text + yearSuffix;
 
     text = await enhanceTamil(text, {
       type: "wedding",

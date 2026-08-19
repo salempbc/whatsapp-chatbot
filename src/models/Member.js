@@ -29,12 +29,18 @@ const memberSchema = new mongoose.Schema(
       default: false
     },
 
+    isDeleted: {
+      type: Boolean,
+      default: false
+    },
+
     dob: {
       type: String // YYYY-MM-DD
     },
 
     birthday: {
-      type: String // MM-DD
+      type: String, // MM-DD
+      index: true
     },
 
     /**
@@ -60,7 +66,8 @@ const memberSchema = new mongoose.Schema(
     },
 
     wedding: {
-      type: String // MM-DD
+      type: String, // MM-DD
+      index: true
     }
   },
   {

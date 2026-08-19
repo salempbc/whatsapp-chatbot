@@ -7,6 +7,12 @@ const TemplateSchema = new mongoose.Schema({
     required: true
   },
 
+  category: {
+    type: String,
+    enum: ["formal", "poetic", "short"],
+    default: "formal"
+  },
+
   content: {
     type: String,
     required: true
@@ -17,14 +23,7 @@ const TemplateSchema = new mongoose.Schema({
     default: 0
   },
 
-  lastUsedAt: {
-    type: Date
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+  lastUsedAt: Date
 });
 
 export default mongoose.models.Template ||

@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { getTodayEvents, buildMessages } from "../services/eventService.js";
-import { sendMessage } from "../bot/telegramClient.js";
+import { sendMessage } from "../bot/index.js";
 
 export const startScheduler = () => {
   console.log("📅 Scheduler started (6:00 AM IST)");
@@ -18,14 +18,20 @@ export const startScheduler = () => {
       }
 
       /* ✅ SEND ONE BY ONE (PHOTO SUPPORT) */
+      let sent = 0;
       for (const m of messages) {
-        await sendMessage(m.text, { photo: m.photo });
+        try {
+          await sendMessage(m.text, { photo: m.photo });
+          sent++;
+        } catch (sendErr) {
+          console.error("❌ Failed to send one message:", sendErr.message);
+        }
       }
 
-      console.log("✅ All messages sent");
+      console.log(`✅ ${sent}/${messages.length} messages sent`);
 
     } catch (err) {
       console.error("❌ Scheduler error:", err.message);
     }
-  });
+  }, { timezone: "Asia/Kolkata" });
 };

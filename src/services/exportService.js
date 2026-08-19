@@ -6,22 +6,28 @@ export const exportMembersToCSV = async (members) => {
     "Name",
     "Gender",
     "Role",
+    "IsChild",
+    "IsPastor",
     "DOB",
-    "Birthday",
+    "Birthday (MM-DD)",
     "Married",
     "Spouse",
-    "Pastor"
+    "WeddingDate",
+    "Wedding (MM-DD)"
   ];
 
   const rows = members.map((m) => [
     m.name,
     m.gender,
     m.role || "",
+    m.isChild  ? "Yes" : "No",
+    m.isPastor ? "Yes" : "No",
     m.dob || "",
     m.birthday || "",
     m.isMarried ? "Yes" : "No",
     m.spouseName || "",
-    m.isPastor ? "Yes" : "No"
+    m.weddingDate || "",
+    m.wedding || ""
   ]);
 
   const csv =
