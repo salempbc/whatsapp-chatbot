@@ -1,9 +1,16 @@
-import express from "express";
+﻿import express from "express";
 import crypto from "crypto";
 import Member from "../models/Member.js";
 import Template from "../models/Template.js";
 
 const router = express.Router();
+
+import { handleWebhook } from "../bot/index.js";
+
+router.post("/bot-webhook", express.json(), (req, res) => {
+  handleWebhook(req.body);
+  res.sendStatus(200);
+});
 
 // Middleware to verify Telegram WebApp initData
 const verifyTelegramWebAppData = (req, res, next) => {
@@ -58,6 +65,17 @@ router.post("/members", async (req, res) => {
 router.put("/members/:id", async (req, res) => {
   const m = await Member.findByIdAndUpdate(req.params.id, req.body, { new: true });
   res.json(m);
+});
+
+import { exportMembersToCSV } from "../services/exportService.js";
+import fs from "fs";
+
+router.get("/export", async (req, res) => {
+  const members = await Member.find({ isDeleted: { $ne: true } }).sort({ name: 1 });
+  const filePath = await exportMembersToCSV(members, "all");
+  res.download(filePath, "church_database.csv", () => {
+    fs.unlink(filePath, () => {});
+  });
 });
 
 /* TEMPLATES API */

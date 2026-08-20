@@ -160,6 +160,12 @@
             <button @click="triggerAction('trigger-today')" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3" :disabled="triggering">
               <span class="text-xl">▶️</span> <div><div class="font-bold">Force Run Today</div><div class="text-xs opacity-70 font-normal">Manually trigger today's automated messages</div></div>
             </button>
+            <button @click="exportCSV" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3" :disabled="triggering">
+              <span class="text-xl">📥</span> <div><div class="font-bold">Download Database (CSV)</div><div class="text-xs opacity-70 font-normal">Export full roster to your device</div></div>
+            </button>
+            <button @click="triggerAction('trigger-today')" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3 hidden" :disabled="triggering">
+              <span class="text-xl">▶️</span> <div><div class="font-bold">Force Run Today</div><div class="text-xs opacity-70 font-normal">Manually trigger today's automated messages</div></div>
+            </button>
           </div>
         </div>
 

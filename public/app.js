@@ -1,4 +1,4 @@
-const { createApp, ref, computed, onMounted } = Vue;
+﻿const { createApp, ref, computed, onMounted } = Vue;
 
 const tg = window.Telegram.WebApp;
 tg.expand();
@@ -38,8 +38,16 @@ createApp({
       return await res.json();
     };
 
-    const loadData = async () => {
-      loading.value = true;
+        const loadData = async () => {
+      // Optimistic cache load
+      const cacheM = localStorage.getItem('cache_members');
+      const cacheT = localStorage.getItem('cache_templates');
+      const cacheS = localStorage.getItem('cache_settings');
+      if (cacheM) members.value = JSON.parse(cacheM);
+      if (cacheT) templates.value = JSON.parse(cacheT);
+      if (cacheS) settings.value = JSON.parse(cacheS);
+      
+      if (!cacheM) loading.value = true;
       try {
         const [mRes, tRes, sRes] = await Promise.all([
           apiCall('/members'),
@@ -49,6 +57,10 @@ createApp({
         members.value = mRes;
         templates.value = tRes;
         settings.value = sRes;
+        
+        localStorage.setItem('cache_members', JSON.stringify(mRes));
+        localStorage.setItem('cache_templates', JSON.stringify(tRes));
+        localStorage.setItem('cache_settings', JSON.stringify(sRes));
       } catch (err) {
         error.value = "Failed to load database. Are you the admin?";
       } finally {
@@ -190,6 +202,24 @@ createApp({
       }
     };
 
+        const exportCSV = async () => {
+      triggering.value = true;
+      try {
+        const res = await fetch('/api/export', { headers: { 'Authorization': Bearer  } });
+        if (!res.ok) throw new Error("Export failed");
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "church_database.csv";
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } catch (e) {
+        tg.showAlert(e.message);
+      } finally {
+        triggering.value = false;
+      }
+    };
     const getInitials = (name) => name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     const avatarStyle = (name) => {
       const colors = ['#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#10b981', '#3b82f6'];
@@ -200,7 +230,7 @@ createApp({
     return { 
       currentTab, members, templates, search, memberFilter, loading, saving, error, triggering,
       form, tplForm, filteredMembers, settings, selectedIds,
-      selectAll, bulkAction, saveSettings, triggerAction,
+      selectAll, bulkAction, saveSettings, triggerAction, exportCSV,
       openMemberForm, saveMember, 
       openTemplateForm, saveTemplate, deleteTemplate,
       getInitials, avatarStyle
