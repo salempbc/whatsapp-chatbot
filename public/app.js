@@ -1,4 +1,4 @@
-const { createApp, ref, computed, onMounted } = Vue;
+﻿const { createApp, ref, computed, onMounted, watch } = Vue;
 
 const tg = window.Telegram.WebApp;
 tg.expand();
@@ -7,6 +7,20 @@ tg.ready();
 createApp({
   setup() {
     const currentTab = ref('members');
+    
+    // Telegram BackButton Logic
+    watch(currentTab, (newTab) => {
+      if (['memberForm', 'templateForm'].includes(newTab)) {
+        tg.BackButton.show();
+      } else {
+        tg.BackButton.hide();
+      }
+    });
+
+    tg.onEvent('backButtonClicked', () => {
+      if (currentTab.value === 'memberForm') currentTab.value = 'members';
+      else if (currentTab.value === 'templateForm') currentTab.value = 'templates';
+    });
     
     const members = ref([]);
     const templates = ref([]);

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -8,7 +8,7 @@
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body { background-color: var(--tg-theme-bg-color, #f3f4f6); color: var(--tg-theme-text-color, #111827); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding-bottom: 80px; }
+    body { background-color: var(--tg-theme-bg-color, #f3f4f6); color: var(--tg-theme-text-color, #111827); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding-bottom: calc(90px + env(safe-area-inset-bottom, 20px)); }
     .card { background-color: var(--tg-theme-secondary-bg-color, #ffffff); border-radius: 1rem; padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
     .btn { background-color: var(--tg-theme-button-color, #3b82f6); color: var(--tg-theme-button-text-color, #ffffff); padding: 0.5rem 1rem; border-radius: 0.75rem; font-weight: 600; text-align: center; transition: opacity 0.2s; }
     .btn:active { opacity: 0.7; }
@@ -21,7 +21,7 @@
     .slide-enter-from { transform: translateX(100%); opacity: 0; }
     .slide-leave-to { transform: translateX(-100%); opacity: 0; position: absolute; width: 100%; }
 
-    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--tg-theme-secondary-bg-color, #fff); border-top: 1px solid rgba(128,128,128,0.2); display: flex; justify-content: space-around; padding: 0.75rem 0; z-index: 50; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)); }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--tg-theme-secondary-bg-color, #fff); border-top: 1px solid rgba(128,128,128,0.2); display: flex; justify-content: space-around; padding: 0.75rem 0; z-index: 50; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 20px)); }
     .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 0.75rem; color: var(--tg-theme-hint-color, #6b7280); font-weight: 500; cursor: pointer; }
     .nav-item.active { color: var(--tg-theme-button-color, #3b82f6); }
     .nav-icon { font-size: 1.25rem; margin-bottom: 2px; }
@@ -67,7 +67,7 @@
         <div v-if="currentTab === 'members'">
           <div class="flex justify-between items-center mb-4 mt-2">
             <h1 class="text-2xl font-bold">Members</h1>
-            <button @click="openMemberForm()" class="btn text-sm">➕ Add</button>
+            <button @click="tg.HapticFeedback.impactOccurred('light'); openMemberForm()" class="btn text-sm">➕ Add</button>
           </div>
 
           <div class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
@@ -82,11 +82,11 @@
           <div class="space-y-3 pb-4">
             <div v-for="m in filteredMembers" :key="m._id" class="card flex items-center gap-3 active:scale-[0.98] transition-transform">
               <input type="checkbox" :value="m._id" v-model="selectedIds" class="checkbox-custom flex-shrink-0" />
-              <div class="avatar relative overflow-hidden" :style="avatarStyle(m.name)" @click="openMemberForm(m)">
+              <div class="avatar relative overflow-hidden" :style="avatarStyle(m.name)" @click="tg.HapticFeedback.impactOccurred('light'); openMemberForm(m)">
                 <img v-if="m.photo" :src="photoUrl(m._id)" class="w-full h-full object-cover absolute inset-0" />
                 <span v-if="!m.photo">{{ getInitials(m.name) }}</span>
               </div>
-              <div class="flex-1 cursor-pointer" @click="openMemberForm(m)">
+              <div class="flex-1 cursor-pointer" @click="tg.HapticFeedback.impactOccurred('light'); openMemberForm(m)">
                 <div class="font-bold text-lg leading-tight">{{ m.name }}</div>
                 <div class="text-sm opacity-70 mt-0.5 flex gap-2 items-center">
                   <span :class="['badge', m.isActive ? 'badge-active' : 'badge-inactive']">{{ m.isActive ? 'Active' : 'Left' }}</span>
@@ -102,10 +102,10 @@
         <div v-if="currentTab === 'templates'">
           <div class="flex justify-between items-center mb-4 mt-2">
             <h1 class="text-2xl font-bold">Templates</h1>
-            <button @click="openTemplateForm()" class="btn text-sm">➕ New</button>
+            <button @click="tg.HapticFeedback.impactOccurred('light'); openTemplateForm()" class="btn text-sm">➕ New</button>
           </div>
           <div class="space-y-4 pb-4">
-            <div v-for="t in templates" :key="t._id" class="card cursor-pointer active:scale-[0.98] transition-transform" @click="openTemplateForm(t)">
+            <div v-for="t in templates" :key="t._id" class="card cursor-pointer active:scale-[0.98] transition-transform" @click="tg.HapticFeedback.impactOccurred('light'); openTemplateForm(t)">
               <div class="flex justify-between items-start mb-2">
                 <div class="font-bold text-blue-600 flex items-center gap-1">
                   {{ t.type === 'birthday' ? '🎂' : '💍' }} {{ t.type.toUpperCase() }}
@@ -176,7 +176,7 @@
         <div v-if="currentTab === 'memberForm'" class="card space-y-4">
           <div class="flex justify-between items-center mb-2 pb-2 border-b">
             <h2 class="font-bold text-xl">{{ form._id ? '✏️ Edit Profile' : '➕ New Profile' }}</h2>
-            <button @click="currentTab = 'members'" class="text-gray-500 font-bold px-2">✕</button>
+            <button @click="currentTab = 'members'; tg.HapticFeedback.selectionChanged()" class="text-gray-500 font-bold px-2">✕</button>
           </div>
           <div><label class="text-sm font-semibold opacity-80">Full Name *</label><input type="text" v-model="form.name" class="input" /></div>
           <div class="grid grid-cols-2 gap-4">
@@ -208,7 +208,7 @@
         <div v-if="currentTab === 'templateForm'" class="card space-y-4">
           <div class="flex justify-between items-center mb-2 pb-2 border-b">
             <h2 class="font-bold text-xl">{{ tplForm._id ? '✏️ Edit Template' : '➕ New Template' }}</h2>
-            <button @click="currentTab = 'templates'" class="text-gray-500 font-bold px-2">✕</button>
+            <button @click="currentTab = 'templates'; tg.HapticFeedback.selectionChanged()" class="text-gray-500 font-bold px-2">✕</button>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div><label class="text-sm font-semibold opacity-80">Type</label><select v-model="tplForm.type" class="input"><option value="birthday">Birthday</option><option value="wedding">Wedding</option></select></div>
@@ -237,9 +237,9 @@
 
     <!-- Bottom Navigation -->
     <div v-if="!loading && !['memberForm', 'templateForm'].includes(currentTab)" class="bottom-nav">
-      <div class="nav-item" :class="{ active: currentTab === 'members' }" @click="currentTab = 'members'"><div class="nav-icon">👥</div><div>Members</div></div>
-      <div class="nav-item" :class="{ active: currentTab === 'templates' }" @click="currentTab = 'templates'"><div class="nav-icon">📝</div><div>Templates</div></div>
-      <div class="nav-item" :class="{ active: currentTab === 'settings' }" @click="currentTab = 'settings'"><div class="nav-icon">⚙️</div><div>Settings</div></div>
+      <div class="nav-item" :class="{ active: currentTab === 'members' }" @click="currentTab = 'members'; tg.HapticFeedback.selectionChanged()"><div class="nav-icon">👥</div><div>Members</div></div>
+      <div class="nav-item" :class="{ active: currentTab === 'templates' }" @click="currentTab = 'templates'; tg.HapticFeedback.selectionChanged()"><div class="nav-icon">📝</div><div>Templates</div></div>
+      <div class="nav-item" :class="{ active: currentTab === 'settings' }" @click="currentTab = 'settings'; tg.HapticFeedback.selectionChanged()"><div class="nav-icon">⚙️</div><div>Settings</div></div>
     </div>
   </div>
 
