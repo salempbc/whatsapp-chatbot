@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 
 const settingsSchema = new mongoose.Schema({
-  key:   { type: String, required: true, unique: true },
-  value: { type: String, required: true }
+  key: { type: String, required: true, unique: true },
+  /* Mixed, not String — customFields is stored here as an array, which a
+     String path refuses to cast. */
+  value: { type: mongoose.Schema.Types.Mixed, required: true }
 });
 
 const Settings = mongoose.model("Settings", settingsSchema);

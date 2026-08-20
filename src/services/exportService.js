@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 export const exportMembersToCSV = async (members, label = "export") => {
@@ -24,13 +25,19 @@ export const exportMembersToCSV = async (members, label = "export") => {
     m.wedding || ""
   ]);
 
-  const csv =
-    [headers, ...rows]
-      .map((r) => r.map((v) => `"${String(v || "").replace(/"/g, "'")}"`).join(","))
-      .join("\n");
+  /* Escape quotes by doubling (the CSV standard) rather than swapping them for
+     apostrophes, and neutralise leading =, +, -, @ so Excel/Sheets treat a name
+     as text instead of a formula. */
+  const cell = (v) => {
+    let s = String(v ?? "");
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+
+  const csv = [headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");
 
   const fileName = `members_${label}_${Date.now()}.csv`;
-  const filePath = path.join(process.cwd(), fileName);
+  const filePath = path.join(os.tmpdir(), fileName);
   fs.writeFileSync(filePath, "\uFEFF" + csv); // BOM for Excel UTF-8
 
   return filePath;

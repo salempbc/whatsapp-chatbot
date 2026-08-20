@@ -1,4 +1,4 @@
-﻿import "dotenv/config";
+import "dotenv/config";
 import express from "express";
 import compression from "compression";
 import cors from "cors";
@@ -20,6 +20,11 @@ console.log("🚀 Starting application...");
 
 const app = express();
 
+/* Railway/Heroku-style single proxy in front of the app. Without this,
+   express-rate-limit v7 refuses to trust X-Forwarded-For and every request
+   looks like it comes from the same proxy IP. */
+app.set("trust proxy", 1);
+
 /* --- 1. SECURITY & OPTIMIZATION MIDDLEWARE --- */
 app.use(compression());
 app.use(cors());
@@ -33,6 +38,10 @@ const apiLimiter = rateLimit({
   max: 300, // limit each IP to 300 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
+  /* Telegram delivers every update from a small pool of IPs and the endpoint is
+     already protected by the webhook secret, so throttling it only drops
+     legitimate messages. */
+  skip: (req) => req.path === "/bot-webhook",
   message: { error: "Too many requests, please try again later." }
 });
 
@@ -57,9 +66,23 @@ connectDB().then(() => {
 });
 
 /* --- 4. GRACEFUL SHUTDOWN (DATA INTEGRITY) --- */
+let shuttingDown = false;
+
 const shutdown = async (signal) => {
+  /* A second SIGTERM must not run the sequence twice. */
+  if (shuttingDown) return;
+  shuttingDown = true;
+
   console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
-  
+
+  /* Platforms SIGKILL after a grace period (~30s on Railway). Exit on our own
+     terms first so we never die halfway through closing the DB connection. */
+  const hardExit = setTimeout(() => {
+    console.error("⚠️ Graceful shutdown timed out after 20s, exiting now.");
+    process.exit(1);
+  }, 20000);
+  hardExit.unref();
+
   if (server) {
     console.log("🔌 Closing HTTP server...");
     server.close();

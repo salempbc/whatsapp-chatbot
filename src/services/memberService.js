@@ -3,13 +3,18 @@ import Member from "../models/Member.js";
 /**
  * 🔍 DUPLICATE DETECTION (REQUIRED FOR TELEGRAM)
  */
+/* Names come from chat input, so regex metacharacters must be escaped —
+   otherwise "a(" throws and "(a+)+$" is a ReDoS. */
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export const findSimilar = async (name) => {
   if (!name) return [];
 
-  const base = name.split(" ")[0];
+  const base = name.trim().split(/\s+/)[0];
+  if (!base) return [];
 
   return await Member.find({
-    name: new RegExp(base, "i"),
+    name: new RegExp(escapeRegex(base), "i"),
     isDeleted: { $ne: true }
   }).limit(5);
 };

@@ -69,21 +69,28 @@ const stopAll = () => {
   if (reminderTask) { reminderTask.stop(); reminderTask = null; }
 };
 
+/* A stored value that is not HH:MM would build an invalid cron expression and
+   throw after stopAll() has already run — leaving both jobs dead until the next
+   deploy. Fall back to the default instead. */
+const toCron = (value, fallback) => {
+  const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value ?? "")) ? String(value) : fallback;
+  if (time !== value) {
+    console.warn(`⚠️ Invalid schedule time ${JSON.stringify(value)}, falling back to ${fallback}`);
+  }
+  const [hh, mm] = time.split(":");
+  return { cron: `${Number(mm)} ${Number(hh)} * * *`, time };
+};
+
 export const startScheduler = async () => {
   stopAll();
 
-  const sendTime = await getSetting("sendTime", "06:00");
-  const [hh, mm] = sendTime.split(":");
-  const morningCron = `${mm} ${hh} * * *`;
+  const morning = toCron(await getSetting("sendTime", "06:00"), "06:00");
+  const reminder = toCron(await getSetting("reminderTime", "20:00"), "20:00");
 
-  const reminderTime = await getSetting("reminderTime", "20:00");
-  const [rhh, rmm] = reminderTime.split(":");
-  const reminderCron = `${rmm} ${rhh} * * *`;
+  morningTask = cron.schedule(morning.cron, runMorningJob, { timezone: "Asia/Kolkata" });
+  reminderTask = cron.schedule(reminder.cron, runReminderJob, { timezone: "Asia/Kolkata" });
 
-  morningTask = cron.schedule(morningCron, runMorningJob, { timezone: "Asia/Kolkata" });
-  reminderTask = cron.schedule(reminderCron, runReminderJob, { timezone: "Asia/Kolkata" });
-
-  console.log(`⏱️ Scheduler started (${sendTime} IST daily + ${reminderTime} IST reminder)`);
+  console.log(`⏱️ Scheduler started (${morning.time} IST daily + ${reminder.time} IST reminder)`);
 };
 
 export const restartScheduler = async () => {

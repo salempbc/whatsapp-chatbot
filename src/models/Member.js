@@ -82,6 +82,13 @@ const memberSchema = new mongoose.Schema(
       index: true
     },
 
+    /* Telegram file_id of the member's photo. Must be declared: in strict mode
+       Mongoose silently drops undeclared paths, so photo uploads were saving
+       nothing. */
+    photo: {
+      type: String
+    },
+
     customData: {
       type: mongoose.Schema.Types.Mixed,
       default: {}

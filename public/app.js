@@ -1,4 +1,4 @@
-﻿const { createApp, ref, computed, onMounted } = Vue;
+const { createApp, ref, computed, onMounted } = Vue;
 
 const tg = window.Telegram.WebApp;
 tg.expand();
@@ -34,7 +34,11 @@ createApp({
         opts.body = JSON.stringify(body);
       }
       const res = await fetch(`/api${url}`, opts);
-      if (!res.ok) throw new Error("API Request Failed");
+      if (!res.ok) {
+        /* Surface the server's message — validation errors say what was wrong. */
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.error || `Request failed (${res.status})`);
+      }
       return await res.json();
     };
 
@@ -205,7 +209,7 @@ createApp({
         const exportCSV = async () => {
       triggering.value = true;
       try {
-        const res = await fetch('/api/export', { headers: { 'Authorization': Bearer  } });
+        const res = await fetch('/api/export', { headers: { 'Authorization': `Bearer ${tg.initData}` } });
         if (!res.ok) throw new Error("Export failed");
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
@@ -227,13 +231,17 @@ createApp({
       return { backgroundColor: colors[idx] };
     };
 
-    return { 
+    /* The photo endpoint is admin-only; an <img> tag cannot send an
+       Authorization header, so the signed initData rides along as a param. */
+    const photoUrl = (id) => `/api/members/${id}/photo?auth=${encodeURIComponent(tg.initData)}`;
+
+    return {
       currentTab, members, templates, search, memberFilter, loading, saving, error, triggering,
       form, tplForm, filteredMembers, settings, selectedIds,
       selectAll, bulkAction, saveSettings, triggerAction, exportCSV,
-      openMemberForm, saveMember, 
+      openMemberForm, saveMember,
       openTemplateForm, saveTemplate, deleteTemplate,
-      getInitials, avatarStyle
+      getInitials, avatarStyle, photoUrl
     };
   }
 }).mount('#app');

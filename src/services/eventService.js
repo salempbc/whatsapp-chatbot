@@ -1,4 +1,4 @@
-﻿import Member from "../models/Member.js";
+import Member from "../models/Member.js";
 import Meta from "../models/Meta.js";
 import Template from "../models/Template.js";
 import { enhanceTamil } from "./aiService.js";
@@ -59,17 +59,17 @@ const getAge = (dob) => {
 const getDesignation = (m) => {
   const age = getAge(m.dob);
 
-  if (m.isChild) return m.gender === "male" ? "à®®à®•à®©à¯" : "à®®à®•à®³à¯";
+  if (m.isChild) return m.gender === "male" ? "மகன்" : "மகள்";
 
   if (age && age >= 60)
-    return m.gender === "male" ? "à®à®¯à®¾" : "à®…à®®à¯à®®à®¾";
+    return m.gender === "male" ? "ஐயா" : "அம்மா";
 
-  if (m.isPastor) return "à®ªà¯‹à®¤à®•à®°à¯";
+  if (m.isPastor) return "போதகர்";
 
-  if (m.role === "treasurer") return "à®ªà¯Šà®°à¯à®³à®¾à®³à®°à¯";
-  if (m.role === "secretary") return "à®šà¯†à®¯à®²à®¾à®³à®°à¯";
+  if (m.role === "treasurer") return "பொருளாளர்";
+  if (m.role === "secretary") return "செயலாளர்";
 
-  return m.gender === "male" ? "à®šà®•à¯‹à®¤à®°à®°à¯" : "à®šà®•à¯‹à®¤à®°à®¿";
+  return m.gender === "male" ? "சகோதரர்" : "சகோதரி";
 };
 
 /* ================= META ================= */
@@ -95,12 +95,12 @@ const pickTemplate = async (type, key) => {
 
   if (!available.length) available = templates;
 
-  /* ðŸ”¥ SMART SORT (least used first) */
+  /* 🔥 SMART SORT (least used first) */
   available.sort((a, b) => a.usageCount - b.usageCount);
 
   const chosen = available[0];
 
-  /* âœ… UPDATE USAGE */
+  /* ✅ UPDATE USAGE */
   chosen.usageCount += 1;
   chosen.lastUsedAt = new Date();
   await chosen.save();
@@ -197,9 +197,9 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 
   /* ===== BIRTHDAY ===== */
   for (const m of birthdays) {
-    /* Under 18 (or flagged as child) â†’ à®, else â†’ à®…à®µà®°à¯à®•à®³à¯ˆ */
+    /* Under 18 (or flagged as child) → ஐ, else → அவர்களை */
     const age = getAge(m.dob);
-    const suffix = (m.isChild || (age !== null && age < 18)) ? "à®" : "à®…à®µà®°à¯à®•à®³à¯ˆ";
+    const suffix = (m.isChild || (age !== null && age < 18)) ? "ஐ" : "அவர்களை";
 
     let text = (bTpl || "{designation} {name} {suffix}")
       .replace("{designation}", getDesignation(m))
@@ -229,7 +229,7 @@ export const buildMessages = async ({ birthdays, weddings }) => {
     /* Fallback designation for spouse if not found in DB */
     const spouseDesig = spouseDoc
       ? getDesignation(spouseDoc)
-      : (m.spouseGender === "male" ? "à®šà®•à¯‹à®¤à®°à®°à¯" : "à®šà®•à¯‹à®¤à®°à®¿");
+      : (m.spouseGender === "male" ? "சகோதரர்" : "சகோதரி");
 
     const mDesig = getDesignation(m);
 
@@ -241,7 +241,7 @@ export const buildMessages = async ({ birthdays, weddings }) => {
       ? `${mDesig} ${m.name}`
       : `${spouseDesig} ${m.spouseName}`;
 
-    /* Anniversary year suffix â€” only shown when weddingDate is known */
+    /* Anniversary year suffix — only shown when weddingDate is known */
     let years = 0;
     let yearSuffix = "";
     if (m.weddingDate) {
