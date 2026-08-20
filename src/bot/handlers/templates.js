@@ -17,8 +17,7 @@ const categoryScreen = (type) => ({
   text: "Select category:",
   keyboard: [
     [{ text: "📘 Formal", callback_data: `templates:list:${type}:formal` }],
-    [{ text: "🌸 Poetic", callback_data: `templates:list:${type}:poetic` }],
-    [{ text: "⚡ Short", callback_data: `templates:list:${type}:short` }],
+    [{ text: "⚡ Short",  callback_data: `templates:list:${type}:short` }],
     [{ text: "🔙 Back", callback_data: "templates:show" }]
   ]
 });
