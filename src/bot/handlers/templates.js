@@ -5,7 +5,7 @@ import { setState, clearState } from "../session.js";
 /* ================= SCREENS ================= */
 
 const homeScreen = () => ({
-  text: "📝 Template Manager\n\nChoose a type:",
+  text: "<b>📝 Message Templates</b>\n<i>Select an event type to manage its templates:</i>",
   keyboard: [
     [{ text: "🎂 Birthday", callback_data: "templates:type:birthday" }],
     [{ text: "💍 Wedding", callback_data: "templates:type:wedding" }],
@@ -14,7 +14,7 @@ const homeScreen = () => ({
 });
 
 const categoryScreen = (type) => ({
-  text: "Select category:",
+  text: `<b>📝 Templates</b>\n<i>Select a category to view or edit:</i>`,
   keyboard: [
     [{ text: "📘 Formal", callback_data: `templates:list:${type}:formal` }],
     [{ text: "⚡ Short",  callback_data: `templates:list:${type}:short` }],
@@ -32,11 +32,11 @@ const listScreen = async (type, category) => {
   rows.push([{ text: "➕ Add", callback_data: `templates:add:${type}:${category}` }]);
   rows.push([{ text: "🔙 Back", callback_data: `templates:type:${type}` }]);
 
-  return { text: templates.length ? "Templates:" : "No templates in this category yet.", keyboard: rows };
+  return { text: `<b>📝 Templates (${templates.length})</b>\n\n<blockquote>Select a template to preview or edit it.</blockquote>`, keyboard: rows };
 };
 
 const viewScreen = (tpl) => ({
-  text: tpl.content,
+  text: `<b>📝 Template Preview</b>\n\n<blockquote>${tpl.content}</blockquote>\n<b>Usage count:</b> ${tpl.usageCount}`, 
   keyboard: [
     [
       { text: "✏️ Edit", callback_data: `templates:edit:${tpl._id}` },
@@ -71,12 +71,12 @@ export const templatesCallbacks = {
   "templates:add": async ({ bot, chatId, args }) => {
     const [type, category] = args;
     setState(chatId, { type: "templates.add", tplType: type, category });
-    await bot.sendMessage(chatId, "Send template text:");
+    await bot.sendMessage(chatId, "<b>➕ Add Template</b>\n\nSend the exact template text below. You can use <code>{name}</code>, <code>{designation}</code>, etc.", { parse_mode: "HTML" });
   },
 
   "templates:edit": async ({ bot, chatId, args }) => {
     setState(chatId, { type: "templates.edit", id: args[0] });
-    await bot.sendMessage(chatId, "Send updated template text:");
+    await bot.sendMessage(chatId, "<b>✏️ Edit Template</b>\n\nSend the completely new text below:", { parse_mode: "HTML" });
   },
 
   "templates:delconfirm": async ({ bot, chatId, messageId, args }) => {
@@ -102,12 +102,12 @@ export const templatesStateHandlers = {
   "templates.add": async ({ bot, chatId, text, state }) => {
     await Template.create({ type: state.tplType, category: state.category, content: text });
     clearState(chatId);
-    await bot.sendMessage(chatId, "✅ Template added");
+    await bot.sendMessage(chatId, "✅ <b>Template successfully added!</b> Type /menu to return to dashboard.", { parse_mode: "HTML" });
   },
 
   "templates.edit": async ({ bot, chatId, text, state }) => {
     await Template.updateOne({ _id: state.id }, { content: text });
     clearState(chatId);
-    await bot.sendMessage(chatId, "✅ Updated");
+    await bot.sendMessage(chatId, "✅ <b>Template updated!</b> Type /menu to return to dashboard.", { parse_mode: "HTML" });
   }
 };

@@ -1,4 +1,4 @@
-import Member from "../../models/Member.js";
+﻿import Member from "../../models/Member.js";
 import { findSimilar, softDeleteMember } from "../../services/memberService.js";
 import { PAGE_SIZE, DOB_RE, deriveMMDD, renderScreen } from "../ui.js";
 import { getState, setState, clearState } from "../session.js";
@@ -138,7 +138,7 @@ const askGender = async (bot, chatId) => {
   const state = getState(chatId);
   setState(chatId, { ...state, type: "members.addGender" });
 
-  await bot.sendMessage(chatId, "Select gender:", {
+  await bot.sendMessage(chatId, "<b>➕ Add New Member</b>\n\nPlease select their <b>Gender</b>:", { parse_mode: "HTML",
     reply_markup: {
       inline_keyboard: [[
         { text: "♂ Male", callback_data: "addmember:gender:male" },
@@ -241,7 +241,7 @@ export const membersCallbacks = {
     }
     const rows = members.map((m) => [{ text: m.name, callback_data: `members:open:${m._id}` }]);
     rows.push([{ text: "🔙 Back", callback_data: "members:list:0:active" }]);
-    await renderScreen(bot, chatId, messageId, { text: `🆕 New Members This Month (${members.length})`, keyboard: rows });
+    await renderScreen(bot, chatId, messageId, { text: `<b>🆕 New Members</b>\n<i>Added this calendar month (${members.length})</i>`, keyboard: rows });
   },
 
   "members:family": async ({ bot, chatId, messageId }) => {
@@ -254,9 +254,9 @@ export const membersCallbacks = {
         keyboard: [[{ text: "🔙 Back", callback_data: "members:list:0:active" }]]
       });
     }
-    const rows = families.map((f) => [{ text: `👨‍👩‍👧 ${f}`, callback_data: `members:famview:${f}` }]);
+    const rows = families.map((f) => [{ text: `<b>👨‍👩‍👧 Family View</b>\n<i>${f}</i>`, callback_data: `members:famview:${f}` }]);
     rows.push([{ text: "🔙 Back", callback_data: "members:list:0:active" }]);
-    await renderScreen(bot, chatId, messageId, { text: `👨‍👩‍👧 Families (${families.length})`, keyboard: rows });
+    await renderScreen(bot, chatId, messageId, { text: `<b>👨‍👩‍👧 Church Families</b>\n<i>Total grouped families: ${families.length}</i>`, keyboard: rows });
   },
 
   "members:famview": async ({ bot, chatId, messageId, args }) => {
@@ -264,7 +264,7 @@ export const membersCallbacks = {
     const members = await Member.find({ familyName: f, isDeleted: { $ne: true }, isActive: { $ne: false } }).sort({ name: 1 });
     const rows = members.map((m) => [{ text: m.name, callback_data: `members:open:${m._id}` }]);
     rows.push([{ text: "🔙 Back", callback_data: "members:family" }]);
-    await renderScreen(bot, chatId, messageId, { text: `👨‍👩‍👧 ${f}`, keyboard: rows });
+    await renderScreen(bot, chatId, messageId, { text: `<b>👨‍👩‍👧 Family View</b>\n<i>${f}</i>`, keyboard: rows });
   },
 
   "members:trash": async ({ bot, chatId, messageId }) => {
@@ -277,7 +277,7 @@ export const membersCallbacks = {
     }
     const rows = members.map((m) => [{ text: m.name, callback_data: `members:trashed:${m._id}` }]);
     rows.push([{ text: "🔙 Back", callback_data: "members:list:0:active" }]);
-    await renderScreen(bot, chatId, messageId, { text: `🗃 Trash (${members.length})`, keyboard: rows });
+    await renderScreen(bot, chatId, messageId, { text: `<b>🗃 Trash Bin</b>\n<i>Deleted members: ${members.length}</i>`, keyboard: rows });
   },
 
   "members:trashed": async ({ bot, chatId, messageId, args }) => {
@@ -285,7 +285,7 @@ export const membersCallbacks = {
     const m = await Member.findById(id);
     if (!m) return bot.sendMessage(chatId, "❌ Not found");
     await renderScreen(bot, chatId, messageId, {
-      text: `🗃 Trashed: ${m.name}\n\nDo you want to restore them?`,
+      text: `<b>🗃 Trashed Record</b>\n<i>${m.name}</i>\n\n<blockquote>Do you want to restore this member to the active roster?</blockquote>`,
       keyboard: [
         [{ text: "♻️ Restore", callback_data: `members:restore:${id}` }],
         [{ text: "🔙 Back", callback_data: "members:trash" }]
@@ -422,7 +422,7 @@ export const membersCallbacks = {
 
   "addmember:start": async ({ bot, chatId }) => {
     setState(chatId, { type: "members.addName" });
-    await bot.sendMessage(chatId, "Enter new member's name:");
+    await bot.sendMessage(chatId, "<b>➕ Add New Member</b>\n\nPlease type the <b>Full Name</b> of the new member below:", { parse_mode: "HTML" });
   },
 
   "addmember:continue": async ({ bot, chatId }) => {

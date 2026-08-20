@@ -1,10 +1,10 @@
-﻿import fs from "fs";
+import fs from "fs";
 import Member from "../../models/Member.js";
 import { exportMembersToCSV } from "../../services/exportService.js";
 import { renderScreen } from "../ui.js";
 
 const exportOptionsScreen = () => ({
-  text: "📤 Export — choose filter:",
+  text: "<b>📤 Database Export</b>\n<i>Download the member roster as a CSV file.</i>\n\n<blockquote>Choose a filter to generate your report:</blockquote>",
   keyboard: [
     [{ text: "✅ Active members only", callback_data: "export:run:active" }],
     [{ text: "👥 All members",         callback_data: "export:run:all"    }],
@@ -30,18 +30,25 @@ export const exportCallbacks = {
 
     if (!members.length) {
       return renderScreen(bot, chatId, messageId, {
-        text: "❌ No members found for this filter.",
+        text: "<blockquote>❌ <i>No members found matching this filter.</i></blockquote>",
         keyboard: [[{ text: "🔙 Back", callback_data: "export:run" }]]
       });
     }
 
     await renderScreen(bot, chatId, messageId, {
-      text: `⏳ Generating CSV for ${members.length} members...`,
+      text: `<b>⏳ Generating Report...</b>\n<i>Processing ${members.length} records. Please wait.</i>`,
       keyboard: []
     });
 
     const filePath = await exportMembersToCSV(members, filter);
     await bot.sendDocument(chatId, filePath, { caption: `📄 Export — ${filter} (${members.length} members)` });
+    
+    // Clean up loading text
+    await renderScreen(bot, chatId, messageId, {
+      text: `<b>✅ Report Generated</b>\n<i>Exported ${members.length} records.</i>`,
+      keyboard: [[{ text: "🔙 Back", callback_data: "export:run" }]]
+    });
+
     fs.unlink(filePath, () => {});
   }
 };
