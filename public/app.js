@@ -25,7 +25,7 @@ createApp({
     
     const members = ref([]);
     const templates = ref([]);
-    const settings = ref({ sendTime: '06:00', reminderTime: '20:00', customFields: [] });
+    const settings = ref({ sendTime: '06:00', reminderTime: '20:00', enableBirthdays: true, enableWeddings: true, customFields: [] });
     
     const search = ref('');
     const memberFilter = ref('active');

@@ -8,8 +8,8 @@
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body { background-color: var(--tg-theme-bg-color, #f3f4f6); color: var(--tg-theme-text-color, #111827); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding-bottom: calc(90px + env(safe-area-inset-bottom, 20px)); }
-    .card { background-color: var(--tg-theme-secondary-bg-color, #ffffff); border-radius: 1rem; padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    body { background-color: var(--tg-theme-bg-color, #f3f4f6); color: var(--tg-theme-text-color, #111827); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding-bottom: 0; }
+    .card { background-color: var(--tg-theme-secondary-bg-color, #ffffff); border-radius: 1.25rem; padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
     .btn { background-color: var(--tg-theme-button-color, #3b82f6); color: var(--tg-theme-button-text-color, #ffffff); padding: 0.5rem 1rem; border-radius: 0.75rem; font-weight: 600; text-align: center; transition: opacity 0.2s; }
     .btn:active { opacity: 0.7; }
     .btn-secondary { background-color: var(--tg-theme-secondary-bg-color, #e5e7eb); color: var(--tg-theme-text-color, #1f2937); }
@@ -21,7 +21,7 @@
     .slide-enter-from { transform: translateX(100%); opacity: 0; }
     .slide-leave-to { transform: translateX(-100%); opacity: 0; position: absolute; width: 100%; }
 
-    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--tg-theme-secondary-bg-color, #fff); border-top: 1px solid rgba(128,128,128,0.2); display: flex; justify-content: space-around; padding: 0.75rem 0; z-index: 50; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 20px)); }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--tg-theme-secondary-bg-color, #ffffffcc); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);; border-top: 1px solid rgba(128,128,128,0.2); display: flex; justify-content: space-around; padding: 0.75rem 0; z-index: 50; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 20px)); }
     .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 0.75rem; color: var(--tg-theme-hint-color, #6b7280); font-weight: 500; cursor: pointer; }
     .nav-item.active { color: var(--tg-theme-button-color, #3b82f6); }
     .nav-icon { font-size: 1.25rem; margin-bottom: 2px; }
@@ -36,8 +36,8 @@
     .bulk-bar { position: fixed; top: 1rem; left: 1rem; right: 1rem; background: var(--tg-theme-button-color, #3b82f6); color: white; border-radius: 1rem; padding: 1rem; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
   </style>
 </head>
-<body class="p-4 overflow-x-hidden">
-  <div id="app" v-cloak class="relative">
+<body class="px-4 pt-4 overflow-x-hidden bg-[var(--tg-theme-bg-color,#f3f4f6)]">
+  <div id="app" v-cloak class="relative" style="padding-bottom: max(130px, calc(90px + env(safe-area-inset-bottom)));">
     
     <!-- Bulk Actions Bar -->
     <transition name="fade">
@@ -117,116 +117,88 @@
           </div>
         </div>
 
-        <!-- SETTINGS TAB -->
-        <div v-if="currentTab === 'settings'">
-          <div class="mb-4 mt-2">
-            <h1 class="text-2xl font-bold">Settings</h1>
-            <p class="text-sm opacity-70 mt-1">Configure bot automation & triggers.</p>
+        ﻿<!-- SETTINGS TAB -->
+        <div v-if="currentTab === 'settings'" class="space-y-6">
+          <div class="mb-2 mt-2">
+            <h1 class="text-3xl font-extrabold tracking-tight">Settings</h1>
           </div>
 
-          <div class="card space-y-4 mb-6">
-            <h2 class="font-bold border-b pb-2">➕ Custom Profile Fields</h2>
-            <div class="space-y-2">
-              <div v-for="(field, idx) in settings.customFields" :key="idx" class="flex gap-2 items-center">
-                <input type="text" v-model="field.label" placeholder="Field Name (e.g. Phone)" class="input !mt-0" />
+          <!-- Feature Flags -->
+          <div class="card space-y-3">
+            <h2 class="font-bold text-sm uppercase tracking-wide opacity-50 mb-2">Features</h2>
+            <label class="flex items-center justify-between cursor-pointer">
+              <span class="font-medium">🎈 Birthday Automation</span>
+              <input type="checkbox" v-model="settings.enableBirthdays" class="w-5 h-5 accent-blue-500" />
+            </label>
+            <div class="border-b border-gray-200 dark:border-gray-800 my-2"></div>
+            <label class="flex items-center justify-between cursor-pointer">
+              <span class="font-medium">💍 Wedding Automation</span>
+              <input type="checkbox" v-model="settings.enableWeddings" class="w-5 h-5 accent-blue-500" />
+            </label>
+          </div>
+
+          <!-- Automation Times -->
+          <div class="card space-y-4">
+            <h2 class="font-bold text-sm uppercase tracking-wide opacity-50 mb-2">Automation</h2>
+            <div>
+              <label class="text-sm font-semibold opacity-80">Daily Broadcast (IST)</label>
+              <input type="time" v-model="settings.sendTime" class="input" />
+            </div>
+            <div>
+              <label class="text-sm font-semibold opacity-80">Admin Reminder (Night before)</label>
+              <input type="time" v-model="settings.reminderTime" class="input" />
+            </div>
+          </div>
+
+          <!-- Custom Fields -->
+          <div class="card space-y-4">
+            <div class="flex justify-between items-center mb-2">
+              <h2 class="font-bold text-sm uppercase tracking-wide opacity-50">Custom Fields</h2>
+              <button @click="settings.customFields.push({ id: 'custom_' + Date.now(), label: '', type: 'text' })" class="text-blue-500 font-bold text-xs">+ Add Field</button>
+            </div>
+            <div class="space-y-3">
+              <div v-for="(field, idx) in settings.customFields" :key="idx" class="flex gap-2 items-center bg-black/5 dark:bg-white/5 p-2 rounded-xl">
+                <input type="text" v-model="field.label" placeholder="Name (e.g. Phone)" class="input !mt-0 flex-1" />
                 <select v-model="field.type" class="input !mt-0 w-24 flex-shrink-0">
                   <option value="text">Text</option>
                   <option value="date">Date</option>
                   <option value="number">Number</option>
                 </select>
-                <button @click="settings.customFields.splice(idx, 1)" class="btn btn-secondary !px-3">🗑</button>
+                <button @click="settings.customFields.splice(idx, 1)" class="btn btn-secondary !px-3 !bg-red-500/10 !text-red-500">✖</button>
+              </div>
+              <div v-if="!settings.customFields.length" class="text-center text-sm opacity-50">No custom fields configured.</div>
+            </div>
+          </div>
+
+          <button @click="saveSettings" class="btn w-full py-4 text-lg shadow-lg shadow-blue-500/30" :disabled="saving">{{ saving ? '💾 Saving...' : '💾 Save Settings' }}</button>
+
+          <!-- Manual Triggers -->
+          <div class="card space-y-2 mt-8">
+            <h2 class="font-bold text-sm uppercase tracking-wide opacity-50 mb-2">Developer Tools</h2>
+            <div class="flex items-center gap-3 cursor-pointer p-2 active:bg-black/5 rounded-xl" @click="triggerAction('ping')">
+              <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center text-xl">🔔</div>
+              <div>
+                <div class="font-bold">Ping Group Test</div>
+                <div class="text-xs opacity-60">Send a test text to verify connection</div>
               </div>
             </div>
-            <button @click="settings.customFields.push({ id: `custom_${Date.now()}`, label: ``, type: `text` })" class="text-blue-500 font-bold text-sm">➕ Add Custom Field</button>
-          </div>
-          
-          <div class="card space-y-4 mb-6">
-            <h2 class="font-bold border-b pb-2">⏱️ Automation Times</h2>
-            <div>
-              <label class="text-sm font-semibold opacity-80">Daily Broadcast Time</label>
-              <input type="time" v-model="settings.sendTime" class="input" />
-              <p class="text-xs opacity-50 mt-1">When to send birthday messages to the group (IST).</p>
+            <div class="flex items-center gap-3 cursor-pointer p-2 active:bg-black/5 rounded-xl" @click="triggerAction('today')">
+              <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center text-xl">▶️</div>
+              <div>
+                <div class="font-bold">Force Run Today</div>
+                <div class="text-xs opacity-60">Manually trigger today's automated messages</div>
+              </div>
             </div>
-            <div>
-              <label class="text-sm font-semibold opacity-80">Admin Reminder Time</label>
-              <input type="time" v-model="settings.reminderTime" class="input" />
-              <p class="text-xs opacity-50 mt-1">When to DM the admin the night before.</p>
-            </div>
-            <button @click="saveSettings" class="btn w-full" :disabled="saving">{{ saving ? '⏳ Saving...' : '💾 Save Settings' }}</button>
-          </div>
-
-          <div class="card space-y-3">
-            <h2 class="font-bold border-b pb-2">🛠️ Manual Triggers</h2>
-            <button @click="triggerAction('ping')" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3" :disabled="triggering">
-              <span class="text-xl">🔔</span> <div><div class="font-bold">Ping Group Test</div><div class="text-xs opacity-70 font-normal">Send a test text to verify connection</div></div>
-            </button>
-            <button @click="triggerAction('trigger-today')" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3" :disabled="triggering">
-              <span class="text-xl">▶️</span> <div><div class="font-bold">Force Run Today</div><div class="text-xs opacity-70 font-normal">Manually trigger today's automated messages</div></div>
-            </button>
-            <button @click="exportCSV" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3" :disabled="triggering">
-              <span class="text-xl">📥</span> <div><div class="font-bold">Download Database (CSV)</div><div class="text-xs opacity-70 font-normal">Export full roster to your device</div></div>
-            </button>
-            <button @click="triggerAction('trigger-today')" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3 hidden" :disabled="triggering">
-              <span class="text-xl">▶️</span> <div><div class="font-bold">Force Run Today</div><div class="text-xs opacity-70 font-normal">Manually trigger today's automated messages</div></div>
-            </button>
-          </div>
-        </div>
-
-        <!-- MEMBER FORM -->
-        <div v-if="currentTab === 'memberForm'" class="card space-y-4">
-          <div class="flex justify-between items-center mb-2 pb-2 border-b">
-            <h2 class="font-bold text-xl">{{ form._id ? '✏️ Edit Profile' : '➕ New Profile' }}</h2>
-            <button @click="currentTab = 'members'" class="text-gray-500 font-bold px-2">✕</button>
-          </div>
-          <div><label class="text-sm font-semibold opacity-80">Full Name *</label><input type="text" v-model="form.name" class="input" /></div>
-          <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-sm font-semibold opacity-80">Gender *</label><select v-model="form.gender" class="input"><option value="male">Male</option><option value="female">Female</option></select></div>
-            <div><label class="text-sm font-semibold opacity-80">Role / Designation</label><input type="text" v-model="form.role" class="input" list="role-options" placeholder="e.g. Pastor..." /></div>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-sm font-semibold opacity-80">DOB</label><input type="date" v-model="form.dob" class="input" /></div>
-            <div><label class="text-sm font-semibold opacity-80">Wedding Date</label><input type="date" v-model="form.weddingDate" class="input" /></div>
-          </div>
-          <div><label class="text-sm font-semibold opacity-80">Family Name</label><input type="text" v-model="form.familyName" class="input" placeholder="e.g. Kumar Family" /></div>
-          
-          <div v-if="settings.customFields?.length" class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t">
-            <div v-for="field in settings.customFields" :key="field.id">
-              <label class="text-sm font-semibold opacity-80">{{ field.label }}</label>
-              <input :type="field.type" v-model="form.customData[field.id]" class="input" />
+            <div class="flex items-center gap-3 cursor-pointer p-2 active:bg-black/5 rounded-xl" @click="exportCSV">
+              <div class="w-10 h-10 rounded-full bg-green-100 text-green-500 flex items-center justify-center text-xl">📥</div>
+              <div>
+                <div class="font-bold">Download Database (CSV)</div>
+                <div class="text-xs opacity-60">Export all members to spreadsheet</div>
+              </div>
             </div>
           </div>
-          <div class="flex items-center gap-6 mt-2 pt-4 border-t">
-            <label class="flex items-center gap-2 cursor-pointer font-medium"><input type="checkbox" v-model="form.isChild" class="w-5 h-5 accent-blue-500" /> Child</label>
-            <label class="flex items-center gap-2 cursor-pointer font-medium"><input type="checkbox" v-model="form.isActive" class="w-5 h-5 accent-blue-500" /> Active</label>
-          </div>
-          <div class="mt-6 pt-4 border-t flex gap-3">
-            <button @click="saveMember" class="btn flex-1 py-3" :disabled="saving">{{ saving ? '⏳ Saving...' : '💾 Save Profile' }}</button>
-          </div>
         </div>
-
-        <!-- TEMPLATE FORM -->
-        <div v-if="currentTab === 'templateForm'" class="card space-y-4">
-          <div class="flex justify-between items-center mb-2 pb-2 border-b">
-            <h2 class="font-bold text-xl">{{ tplForm._id ? '✏️ Edit Template' : '➕ New Template' }}</h2>
-            <button @click="currentTab = 'templates'" class="text-gray-500 font-bold px-2">✕</button>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div><label class="text-sm font-semibold opacity-80">Type</label><select v-model="tplForm.type" class="input"><option value="birthday">Birthday</option><option value="wedding">Wedding</option></select></div>
-            <div><label class="text-sm font-semibold opacity-80">Category</label><select v-model="tplForm.category" class="input"><option value="formal">Formal</option><option value="short">Short</option></select></div>
-          </div>
-          <div>
-            <label class="text-sm font-semibold opacity-80">Message Content</label>
-            <textarea v-model="tplForm.content" class="input min-h-[150px]"></textarea>
-            <div class="text-xs opacity-60 mt-1">Available vars: {name}, {designation}, {suffix}, {years}, {husband}, {wife}</div>
-          </div>
-          <div class="mt-6 pt-4 border-t flex gap-3">
-            <button @click="saveTemplate" class="btn flex-1 py-3" :disabled="saving">{{ saving ? '⏳ Saving...' : '💾 Save Template' }}</button>
-            <button v-if="tplForm._id" @click="deleteTemplate" class="btn btn-secondary py-3 px-4">🗑</button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
+      
     <datalist id="role-options">
       <option value="Member"></option>
       <option value="Pastor"></option>

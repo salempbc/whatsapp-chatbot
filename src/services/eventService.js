@@ -1,6 +1,7 @@
-import Member from "../models/Member.js";
+﻿import Member from "../models/Member.js";
 import Meta from "../models/Meta.js";
 import Template from "../models/Template.js";
+import { getSetting } from "../models/Settings.js";
 import { enhanceTamil } from "./aiService.js";
 
 /* ================= DATE ================= */
@@ -112,12 +113,15 @@ const pickTemplate = async (type, key) => {
 
 /* ================= EVENTS ================= */
 export const getTodayEvents = async () => {
+  const enableBday = await getSetting('enableBirthdays', true);
+  const enableWed = await getSetting('enableWeddings', true);
+
   const todayKey = getTodayKey();
 
   const members = await Member.find({
     isDeleted: { $ne: true },
     isActive:  { $ne: false },
-    $or: [{ birthday: todayKey }, { wedding: todayKey }]
+    ...(enableBday && enableWed ? [{ $or: [{ birthday: todayKey }, { wedding: todayKey }] }] : enableBday ? [{ birthday: todayKey }] : enableWed ? [{ wedding: todayKey }] : [{ _id: null }])
   });
 
   const birthdays = [];
@@ -277,12 +281,15 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 
 /* ================= TOMORROW EVENTS (admin reminder) ================= */
 export const getTomorrowEvents = async () => {
+  const enableBday = await getSetting('enableBirthdays', true);
+  const enableWed = await getSetting('enableWeddings', true);
+
   const tomorrowKey = getTomorrowKey();
 
   const members = await Member.find({
     isDeleted: { $ne: true },
     isActive:  { $ne: false },
-    $or: [{ birthday: tomorrowKey }, { wedding: tomorrowKey }]
+    ...(enableBday && enableWed ? [{ $or: [{ birthday: tomorrowKey }, { wedding: tomorrowKey }] }] : enableBday ? [{ birthday: tomorrowKey }] : enableWed ? [{ wedding: tomorrowKey }] : [{ _id: null }])
   });
 
   const birthdays = members.filter(
