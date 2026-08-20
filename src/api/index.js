@@ -101,14 +101,16 @@ import { sendMessage } from "../bot/index.js";
 
 router.get("/settings", async (req, res) => {
   const sendTime = await getSetting("sendTime", "06:00");
-  const reminderTime = await getSetting("reminderTime", "20:00"); // Not fully dynamic in dailyJob yet but we'll store it
-  res.json({ sendTime, reminderTime });
+  const reminderTime = await getSetting("reminderTime", "20:00");
+  const customFields = await getSetting("customFields", []);
+  res.json({ sendTime, reminderTime, customFields });
 });
 
 router.post("/settings", async (req, res) => {
-  const { sendTime, reminderTime } = req.body;
+  const { sendTime, reminderTime, customFields } = req.body;
   if (sendTime) await setSetting("sendTime", sendTime);
   if (reminderTime) await setSetting("reminderTime", reminderTime);
+  if (customFields) await setSetting("customFields", customFields);
   
   // Restart scheduler to apply new cron times
   await restartScheduler();

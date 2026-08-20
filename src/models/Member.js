@@ -80,6 +80,11 @@ const memberSchema = new mongoose.Schema(
     wedding: {
       type: String, // MM-DD
       index: true
+    },
+
+    customData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
     }
   },
   {

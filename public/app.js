@@ -1,4 +1,4 @@
-﻿const { createApp, ref, computed, onMounted } = Vue;
+const { createApp, ref, computed, onMounted } = Vue;
 
 const tg = window.Telegram.WebApp;
 tg.expand();
@@ -10,7 +10,7 @@ createApp({
     
     const members = ref([]);
     const templates = ref([]);
-    const settings = ref({ sendTime: '06:00', reminderTime: '20:00' });
+    const settings = ref({ sendTime: '06:00', reminderTime: '20:00', customFields: [] });
     
     const search = ref('');
     const memberFilter = ref('active');
@@ -21,7 +21,7 @@ createApp({
     const triggering = ref(false);
     const error = ref('');
 
-    const defaultForm = () => ({ name: '', gender: 'male', role: '', dob: '', weddingDate: '', familyName: '', isChild: false, isActive: true });
+    const defaultForm = () => ({ name: '', gender: 'male', role: '', dob: '', weddingDate: '', familyName: '', isChild: false, isActive: true, customData: {} });
     const form = ref(defaultForm());
     
     const defaultTplForm = () => ({ type: 'birthday', category: 'formal', content: '' });
@@ -104,7 +104,7 @@ createApp({
     };
 
     const openMemberForm = (m = null) => {
-      form.value = m ? { ...m } : defaultForm();
+      form.value = m ? { ...m, customData: m.customData || {} } : defaultForm();
       currentTab.value = 'memberForm';
     };
 
