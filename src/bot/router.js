@@ -42,12 +42,21 @@ export const registerRouter = (bot) => {
 
     const [ns, action, ...args] = q.data.split(":");
     const handler = callbackRoutes[`${ns}:${action}`];
-    if (!handler) return;
+    if (!handler) {
+      bot.answerCallbackQuery(q.id).catch(() => {});
+      return;
+    }
 
     try {
-      await handler({ bot, chatId, messageId, args, query: q });
+      const toast = await handler({ bot, chatId, messageId, args, query: q });
+      if (typeof toast === "string") {
+        bot.answerCallbackQuery(q.id, { text: toast }).catch(() => {});
+      } else {
+        bot.answerCallbackQuery(q.id).catch(() => {});
+      }
     } catch (err) {
       console.error(`❌ Callback error [${ns}:${action}]:`, err.message);
+      bot.answerCallbackQuery(q.id, { text: "❌ Error" }).catch(() => {});
       bot.sendMessage(chatId, "❌ Something went wrong");
     }
   });

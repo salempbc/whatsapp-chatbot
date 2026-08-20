@@ -43,7 +43,7 @@ const listScreen = async (page, filter = "active") => {
   ]);
   rows.push([{ text: "🏠 Home", callback_data: "home:show" }]);
 
-  return { text: `👥 Members — ${FILTER_LABELS[filter]} (${total})`, keyboard: rows };
+  return { text: `<b>👥 Member Database</b>\n<i>View: ${FILTER_LABELS[filter]} (${total} records)</i>\n\nSelect a member to view or edit their profile:`, keyboard: rows };
 };
 
 const editMenuScreen = (id) => ({
@@ -82,18 +82,22 @@ const sendProfile = async (bot, chatId, id) => {
   /* Active status label */
   const statusLabel = m.isActive === false ? "❌ Left Church" : "✅ Active";
 
-  const text = `👤 ${m.name}
+  const text = `<b>👤 ${m.name}</b>
+<i>${statusLabel}</i>
 
-Status: ${statusLabel}
+<blockquote><b>🧬 Demographics</b>
 Gender: ${m.gender || "-"}
 Role: ${m.role || "-"}${flags.length ? ` (${flags.join(", ")})` : ""}
+
+<b>🎂 Birth Details</b>
 DOB: ${m.dob || "-"}
 Birthday: ${m.birthday || "-"}
 
+<b>💍 Family & Marriage</b>
 Family: ${m.familyName || "-"}
 Married: ${m.isMarried ? "Yes" : "No"}
 Spouse: ${m.spouseName || "-"}
-Wedding: ${m.weddingDate ? `${m.weddingDate} (${m.wedding})` : "-"}`;
+Wedding: ${m.weddingDate ? `${m.weddingDate} (${m.wedding})` : "-"}</blockquote>`;
 
   const spouseRow = m.isMarried
     ? [{ text: "💔 Unlink", callback_data: `members:unlink:${id}` }]
@@ -120,7 +124,7 @@ Wedding: ${m.weddingDate ? `${m.weddingDate} (${m.wedding})` : "-"}`;
     [{ text: "🔙 Back", callback_data: "members:list:0" }, { text: "🏠 Home", callback_data: "home:show" }]
   ];
 
-  const opts = { reply_markup: { inline_keyboard: keyboard } };
+  const opts = { reply_markup: { inline_keyboard: keyboard }, parse_mode: "HTML" };
 
   if (m.photo) {
     return bot.sendPhoto(chatId, m.photo, { caption: text, ...opts });
@@ -320,15 +324,14 @@ export const membersCallbacks = {
   },
 
   "members:setrole": async ({ bot, chatId, args }) => {
-    const [id, role] = args;  // role is "" when user picked "None"
+    const [id, role] = args;
     const m = await Member.findById(id);
-    if (!m) return bot.sendMessage(chatId, "❌ Member not found");
+    if (!m) return "❌ Not found";
 
     m.role = role || undefined;
     await m.save();
-
-    await bot.sendMessage(chatId, "✅ Role updated");
     await sendProfile(bot, chatId, id);
+    return "✅ Role updated";
   },
 
   "members:editfield": async ({ bot, chatId, args }) => {
@@ -342,12 +345,13 @@ export const membersCallbacks = {
 
     setState(chatId, { type: "members.editField", id, field });
     await bot.sendMessage(chatId, prompts[field]);
+    return "✏️ Type in chat";
   },
 
   "members:toggle": async ({ bot, chatId, args }) => {
     const [id, field] = args;
     const m = await Member.findById(id);
-    if (!m) return bot.sendMessage(chatId, "❌ Member not found");
+    if (!m) return "❌ Not found";
 
     if (field === "child")  m.isChild  = !m.isChild;
     if (field === "pastor") m.isPastor = !m.isPastor;
@@ -355,6 +359,7 @@ export const membersCallbacks = {
     await m.save();
 
     await sendProfile(bot, chatId, id);
+    return `✅ Toggled ${field}`;
   },
 
   "members:delete": async ({ bot, chatId, messageId, args }) => {

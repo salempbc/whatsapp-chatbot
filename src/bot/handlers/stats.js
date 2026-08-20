@@ -33,26 +33,28 @@ export const statsCallbacks = {
     const newThisMonth = all.filter((m) => new Date(m.createdAt) >= monthStart);
 
     const text =
-`📊 SPBC — Statistics
+`<b>📊 SPBC — Demographics & Statistics</b>
 
-👥 Members
-  Active : ${active.length}
-  Inactive (left) : ${inactive.length}
-  Total : ${all.length}
+<blockquote><b>👥 Membership Base</b>
+ • Active : <b>${active.length}</b>
+ • Inactive (left) : <b>${inactive.length}</b>
+ • Total Lifetime : <b>${all.length}</b>
 
-⚧ Gender (active)
-  Male   : ${male.length}
-  Female : ${female.length}
+<b>⚧ Gender Breakdown (Active)</b>
+ • Male   : <b>${male.length}</b>
+ • Female : <b>${female.length}</b>
 
-💍 Married couples : ${couples}
-👶 Children        : ${children.length}
-⛪ Pastors         : ${pastors.length}
+<b>💍 Family & Structure</b>
+ • Married couples : <b>${couples}</b>
+ • Children        : <b>${children.length}</b>
+ • Pastors         : <b>${pastors.length}</b>
 
-🏷 Roles (active)
-  Treasurer : ${treasurers.length}
-  Secretary : ${secretaries.length}
+<b>🏷 Leadership Roles</b>
+ • Treasurer : <b>${treasurers.length}</b>
+ • Secretary : <b>${secretaries.length}</b>
 
-🆕 Added this month : ${newThisMonth.length}`;
+<b>🆕 Growth</b>
+ • Added this month : <b>${newThisMonth.length}</b></blockquote>`;
 
     await renderScreen(bot, chatId, messageId, {
       text,

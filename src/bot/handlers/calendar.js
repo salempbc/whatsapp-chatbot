@@ -1,4 +1,4 @@
-import { getMonthlyCalendar } from "../../services/eventService.js";
+﻿import { getMonthlyCalendar } from "../../services/eventService.js";
 import { MONTH_NAMES, currentMonthMM, shiftMonth, renderScreen } from "../ui.js";
 
 const screen = async (mm) => {
@@ -8,10 +8,22 @@ const screen = async (mm) => {
   const bDays = Object.keys(cal.birthdays).sort();
   const wDays = Object.keys(cal.weddings).sort();
 
-  let text = `📅 ${MONTH_NAMES[idx]}\n\n`;
-  for (const d of bDays) text += `🎂 ${d}: ${cal.birthdays[d].join(", ")}\n`;
-  for (const d of wDays) text += `💍 ${d}: ${cal.weddings[d].join(", ")}\n`;
-  if (!bDays.length && !wDays.length) text += "No events this month";
+  let text = `<b>📅 Event Calendar</b>\n<i>Month: ${MONTH_NAMES[idx]}</i>\n\n`;
+  if (!bDays.length && !wDays.length) {
+    text += "<blockquote><i>No events scheduled for this month.</i></blockquote>";
+  } else {
+    text += "<blockquote>";
+    if (bDays.length) {
+      text += "<b>🎂 Birthdays:</b>\n";
+      for (const d of bDays) text += ` • <b>${d}</b>: ${cal.birthdays[d].join(", ")}\n`;
+    }
+    if (wDays.length) {
+      if (bDays.length) text += "\n";
+      text += "<b>💍 Weddings:</b>\n";
+      for (const d of wDays) text += ` • <b>${d}</b>: ${cal.weddings[d].join(", ")}\n`;
+    }
+    text += "</blockquote>";
+  }
 
   return {
     text,

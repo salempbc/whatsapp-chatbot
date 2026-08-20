@@ -27,7 +27,10 @@ export const deriveMMDD = (dateStr) => (dateStr ? dateStr.slice(5) : undefined);
  * e.g. it was a photo).
  */
 export const renderScreen = async (bot, chatId, messageId, screen) => {
-  const opts = { reply_markup: { inline_keyboard: screen.keyboard } };
+  const opts = { 
+    reply_markup: { inline_keyboard: screen.keyboard },
+    parse_mode: "HTML" 
+  };
 
   if (messageId) {
     try {
