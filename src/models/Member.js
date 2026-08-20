@@ -34,6 +34,12 @@ const memberSchema = new mongoose.Schema(
       default: false
     },
 
+    /* 🏠 Attendance status — false = left the church */
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+
     dob: {
       type: String // YYYY-MM-DD
     },

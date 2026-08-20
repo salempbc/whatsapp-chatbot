@@ -54,11 +54,15 @@ const sendProfile = async (bot, chatId, id) => {
   if (!m) return bot.sendMessage(chatId, "❌ Member not found");
 
   const flags = [];
-  if (m.isChild) flags.push("Child");
+  if (m.isChild)  flags.push("Child");
   if (m.isPastor) flags.push("Pastor");
+
+  /* Active status label */
+  const statusLabel = m.isActive === false ? "❌ Left Church" : "✅ Active";
 
   const text = `👤 ${m.name}
 
+Status: ${statusLabel}
 Gender: ${m.gender || "-"}
 Role: ${m.role || "-"}${flags.length ? ` (${flags.join(", ")})` : ""}
 DOB: ${m.dob || "-"}
@@ -80,9 +84,15 @@ Wedding: ${m.weddingDate ? `${m.weddingDate} (${m.wedding})` : "-"}`;
       ]
     : [{ text: "📸 Add Photo", callback_data: `members:photo:${id}` }];
 
+  /* Active toggle button */
+  const activeToggle = m.isActive === false
+    ? { text: "✅ Mark Active",      callback_data: `members:toggle:${id}:active` }
+    : { text: "🚪 Mark Left Church", callback_data: `members:toggle:${id}:active` };
+
   const keyboard = [
     photoRow,
     spouseRow,
+    [activeToggle],
     [{ text: "✏️ Edit", callback_data: `members:edit:${id}` }, { text: "🗑 Delete", callback_data: `members:delete:${id}` }],
     [{ text: "🔙 Back", callback_data: "members:list:0" }, { text: "🏠 Home", callback_data: "home:show" }]
   ];
@@ -239,6 +249,7 @@ export const membersCallbacks = {
 
     if (field === "child")  m.isChild  = !m.isChild;
     if (field === "pastor") m.isPastor = !m.isPastor;
+    if (field === "active") m.isActive = m.isActive === false ? true : false;
     await m.save();
 
     await sendProfile(bot, chatId, id);

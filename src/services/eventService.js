@@ -1,4 +1,4 @@
-import Member from "../models/Member.js";
+﻿import Member from "../models/Member.js";
 import Meta from "../models/Meta.js";
 import Template from "../models/Template.js";
 import { enhanceTamil } from "./aiService.js";
@@ -49,17 +49,17 @@ const getAge = (dob) => {
 const getDesignation = (m) => {
   const age = getAge(m.dob);
 
-  if (m.isChild) return m.gender === "male" ? "மகன்" : "மகள்";
+  if (m.isChild) return m.gender === "male" ? "à®®à®•à®©à¯" : "à®®à®•à®³à¯";
 
   if (age && age >= 60)
-    return m.gender === "male" ? "ஐயா" : "அம்மா";
+    return m.gender === "male" ? "à®à®¯à®¾" : "à®…à®®à¯à®®à®¾";
 
-  if (m.isPastor) return "போதகர்";
+  if (m.isPastor) return "à®ªà¯‹à®¤à®•à®°à¯";
 
-  if (m.role === "treasurer") return "பொருளாளர்";
-  if (m.role === "secretary") return "செயலாளர்";
+  if (m.role === "treasurer") return "à®ªà¯Šà®°à¯à®³à®¾à®³à®°à¯";
+  if (m.role === "secretary") return "à®šà¯†à®¯à®²à®¾à®³à®°à¯";
 
-  return m.gender === "male" ? "சகோதரர்" : "சகோதரி";
+  return m.gender === "male" ? "à®šà®•à¯‹à®¤à®°à®°à¯" : "à®šà®•à¯‹à®¤à®°à®¿";
 };
 
 /* ================= META ================= */
@@ -85,12 +85,12 @@ const pickTemplate = async (type, key) => {
 
   if (!available.length) available = templates;
 
-  /* 🔥 SMART SORT (least used first) */
+  /* ðŸ”¥ SMART SORT (least used first) */
   available.sort((a, b) => a.usageCount - b.usageCount);
 
   const chosen = available[0];
 
-  /* ✅ UPDATE USAGE */
+  /* âœ… UPDATE USAGE */
   chosen.usageCount += 1;
   chosen.lastUsedAt = new Date();
   await chosen.save();
@@ -105,7 +105,8 @@ export const getTodayEvents = async () => {
   const todayKey = getTodayKey();
 
   const members = await Member.find({
-    isDeleted: { $ne: true }
+    isDeleted: { $ne: true },
+    isActive:  { $ne: false }
   });
 
   const birthdays = [];
@@ -137,7 +138,7 @@ export const getUpcomingEvents = async (days = 30) => {
   const keys = getUpcomingKeys(days);
   const todayKey = getTodayKey();
 
-  const members = await Member.find({ isDeleted: { $ne: true } });
+  const members = await Member.find({ isDeleted: { $ne: true }, isActive: { $ne: false } });
 
   const birthdays = [];
   const weddings = [];
@@ -180,9 +181,9 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 
   /* ===== BIRTHDAY ===== */
   for (const m of birthdays) {
-    /* Under 18 (or flagged as child) → ஐ, else → அவர்களை */
+    /* Under 18 (or flagged as child) â†’ à®, else â†’ à®…à®µà®°à¯à®•à®³à¯ˆ */
     const age = getAge(m.dob);
-    const suffix = (m.isChild || (age !== null && age < 18)) ? "ஐ" : "அவர்களை";
+    const suffix = (m.isChild || (age !== null && age < 18)) ? "à®" : "à®…à®µà®°à¯à®•à®³à¯ˆ";
 
     let text = (bTpl || "{designation} {name} {suffix}")
       .replace("{designation}", getDesignation(m))
@@ -212,7 +213,7 @@ export const buildMessages = async ({ birthdays, weddings }) => {
     /* Fallback designation for spouse if not found in DB */
     const spouseDesig = spouseDoc
       ? getDesignation(spouseDoc)
-      : (m.spouseGender === "male" ? "சகோதரர்" : "சகோதரி");
+      : (m.spouseGender === "male" ? "à®šà®•à¯‹à®¤à®°à®°à¯" : "à®šà®•à¯‹à®¤à®°à®¿");
 
     const mDesig = getDesignation(m);
 
@@ -224,7 +225,7 @@ export const buildMessages = async ({ birthdays, weddings }) => {
       ? `${mDesig} ${m.name}`
       : `${spouseDesig} ${m.spouseName}`;
 
-    /* Anniversary year suffix — only shown when weddingDate is known */
+    /* Anniversary year suffix â€” only shown when weddingDate is known */
     let yearSuffix = "";
     if (m.weddingDate) {
       const weddingYear = new Date(m.weddingDate).getFullYear();
@@ -232,10 +233,10 @@ export const buildMessages = async ({ birthdays, weddings }) => {
         new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
       ).getFullYear();
       const years = thisYear - weddingYear;
-      if (years > 0) yearSuffix = ` (${years} ஆண்டுகள்)`;
+      if (years > 0) yearSuffix = ` (${years} à®†à®£à¯à®Ÿà¯à®•à®³à¯)`;
     }
 
-    let text = (wTpl || "{husband} மற்றும் {wife}")
+    let text = (wTpl || "{husband} à®®à®±à¯à®±à¯à®®à¯ {wife}")
       .replace("{husband}", husband)
       .replace("{wife}", wife);
 
@@ -259,7 +260,8 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 /* ================= CALENDAR ================= */
 export const getMonthlyCalendar = async (month) => {
   const members = await Member.find({
-    isDeleted: { $ne: true }
+    isDeleted: { $ne: true },
+    isActive:  { $ne: false }
   });
 
   const result = {
