@@ -1,52 +1,42 @@
-import dotenv from "dotenv";
-dotenv.config();
-
-import http from "http";
-import { connectDB, disconnectDB } from "./config/db.js";
-import { initTelegram, stopTelegram } from "./bot/index.js";
+﻿import "dotenv/config";
+import mongoose from "mongoose";
+import express from "express";
+import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+import { startBot } from "./bot/index.js";
 import { startScheduler } from "./scheduler/dailyJob.js";
+import apiRouter from "./api/index.js";
 
-/* ── Render free tier requires an HTTP listener ── */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+console.log("🚀 Starting application...");
+
+const app = express();
+app.use(cors());
+
+// Serve static frontend files
+app.use(express.static(path.join(__dirname, "../public")));
+
+// API Routes
+app.use("/api", apiRouter);
+
+// Fallback to index for SPA
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/index.html"));
+});
+
 const PORT = process.env.PORT || 3000;
-http.createServer((_, res) => res.end("OK")).listen(PORT, () =>
-  console.log(`🌐 Health-check server on :${PORT}`)
-);
 
-const REQUIRED_ENV = ["MONGO_URI", "BOT_TOKEN", "CHAT_ID"];
-
-const assertEnv = () => {
-  const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
-
-  if (missing.length) {
-    console.error(`❌ Missing required env vars: ${missing.join(", ")}`);
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log("✅ MongoDB connected");
+    startBot();
+    startScheduler();
+    app.listen(PORT, () => console.log(`🌍 Web Server & API listening on port ${PORT}`));
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB connection error:", err.message);
     process.exit(1);
-  }
-};
-
-const startApp = async () => {
-  console.log("🚀 Starting application...");
-
-  assertEnv();
-  await connectDB();
-
-  initTelegram();
-  startScheduler();
-};
-
-const shutdown = async (signal) => {
-  console.log(`\n🛑 ${signal} received, shutting down...`);
-
-  try {
-    await stopTelegram();
-    await disconnectDB();
-  } catch (err) {
-    console.error("❌ Error during shutdown:", err.message);
-  }
-
-  process.exit(0);
-};
-
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-
-startApp();
+  });
