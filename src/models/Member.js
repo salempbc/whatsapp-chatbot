@@ -40,6 +40,12 @@ const memberSchema = new mongoose.Schema(
       default: true
     },
 
+    /* 👨‍👩‍👧 Family group label (free text, e.g. "Kumar Family") */
+    familyName: {
+      type: String,
+      trim: true
+    },
+
     dob: {
       type: String // YYYY-MM-DD
     },

@@ -1,37 +1,87 @@
-import cron from "node-cron";
-import { getTodayEvents, buildMessages } from "../services/eventService.js";
-import { sendMessage } from "../bot/index.js";
+﻿import cron from "node-cron";
+import { getTodayEvents, buildMessages, getTomorrowEvents } from "../services/eventService.js";
+import { sendMessage, sendAdminMessage } from "../bot/index.js";
+import { getSetting } from "../models/Settings.js";
 
-export const startScheduler = () => {
-  console.log("📅 Scheduler started (6:00 AM IST)");
+let morningTask = null;
+let reminderTask = null;
 
-  cron.schedule("0 6 * * *", async () => {
-    try {
-      console.log("⏱️ CRON TRIGGERED");
+/* ===== MORNING JOB — send today's messages to group ===== */
+const runMorningJob = async () => {
+  try {
+    console.log("⏱️ Morning cron triggered");
+    const events = await getTodayEvents();
+    const messages = await buildMessages(events);
 
-      const events = await getTodayEvents();
-      const messages = await buildMessages(events);
-
-      if (!messages.length) {
-        console.log("⚠️ No events today");
-        return;
-      }
-
-      /* ✅ SEND ONE BY ONE (PHOTO SUPPORT) */
-      let sent = 0;
-      for (const m of messages) {
-        try {
-          await sendMessage(m.text, { photo: m.photo });
-          sent++;
-        } catch (sendErr) {
-          console.error("❌ Failed to send one message:", sendErr.message);
-        }
-      }
-
-      console.log(`✅ ${sent}/${messages.length} messages sent`);
-
-    } catch (err) {
-      console.error("❌ Scheduler error:", err.message);
+    if (!messages.length) {
+      console.log("⚠️ No events today");
+      return;
     }
-  }, { timezone: "Asia/Kolkata" });
+
+    let sent = 0;
+    for (const msg of messages) {
+      try {
+        await sendMessage(msg.text, { photo: msg.photo });
+        sent++;
+      } catch (err) {
+        console.error("❌ Failed to send message:", err.message);
+      }
+    }
+    console.log(`✅ ${sent}/${messages.length} messages sent`);
+  } catch (err) {
+    console.error("❌ Scheduler error:", err.message);
+  }
+};
+
+/* ===== REMINDER JOB — notify admin the night before ===== */
+const runReminderJob = async () => {
+  try {
+    const { birthdays, weddings } = await getTomorrowEvents();
+    if (!birthdays.length && !weddings.length) return;
+
+    let text = "📅 நாளை நினைவூட்டல்:\n\n";
+    if (birthdays.length) {
+      text += "🎂 பிறந்தநாள்:\n";
+      for (const m of birthdays) text += `  • ${m.name}\n`;
+    }
+    if (weddings.length) {
+      text += "\n💍 திருமண நாள்:\n";
+      for (const m of weddings) text += `  • ${m.name} & ${m.spouseName || "?"}\n`;
+    }
+
+    await sendAdminMessage(text);
+    console.log("📬 Day-before reminder sent to admin");
+  } catch (err) {
+    console.error("❌ Reminder job error:", err.message);
+  }
+};
+
+/* ===== PUBLIC: manual test trigger ===== */
+export const triggerNow = async () => {
+  await runMorningJob();
+};
+
+/* ===== START / RESTART ===== */
+const stopAll = () => {
+  if (morningTask) { morningTask.stop(); morningTask = null; }
+  if (reminderTask) { reminderTask.stop(); reminderTask = null; }
+};
+
+export const startScheduler = async () => {
+  stopAll();
+
+  const sendTime = await getSetting("sendTime", "06:00");
+  const [hh, mm] = sendTime.split(":");
+  const morningCron = `${mm} ${hh} * * *`;
+
+  morningTask = cron.schedule(morningCron, runMorningJob, { timezone: "Asia/Kolkata" });
+
+  /* Day-before reminder fixed at 8 PM IST */
+  reminderTask = cron.schedule("0 20 * * *", runReminderJob, { timezone: "Asia/Kolkata" });
+
+  console.log(`📅 Scheduler started (${sendTime} IST daily + 8 PM reminder)`);
+};
+
+export const restartScheduler = async () => {
+  await startScheduler();
 };

@@ -1,20 +1,11 @@
-import fs from "fs";
+﻿import fs from "fs";
 import path from "path";
 
-export const exportMembersToCSV = async (members) => {
+export const exportMembersToCSV = async (members, label = "export") => {
   const headers = [
-    "Name",
-    "Gender",
-    "Role",
-    "IsActive",
-    "IsChild",
-    "IsPastor",
-    "DOB",
-    "Birthday (MM-DD)",
-    "Married",
-    "Spouse",
-    "WeddingDate",
-    "Wedding (MM-DD)"
+    "Name", "Gender", "Role", "IsActive", "IsChild", "IsPastor",
+    "FamilyName", "DOB", "Birthday (MM-DD)",
+    "Married", "Spouse", "WeddingDate", "Wedding (MM-DD)"
   ];
 
   const rows = members.map((m) => [
@@ -24,6 +15,7 @@ export const exportMembersToCSV = async (members) => {
     m.isActive === false ? "No" : "Yes",
     m.isChild  ? "Yes" : "No",
     m.isPastor ? "Yes" : "No",
+    m.familyName || "",
     m.dob || "",
     m.birthday || "",
     m.isMarried ? "Yes" : "No",
@@ -34,11 +26,12 @@ export const exportMembersToCSV = async (members) => {
 
   const csv =
     [headers, ...rows]
-      .map((r) => r.map((v) => `"${v || ""}"`).join(","))
+      .map((r) => r.map((v) => `"${String(v || "").replace(/"/g, "'")}"`).join(","))
       .join("\n");
 
-  const filePath = path.join(process.cwd(), "members_export.csv");
-  fs.writeFileSync(filePath, csv);
+  const fileName = `members_${label}_${Date.now()}.csv`;
+  const filePath = path.join(process.cwd(), fileName);
+  fs.writeFileSync(filePath, "\uFEFF" + csv); // BOM for Excel UTF-8
 
   return filePath;
 };

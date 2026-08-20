@@ -15,9 +15,10 @@ const HELP_TEXT = `📊 Church CMS — Help
 export const homeScreen = () => ({
   text: "📊 Church CMS\n\nChoose an option:",
   keyboard: [
-    [{ text: "👥 Members", callback_data: "members:list:0" }, { text: "🔍 Search", callback_data: "members:search" }],
+    [{ text: "👥 Members", callback_data: "members:list:0:active" }, { text: "🔍 Search", callback_data: "members:search" }],
     [{ text: "📅 Calendar", callback_data: "calendar:show:current" }, { text: "🗓 Coming Up", callback_data: "upcoming:show:7" }],
     [{ text: "📝 Templates", callback_data: "templates:show" }, { text: "📤 Export", callback_data: "export:run" }],
+    [{ text: "📊 Stats", callback_data: "stats:show" }, { text: "⚙️ Settings", callback_data: "settings:show" }],
     [{ text: "❓ Help", callback_data: "help:show" }]
   ]
 });

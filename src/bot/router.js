@@ -7,18 +7,24 @@ import { calendarCallbacks } from "./handlers/calendar.js";
 import { exportCallbacks } from "./handlers/export.js";
 import { upcomingCallbacks } from "./handlers/upcoming.js";
 
+import { statsCallbacks } from "./handlers/stats.js";
+import { settingsCallbacks, settingsStateHandlers } from "./handlers/settings.js";
+
 const callbackRoutes = {
   ...homeCallbacks,
   ...membersCallbacks,
   ...templatesCallbacks,
   ...calendarCallbacks,
   ...exportCallbacks,
-  ...upcomingCallbacks
+  ...upcomingCallbacks,
+  ...statsCallbacks,
+  ...settingsCallbacks
 };
 
 const stateRoutes = {
   ...membersStateHandlers,
-  ...templatesStateHandlers
+  ...templatesStateHandlers,
+  ...settingsStateHandlers
 };
 
 export const registerRouter = (bot) => {

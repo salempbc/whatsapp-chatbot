@@ -24,7 +24,7 @@ export const initTelegram = () => {
   console.log("🤖 Telegram CMS READY");
 };
 
-/* SEND */
+/* SEND to group */
 export const sendMessage = async (text, member = null) => {
   if (!bot) return;
 
@@ -33,6 +33,12 @@ export const sendMessage = async (text, member = null) => {
   } else {
     await bot.sendMessage(process.env.CHAT_ID, text);
   }
+};
+
+/* SEND to admin only (private reminder) */
+export const sendAdminMessage = async (text) => {
+  if (!bot || !process.env.ADMIN_ID) return;
+  await bot.sendMessage(process.env.ADMIN_ID, text);
 };
 
 /* STOP */

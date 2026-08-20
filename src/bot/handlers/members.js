@@ -5,24 +5,45 @@ import { getState, setState, clearState } from "../session.js";
 
 /* ================= SCREENS ================= */
 
-const listScreen = async (page) => {
-  const members = await Member.find({ isDeleted: { $ne: true } }).sort({ name: 1 });
-  const total = members.length;
-  const start = page * PAGE_SIZE;
-  const slice = members.slice(start, start + PAGE_SIZE);
+const FILTER_LABELS = { active: "✅ Active", inactive: "🚪 Inactive", all: "👥 All" };
 
-  const rows = slice.map((m) => [{ text: m.name, callback_data: `members:open:${m._id}` }]);
+const listScreen = async (page, filter = "active") => {
+  let query = { isDeleted: { $ne: true } };
+  if (filter === "active")   query.isActive = { $ne: false };
+  if (filter === "inactive") query.isActive = false;
+
+  const members = await Member.find(query).sort({ name: 1 });
+  const total   = members.length;
+  const start   = page * PAGE_SIZE;
+  const slice   = members.slice(start, start + PAGE_SIZE);
+
+  const rows = slice.map((m) => [{
+    text: (m.isActive === false ? "🚪 " : "") + m.name,
+    callback_data: `members:open:${m._id}`
+  }]);
 
   const nav = [];
-  if (page > 0) nav.push({ text: "◀ Prev", callback_data: `members:list:${page - 1}` });
-  nav.push({ text: "➕ Add", callback_data: "addmember:start" });
+  if (page > 0) nav.push({ text: "◀ Prev", callback_data: `members:list:${page - 1}:${filter}` });
+  nav.push({ text: "➕ Add",    callback_data: "addmember:start" });
   nav.push({ text: "🔍 Search", callback_data: "members:search" });
-  if (start + PAGE_SIZE < total) nav.push({ text: "Next ▶", callback_data: `members:list:${page + 1}` });
+  if (start + PAGE_SIZE < total) nav.push({ text: "Next ▶", callback_data: `members:list:${page + 1}:${filter}` });
+
+  /* Filter tabs */
+  const filterRow = ["active", "inactive", "all"].map((f) => ({
+    text: f === filter ? `• ${FILTER_LABELS[f]}` : FILTER_LABELS[f],
+    callback_data: `members:list:0:${f}`
+  }));
 
   rows.push(nav);
+  rows.push(filterRow);
+  rows.push([
+    { text: "🆕 New Members",  callback_data: "members:new" },
+    { text: "👨‍👩‍👧 Families",    callback_data: "members:family" },
+    { text: "🗃 Trash",        callback_data: "members:trash" }
+  ]);
   rows.push([{ text: "🏠 Home", callback_data: "home:show" }]);
 
-  return { text: `👥 Members (${total})`, keyboard: rows };
+  return { text: `👥 Members — ${FILTER_LABELS[filter]} (${total})`, keyboard: rows };
 };
 
 const editMenuScreen = (id) => ({
@@ -30,6 +51,7 @@ const editMenuScreen = (id) => ({
   keyboard: [
     [{ text: "✏️ Name", callback_data: `members:editfield:${id}:name` }, { text: "🏷 Role", callback_data: `members:rolePicker:${id}` }],
     [{ text: "🎂 DOB", callback_data: `members:editfield:${id}:dob` }, { text: "💍 Wedding Date", callback_data: `members:editfield:${id}:wedding` }],
+    [{ text: "👨‍👩‍👧 Family Name", callback_data: `members:editfield:${id}:family` }],
     [{ text: "👶 Toggle Child", callback_data: `members:toggle:${id}:child` }, { text: "⛪ Toggle Pastor", callback_data: `members:toggle:${id}:pastor` }],
     [{ text: "🔙 Back", callback_data: `members:open:${id}` }]
   ]
@@ -68,6 +90,7 @@ Role: ${m.role || "-"}${flags.length ? ` (${flags.join(", ")})` : ""}
 DOB: ${m.dob || "-"}
 Birthday: ${m.birthday || "-"}
 
+Family: ${m.familyName || "-"}
 Married: ${m.isMarried ? "Yes" : "No"}
 Spouse: ${m.spouseName || "-"}
 Wedding: ${m.weddingDate ? `${m.weddingDate} (${m.wedding})` : "-"}`;
@@ -197,7 +220,85 @@ const unlinkSpouse = async (id) => {
 export const membersCallbacks = {
   "members:list": async ({ bot, chatId, messageId, args }) => {
     const page = Number(args[0]) || 0;
-    await renderScreen(bot, chatId, messageId, await listScreen(page));
+    const filter = args[1] || "active";
+    await renderScreen(bot, chatId, messageId, await listScreen(page, filter));
+  },
+
+  "members:new": async ({ bot, chatId, messageId }) => {
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const members = await Member.find({ createdAt: { $gte: monthStart } });
+    if (!members.length) {
+      return renderScreen(bot, chatId, messageId, {
+        text: "❌ No members added this month",
+        keyboard: [[{ text: "🔙 Back", callback_data: "members:list:0:active" }]]
+      });
+    }
+    const rows = members.map((m) => [{ text: m.name, callback_data: `members:open:${m._id}` }]);
+    rows.push([{ text: "🔙 Back", callback_data: "members:list:0:active" }]);
+    await renderScreen(bot, chatId, messageId, { text: `🆕 New Members This Month (${members.length})`, keyboard: rows });
+  },
+
+  "members:family": async ({ bot, chatId, messageId }) => {
+    const members = await Member.find({ isDeleted: { $ne: true }, isActive: { $ne: false }, familyName: { $exists: true, $ne: "" } });
+    const families = [...new Set(members.map(m => m.familyName))].sort();
+    
+    if (!families.length) {
+      return renderScreen(bot, chatId, messageId, {
+        text: "❌ No families defined yet. Edit a member to set their Family Name.",
+        keyboard: [[{ text: "🔙 Back", callback_data: "members:list:0:active" }]]
+      });
+    }
+    const rows = families.map((f) => [{ text: `👨‍👩‍👧 ${f}`, callback_data: `members:famview:${f}` }]);
+    rows.push([{ text: "🔙 Back", callback_data: "members:list:0:active" }]);
+    await renderScreen(bot, chatId, messageId, { text: `👨‍👩‍👧 Families (${families.length})`, keyboard: rows });
+  },
+
+  "members:famview": async ({ bot, chatId, messageId, args }) => {
+    const f = args[0];
+    const members = await Member.find({ familyName: f, isDeleted: { $ne: true }, isActive: { $ne: false } }).sort({ name: 1 });
+    const rows = members.map((m) => [{ text: m.name, callback_data: `members:open:${m._id}` }]);
+    rows.push([{ text: "🔙 Back", callback_data: "members:family" }]);
+    await renderScreen(bot, chatId, messageId, { text: `👨‍👩‍👧 ${f}`, keyboard: rows });
+  },
+
+  "members:trash": async ({ bot, chatId, messageId }) => {
+    const members = await Member.find({ isDeleted: true }).sort({ name: 1 });
+    if (!members.length) {
+      return renderScreen(bot, chatId, messageId, {
+        text: "🗃 Trash is empty",
+        keyboard: [[{ text: "🔙 Back", callback_data: "members:list:0:active" }]]
+      });
+    }
+    const rows = members.map((m) => [{ text: m.name, callback_data: `members:trashed:${m._id}` }]);
+    rows.push([{ text: "🔙 Back", callback_data: "members:list:0:active" }]);
+    await renderScreen(bot, chatId, messageId, { text: `🗃 Trash (${members.length})`, keyboard: rows });
+  },
+
+  "members:trashed": async ({ bot, chatId, messageId, args }) => {
+    const id = args[0];
+    const m = await Member.findById(id);
+    if (!m) return bot.sendMessage(chatId, "❌ Not found");
+    await renderScreen(bot, chatId, messageId, {
+      text: `🗃 Trashed: ${m.name}\n\nDo you want to restore them?`,
+      keyboard: [
+        [{ text: "♻️ Restore", callback_data: `members:restore:${id}` }],
+        [{ text: "🔙 Back", callback_data: "members:trash" }]
+      ]
+    });
+  },
+
+  "members:restore": async ({ bot, chatId, messageId, args }) => {
+    const m = await Member.findById(args[0]);
+    if (m) {
+      m.isDeleted = false;
+      await m.save();
+    }
+    await renderScreen(bot, chatId, messageId, {
+      text: `✅ Restored ${m ? m.name : "Member"}`,
+      keyboard: [[{ text: "🔙 Back", callback_data: "members:trash" }]]
+    });
   },
 
   "members:search": async ({ bot, chatId }) => {
@@ -235,7 +336,8 @@ export const membersCallbacks = {
     const prompts = {
       name:    "Send new name:",
       dob:     "Send DOB as YYYY-MM-DD, or /clear to remove:",
-      wedding: "Send wedding date as YYYY-MM-DD, or /clear to remove:"
+      wedding: "Send wedding date as YYYY-MM-DD, or /clear to remove:",
+      family:  "Send Family Name (e.g., 'Kumar Family'), or /clear to remove:"
     };
 
     setState(chatId, { type: "members.editField", id, field });
@@ -345,8 +447,13 @@ export const membersCallbacks = {
 
 export const membersStateHandlers = {
   "members.search": async ({ bot, chatId, text }) => {
+    const rgx = new RegExp(text, "i");
     const members = await Member.find({
-      name: { $regex: text, $options: "i" },
+      $or: [
+        { name: rgx },
+        { role: rgx },
+        { familyName: rgx }
+      ],
       isDeleted: { $ne: true }
     });
 
@@ -473,6 +580,14 @@ export const membersStateHandlers = {
               { weddingDate: text, wedding: mmdd }
             );
           }
+        }
+      } else if (field === "family") {
+        if (text === "/clear") {
+          m.familyName = undefined;
+          await m.save();
+        } else {
+          m.familyName = text;
+          await m.save();
         }
       }
 

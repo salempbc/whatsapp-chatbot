@@ -14,6 +14,16 @@ const getTodayKey = () => {
   ).padStart(2, "0")}`;
 };
 
+const getTomorrowKey = () => {
+  const ist = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+  );
+  ist.setDate(ist.getDate() + 1);
+  return `${String(ist.getMonth() + 1).padStart(2, "0")}-${String(
+    ist.getDate()
+  ).padStart(2, "0")}`;
+};
+
 /* Returns every MM-DD key for the next `days` days (inclusive of today) */
 const getUpcomingKeys = (days = 30) => {
   const ist = new Date(
@@ -226,19 +236,21 @@ export const buildMessages = async ({ birthdays, weddings }) => {
       : `${spouseDesig} ${m.spouseName}`;
 
     /* Anniversary year suffix â€” only shown when weddingDate is known */
+    let years = 0;
     let yearSuffix = "";
     if (m.weddingDate) {
       const weddingYear = new Date(m.weddingDate).getFullYear();
       const thisYear = new Date(
         new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
       ).getFullYear();
-      const years = thisYear - weddingYear;
-      if (years > 0) yearSuffix = ` (${years} à®†à®£à¯à®Ÿà¯à®•à®³à¯)`;
+      years = thisYear - weddingYear;
+      if (years > 0) yearSuffix = ` (${years} ஆண்டுகள்)`;
     }
 
-    let text = (wTpl || "{husband} à®®à®±à¯à®±à¯à®®à¯ {wife}")
+    let text = (wTpl || "{husband} மற்றும் {wife}")
       .replace("{husband}", husband)
-      .replace("{wife}", wife);
+      .replace("{wife}", wife)
+      .replace("{years}", years > 0 ? `${years}வது` : "");
 
     if (yearSuffix) text = text + yearSuffix;
 
@@ -255,6 +267,38 @@ export const buildMessages = async ({ birthdays, weddings }) => {
   }
 
   return results;
+};
+
+/* ================= TOMORROW EVENTS (admin reminder) ================= */
+export const getTomorrowEvents = async () => {
+  const tomorrowKey = getTomorrowKey();
+
+  const members = await Member.find({
+    isDeleted: { $ne: true },
+    isActive:  { $ne: false }
+  });
+
+  const birthdays = members.filter(
+    (m) => (m.birthday || "").trim() === tomorrowKey
+  );
+
+  const weddings = [];
+  const processed = new Set();
+
+  for (const m of members) {
+    if (
+      (m.wedding || "").trim() === tomorrowKey &&
+      m.isMarried &&
+      m.spouseName &&
+      !processed.has(m.name)
+    ) {
+      weddings.push(m);
+      processed.add(m.name);
+      processed.add(m.spouseName);
+    }
+  }
+
+  return { birthdays, weddings };
 };
 
 /* ================= CALENDAR ================= */
