@@ -2,6 +2,7 @@ import { getSetting, setSetting } from "../../models/Settings.js";
 import { restartScheduler, triggerNow } from "../../scheduler/dailyJob.js";
 import { renderScreen } from "../ui.js";
 import { setState } from "../session.js";
+import { sendMessage } from "../index.js";
 
 const settingsScreen = async () => {
   const sendTime = await getSetting("sendTime", "06:00");
@@ -10,6 +11,7 @@ const settingsScreen = async () => {
     keyboard: [
       [{ text: "🕐 Change Send Time", callback_data: "settings:edittime" }],
       [{ text: "📨 Send Today Now",   callback_data: "settings:testsend" }],
+      [{ text: "🔔 Ping Group (Test)",callback_data: "settings:ping" }],
       [{ text: "🏠 Home",             callback_data: "home:show" }]
     ]
   };
@@ -18,6 +20,21 @@ const settingsScreen = async () => {
 export const settingsCallbacks = {
   "settings:show": async ({ bot, chatId, messageId }) => {
     await renderScreen(bot, chatId, messageId, await settingsScreen());
+  },
+
+  "settings:ping": async ({ bot, chatId, messageId }) => {
+    try {
+      await sendMessage("🔧 *Test Message*\nThis is an automated test from the SPBC Church CMS bot to verify group connectivity.", null);
+      await renderScreen(bot, chatId, messageId, {
+        text: "✅ Ping sent successfully to the group chat!",
+        keyboard: [[{ text: "🔙 Back", callback_data: "settings:show" }]]
+      });
+    } catch (err) {
+      await renderScreen(bot, chatId, messageId, {
+        text: `❌ Failed to send ping: ${err.message}\nCheck your CHAT_ID in the Railway variables.`,
+        keyboard: [[{ text: "🔙 Back", callback_data: "settings:show" }]]
+      });
+    }
   },
 
   "settings:edittime": async ({ bot, chatId, messageId }) => {
