@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import express from "express";
 import compression from "compression";
 import cors from "cors";
@@ -12,6 +12,7 @@ import { initTelegram, stopTelegram, waitForQueueToDrain } from "./bot/index.js"
 import { startScheduler } from "./scheduler/dailyJob.js";
 import apiRouter from "./api/index.js";
 import { connectDB } from "./config/db.js";
+import { initLogger } from "./config/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
