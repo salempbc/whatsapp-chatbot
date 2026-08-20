@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import crypto from "crypto";
 import Member from "../models/Member.js";
 import Template from "../models/Template.js";
@@ -44,8 +44,6 @@ const verifyTelegramWebAppData = (req, res, next) => {
 
 router.use(express.json());
 router.use(verifyTelegramWebAppData);
-
-import Template from "../models/Template.js";
 
 router.get("/members", async (req, res) => {
   const members = await Member.find({ isDeleted: { $ne: true } }).sort({ name: 1 });
