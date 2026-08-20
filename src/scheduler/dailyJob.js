@@ -1,4 +1,4 @@
-﻿import cron from "node-cron";
+import cron from "node-cron";
 import { getTodayEvents, buildMessages, getTomorrowEvents } from "../services/eventService.js";
 import { sendMessage, sendAdminMessage } from "../bot/index.js";
 import { getSetting } from "../models/Settings.js";
@@ -15,7 +15,7 @@ const runMorningJob = async () => {
 
     if (!messages.length) {
       console.log("⚠️ No events today");
-      return;
+      return 0;
     }
 
     let sent = 0;
@@ -28,8 +28,10 @@ const runMorningJob = async () => {
       }
     }
     console.log(`✅ ${sent}/${messages.length} messages sent`);
+    return sent;
   } catch (err) {
     console.error("❌ Scheduler error:", err.message);
+    throw err;
   }
 };
 
@@ -58,7 +60,7 @@ const runReminderJob = async () => {
 
 /* ===== PUBLIC: manual test trigger ===== */
 export const triggerNow = async () => {
-  await runMorningJob();
+  return await runMorningJob();
 };
 
 /* ===== START / RESTART ===== */

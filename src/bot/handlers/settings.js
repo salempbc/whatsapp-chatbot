@@ -1,4 +1,4 @@
-﻿import { getSetting, setSetting } from "../../models/Settings.js";
+import { getSetting, setSetting } from "../../models/Settings.js";
 import { restartScheduler, triggerNow } from "../../scheduler/dailyJob.js";
 import { renderScreen } from "../ui.js";
 import { setState } from "../session.js";
@@ -30,13 +30,19 @@ export const settingsCallbacks = {
 
   "settings:testsend": async ({ bot, chatId, messageId }) => {
     await renderScreen(bot, chatId, messageId, {
-      text: "⏳ Sending today'\''s messages...",
+      text: "⏳ Sending today's messages...",
       keyboard: []
     });
     try {
-      await triggerNow();
+      const sent = await triggerNow();
+      
+      let text = `✅ Done — ${sent} messages sent to the group.`;
+      if (sent === 0) {
+        text = "⚠️ No birthdays or weddings found for today (or they are marked inactive/left church).";
+      }
+
       await renderScreen(bot, chatId, messageId, {
-        text: "✅ Done — today'\''s messages sent to the group.",
+        text,
         keyboard: [[{ text: "🏠 Home", callback_data: "home:show" }]]
       });
     } catch (err) {
