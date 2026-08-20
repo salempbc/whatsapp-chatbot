@@ -82,7 +82,10 @@
           <div class="space-y-3 pb-4">
             <div v-for="m in filteredMembers" :key="m._id" class="card flex items-center gap-3 active:scale-[0.98] transition-transform">
               <input type="checkbox" :value="m._id" v-model="selectedIds" class="checkbox-custom flex-shrink-0" />
-              <div class="avatar" :style="avatarStyle(m.name)" @click="openMemberForm(m)">{{ getInitials(m.name) }}</div>
+              <div class="avatar relative overflow-hidden" :style="avatarStyle(m.name)" @click="openMemberForm(m)">
+                <img v-if="m.photo" :src="`/api/members/${m._id}/photo`" class="w-full h-full object-cover absolute inset-0" />
+                <span v-if="!m.photo">{{ getInitials(m.name) }}</span>
+              </div>
               <div class="flex-1 cursor-pointer" @click="openMemberForm(m)">
                 <div class="font-bold text-lg leading-tight">{{ m.name }}</div>
                 <div class="text-sm opacity-70 mt-0.5 flex gap-2 items-center">
