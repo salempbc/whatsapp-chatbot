@@ -60,12 +60,20 @@
           </select>
         </div>
         <div>
-          <label class="text-sm font-semibold">Role</label>
-          <select v-model="form.role" class="input">
-            <option value="">None</option>
-            <option value="treasurer">Treasurer</option>
-            <option value="secretary">Secretary</option>
-          </select>
+          <label class="text-sm font-semibold">Role / Designation</label>
+          <input type="text" v-model="form.role" class="input" list="role-options" placeholder="e.g. Member, Pastor..." />
+          <datalist id="role-options">
+            <option value="Member"></option>
+            <option value="Pastor"></option>
+            <option value="Elder"></option>
+            <option value="Deacon"></option>
+            <option value="Treasurer"></option>
+            <option value="Secretary"></option>
+            <option value="Worship Leader"></option>
+            <option value="Sunday School"></option>
+            <option value="Youth Leader"></option>
+            <option value="Admin"></option>
+          </datalist>
         </div>
       </div>
 

@@ -62,10 +62,27 @@ const rolePickerScreen = (id) => ({
   text: "Pick a role (or clear):",
   keyboard: [
     [
-      { text: "💰 Treasurer", callback_data: `members:setrole:${id}:treasurer` },
-      { text: "📋 Secretary", callback_data: `members:setrole:${id}:secretary` }
+      { text: "👤 Member", callback_data: `members:setrole:${id}:Member` },
+      { text: "📖 Pastor", callback_data: `members:setrole:${id}:Pastor` }
     ],
-    [{ text: "❌ None", callback_data: `members:setrole:${id}:` }],
+    [
+      { text: "🛡 Elder", callback_data: `members:setrole:${id}:Elder` },
+      { text: "🙏 Deacon", callback_data: `members:setrole:${id}:Deacon` }
+    ],
+    [
+      { text: "💰 Treasurer", callback_data: `members:setrole:${id}:Treasurer` },
+      { text: "📝 Secretary", callback_data: `members:setrole:${id}:Secretary` }
+    ],
+    [
+      { text: "🎵 Worship", callback_data: `members:setrole:${id}:Worship Leader` },
+      { text: "👧 Youth", callback_data: `members:setrole:${id}:Youth Leader` }
+    ],
+    [
+      { text: "✏️ Custom Role", callback_data: `members:editfield:${id}:role` }
+    ],
+    [
+      { text: "❌ None / Clear", callback_data: `members:setrole:${id}:` }
+    ],
     [{ text: "🔙 Back", callback_data: `members:edit:${id}` }]
   ]
 });
@@ -337,14 +354,15 @@ export const membersCallbacks = {
   "members:editfield": async ({ bot, chatId, args }) => {
     const [id, field] = args;
     const prompts = {
-      name:    "Send new name:",
-      dob:     "Send DOB as YYYY-MM-DD, or /clear to remove:",
-      wedding: "Send wedding date as YYYY-MM-DD, or /clear to remove:",
-      family:  "Send Family Name (e.g., 'Kumar Family'), or /clear to remove:"
+      name:    "<b>✏️ Edit Name</b>\n\nSend new name:",
+      role:    "<b>✏️ Edit Role</b>\n\nSend a custom role/designation:",
+      dob:     "<b>✏️ Edit DOB</b>\n\nSend DOB as YYYY-MM-DD, or /clear to remove:",
+      wedding: "<b>✏️ Edit Wedding Date</b>\n\nSend wedding date as YYYY-MM-DD, or /clear to remove:",
+      family:  "<b>✏️ Edit Family</b>\n\nSend Family Name (e.g., 'Kumar Family'), or /clear to remove:"
     };
 
     setState(chatId, { type: "members.editField", id, field });
-    await bot.sendMessage(chatId, prompts[field]);
+    await bot.sendMessage(chatId, prompts[field], { parse_mode: "HTML" });
     return "✏️ Type in chat";
   },
 
@@ -594,10 +612,18 @@ export const membersStateHandlers = {
           m.familyName = text;
           await m.save();
         }
+      } else if (field === "role") {
+        if (text === "/clear") {
+          m.role = undefined;
+          await m.save();
+        } else {
+          m.role = text;
+          await m.save();
+        }
       }
 
       clearState(chatId);
-      await bot.sendMessage(chatId, `✅ Updated ${field}`);
+      await bot.sendMessage(chatId, `✅ <b>Updated ${field}!</b>`, { parse_mode: "HTML" });
       await sendProfile(bot, chatId, id);
     } catch (err) {
       clearState(chatId);
