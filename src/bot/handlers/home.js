@@ -1,4 +1,4 @@
-import { renderScreen } from "../ui.js";
+﻿import { renderScreen } from "../ui.js";
 import { clearState } from "../session.js";
 import { adminOnly } from "../guard.js";
 
@@ -44,6 +44,7 @@ export const registerHome = (bot) => {
     await bot.sendMessage(msg.chat.id, HELP_TEXT, { parse_mode: "HTML" });
   }));
 
+  bot.onText(/^\/ping$/, async (msg) => { await bot.sendMessage(msg.chat.id, 'pong'); });
   bot.onText(/\/cancel/, adminOnly(async (msg) => {
     clearState(msg.chat.id);
     await bot.sendMessage(msg.chat.id, "✅ Action aborted. Type /menu to go back.", { parse_mode: "HTML" });

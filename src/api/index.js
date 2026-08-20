@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import crypto from "crypto";
 import mongoose from "mongoose";
 import Member from "../models/Member.js";
@@ -115,6 +115,16 @@ const verifyTelegramWebAppData = (req, res, next) => {
 };
 
 router.use(express.json());
+router.get("/test-telegram", async (req, res) => {
+  try {
+    const resp = await fetch("https://api.telegram.org/bot" + process.env.BOT_TOKEN + "/getMe");
+    const data = await resp.json();
+    res.json({ success: true, data });
+  } catch (err) {
+    res.json({ success: false, error: err.message, stack: err.stack });
+  }
+});
+
 router.use(verifyTelegramWebAppData);
 
 /* Behind the auth middleware — member photos are private data. */
