@@ -35,6 +35,14 @@ createApp({
     const saving = ref(false);
     const triggering = ref(false);
     const error = ref('');
+    const toastMessage = ref('');
+    let toastTimeout = null;
+    const showToast = (msg) => {
+      if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      toastMessage.value = msg;
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => { toastMessage.value = ''; }, 3000);
+    };
 
     const defaultForm = () => ({ name: '', gender: 'male', role: '', dob: '', weddingDate: '', familyName: '', isChild: false, isActive: true, customData: {} });
     const form = ref(defaultForm());
@@ -196,7 +204,7 @@ createApp({
     const saveSettings = async () => {
       saving.value = true;
       try {
-        await apiCall('/settings', 'POST', settings.value);
+        await apiCall('/settings', 'POST', settings.value); showToast('Settings saved');
         tg.HapticFeedback.notificationOccurred('success');
         tg.showAlert("Settings saved! Schedule updated.");
       } catch (e) {
@@ -245,7 +253,8 @@ createApp({
     const avatarStyle = (name) => {
       const colors = ['#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#10b981', '#3b82f6'];
       const idx = name.charCodeAt(0) % colors.length;
-      return { backgroundColor: colors[idx] };
+      return {
+        toastMessage, showToast, backgroundColor: colors[idx] };
     };
 
     /* The photo endpoint is admin-only; an <img> tag cannot send an
@@ -253,6 +262,7 @@ createApp({
     const photoUrl = (id) => `/api/members/${id}/photo?auth=${encodeURIComponent(tg.initData)}`;
 
     return {
+        toastMessage, showToast,
       currentTab, members, templates, search, memberFilter, loading, saving, error, triggering,
       form, tplForm, filteredMembers, settings, selectedIds,
       selectAll, bulkAction, saveSettings, triggerAction, exportCSV,

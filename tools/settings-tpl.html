@@ -1,82 +1,85 @@
 ﻿<!-- SETTINGS TAB -->
         <div v-if="currentTab === 'settings'" class="space-y-6">
-          <div class="mb-2 mt-2">
+          <div class="mb-4 mt-2 px-2">
             <h1 class="text-3xl font-extrabold tracking-tight">Settings</h1>
           </div>
 
           <!-- Feature Flags -->
-          <div class="card space-y-3">
-            <h2 class="font-bold text-sm uppercase tracking-wide opacity-50 mb-2">Features</h2>
-            <label class="flex items-center justify-between cursor-pointer">
-              <span class="font-medium">🎈 Birthday Automation</span>
-              <input type="checkbox" v-model="settings.enableBirthdays" class="w-5 h-5 accent-blue-500" />
-            </label>
-            <div class="border-b border-gray-200 dark:border-gray-800 my-2"></div>
-            <label class="flex items-center justify-between cursor-pointer">
-              <span class="font-medium">💍 Wedding Automation</span>
-              <input type="checkbox" v-model="settings.enableWeddings" class="w-5 h-5 accent-blue-500" />
-            </label>
+          <div>
+            <h2 class="font-bold text-xs uppercase tracking-wide opacity-50 mb-2 px-4">Features</h2>
+            <div class="list-group">
+              <label class="list-item cursor-pointer">
+                <span class="font-medium text-lg">🎈 Birthday Automation</span>
+                <input type="checkbox" v-model="settings.enableBirthdays" class="ios-switch" @change="showToast('Birthday automation updated')" />
+              </label>
+              <label class="list-item cursor-pointer">
+                <span class="font-medium text-lg">💍 Wedding Automation</span>
+                <input type="checkbox" v-model="settings.enableWeddings" class="ios-switch" @change="showToast('Wedding automation updated')" />
+              </label>
+            </div>
           </div>
 
           <!-- Automation Times -->
-          <div class="card space-y-4">
-            <h2 class="font-bold text-sm uppercase tracking-wide opacity-50 mb-2">Automation</h2>
-            <div>
-              <label class="text-sm font-semibold opacity-80">Daily Broadcast (IST)</label>
-              <input type="time" v-model="settings.sendTime" class="input" />
-            </div>
-            <div>
-              <label class="text-sm font-semibold opacity-80">Admin Reminder (Night before)</label>
-              <input type="time" v-model="settings.reminderTime" class="input" />
+          <div>
+            <h2 class="font-bold text-xs uppercase tracking-wide opacity-50 mb-2 px-4">Automation Schedule</h2>
+            <div class="list-group">
+              <div class="list-item">
+                <span class="font-medium text-lg">Daily Broadcast (IST)</span>
+                <input type="time" v-model="settings.sendTime" class="bg-transparent text-right font-semibold text-blue-500 focus:outline-none" @change="showToast('Broadcast time updated')" />
+              </div>
+              <div class="list-item">
+                <span class="font-medium text-lg">Admin Reminder</span>
+                <input type="time" v-model="settings.reminderTime" class="bg-transparent text-right font-semibold text-blue-500 focus:outline-none" @change="showToast('Reminder time updated')" />
+              </div>
             </div>
           </div>
 
           <!-- Custom Fields -->
-          <div class="card space-y-4">
-            <div class="flex justify-between items-center mb-2">
-              <h2 class="font-bold text-sm uppercase tracking-wide opacity-50">Custom Fields</h2>
-              <button @click="settings.customFields.push({ id: 'custom_' + Date.now(), label: '', type: 'text' })" class="text-blue-500 font-bold text-xs">+ Add Field</button>
+          <div>
+            <div class="flex justify-between items-center mb-2 px-4">
+              <h2 class="font-bold text-xs uppercase tracking-wide opacity-50">Custom Fields</h2>
+              <button @click="settings.customFields.push({ id: 'custom_' + Date.now(), label: '', type: 'text' })" class="text-blue-500 font-bold text-sm">+ Add Field</button>
             </div>
-            <div class="space-y-3">
-              <div v-for="(field, idx) in settings.customFields" :key="idx" class="flex gap-2 items-center bg-black/5 dark:bg-white/5 p-2 rounded-xl">
-                <input type="text" v-model="field.label" placeholder="Name (e.g. Phone)" class="input !mt-0 flex-1" />
-                <select v-model="field.type" class="input !mt-0 w-24 flex-shrink-0">
+            <div class="list-group">
+              <div v-for="(field, idx) in settings.customFields" :key="idx" class="list-item gap-3">
+                <input type="text" v-model="field.label" placeholder="Field Name" class="bg-transparent font-medium focus:outline-none flex-1" />
+                <select v-model="field.type" class="bg-transparent text-blue-500 font-semibold focus:outline-none w-24">
                   <option value="text">Text</option>
                   <option value="date">Date</option>
                   <option value="number">Number</option>
                 </select>
-                <button @click="settings.customFields.splice(idx, 1)" class="btn btn-secondary !px-3 !bg-red-500/10 !text-red-500">✖</button>
+                <button @click="settings.customFields.splice(idx, 1); showToast('Field removed')" class="text-red-500 font-bold text-xl px-2">⊖</button>
               </div>
-              <div v-if="!settings.customFields.length" class="text-center text-sm opacity-50">No custom fields configured.</div>
+              <div v-if="!settings.customFields.length" class="list-item opacity-50 justify-center">No custom fields configured.</div>
             </div>
           </div>
 
-          <button @click="saveSettings" class="btn w-full py-4 text-lg shadow-lg shadow-blue-500/30" :disabled="saving">{{ saving ? '💾 Saving...' : '💾 Save Settings' }}</button>
+          <div class="px-2">
+            <button @click="saveSettings" class="bg-blue-500 text-white font-bold rounded-2xl w-full py-4 text-lg active:opacity-70 transition-opacity" :disabled="saving">{{ saving ? '💾 Saving...' : '💾 Save All Changes' }}</button>
+          </div>
 
           <!-- Manual Triggers -->
-          <div class="card space-y-2 mt-8">
-            <h2 class="font-bold text-sm uppercase tracking-wide opacity-50 mb-2">Developer Tools</h2>
-            <div class="flex items-center gap-3 cursor-pointer p-2 active:bg-black/5 rounded-xl" @click="triggerAction('ping')">
-              <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center text-xl">🔔</div>
-              <div>
-                <div class="font-bold">Ping Group Test</div>
-                <div class="text-xs opacity-60">Send a test text to verify connection</div>
+          <div class="mt-8">
+            <h2 class="font-bold text-xs uppercase tracking-wide opacity-50 mb-2 px-4">Developer Tools</h2>
+            <div class="list-group">
+              <div class="list-item cursor-pointer" @click="triggerAction('ping')">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-500 flex items-center justify-center text-lg">🔔</div>
+                  <span class="font-medium text-lg">Ping Group Test</span>
+                </div>
               </div>
-            </div>
-            <div class="flex items-center gap-3 cursor-pointer p-2 active:bg-black/5 rounded-xl" @click="triggerAction('today')">
-              <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center text-xl">▶️</div>
-              <div>
-                <div class="font-bold">Force Run Today</div>
-                <div class="text-xs opacity-60">Manually trigger today's automated messages</div>
+              <div class="list-item cursor-pointer" @click="triggerAction('today')">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-500 flex items-center justify-center text-lg">▶️</div>
+                  <span class="font-medium text-lg">Force Run Today</span>
+                </div>
               </div>
-            </div>
-            <div class="flex items-center gap-3 cursor-pointer p-2 active:bg-black/5 rounded-xl" @click="exportCSV">
-              <div class="w-10 h-10 rounded-full bg-green-100 text-green-500 flex items-center justify-center text-xl">📥</div>
-              <div>
-                <div class="font-bold">Download Database (CSV)</div>
-                <div class="text-xs opacity-60">Export all members to spreadsheet</div>
+              <div class="list-item cursor-pointer" @click="exportCSV">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-green-100 text-green-500 flex items-center justify-center text-lg">📥</div>
+                  <span class="font-medium text-lg">Download Database</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      
