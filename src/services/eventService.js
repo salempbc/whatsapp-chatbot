@@ -204,15 +204,25 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 
   /* ===== WEDDING ===== */
   for (const m of weddings) {
-    const husband =
-      m.gender === "male"
-        ? `சகோதரர் ${m.name}`
-        : `சகோதரர் ${m.spouseName}`;
+    /* Look up spouse record so we can use their designation too */
+    const spouseDoc = m.spouseName
+      ? await Member.findOne({ name: m.spouseName, isDeleted: { $ne: true } })
+      : null;
 
-    const wife =
-      m.gender === "female"
-        ? `சகோதரி ${m.name}`
-        : `சகோதரி ${m.spouseName}`;
+    /* Fallback designation for spouse if not found in DB */
+    const spouseDesig = spouseDoc
+      ? getDesignation(spouseDoc)
+      : (m.spouseGender === "male" ? "சகோதரர்" : "சகோதரி");
+
+    const mDesig = getDesignation(m);
+
+    const husband = m.gender === "male"
+      ? `${mDesig} ${m.name}`
+      : `${spouseDesig} ${m.spouseName}`;
+
+    const wife = m.gender === "female"
+      ? `${mDesig} ${m.name}`
+      : `${spouseDesig} ${m.spouseName}`;
 
     /* Anniversary year suffix — only shown when weddingDate is known */
     let yearSuffix = "";
