@@ -30,7 +30,8 @@ const processQueue = async () => {
 };
 
 export const initTelegram = () => {
-  const domain = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "https://whatsapp-chatbot-production-131e.up.railway.app");
+  let domain = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "https://whatsapp-chatbot-production-131e.up.railway.app");
+  if (domain && !domain.startsWith("http")) domain = "https://" + domain;
   
   if (domain) {
     bot = new TelegramBot(process.env.BOT_TOKEN);
