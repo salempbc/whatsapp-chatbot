@@ -1,4 +1,4 @@
-import Member from "../models/Member.js";
+﻿import Member from "../models/Member.js";
 import Meta from "../models/Meta.js";
 import Template from "../models/Template.js";
 import { enhanceTamil } from "./aiService.js";
@@ -116,7 +116,8 @@ export const getTodayEvents = async () => {
 
   const members = await Member.find({
     isDeleted: { $ne: true },
-    isActive:  { $ne: false }
+    isActive:  { $ne: false },
+    $or: [{ birthday: todayKey }, { wedding: todayKey }]
   });
 
   const birthdays = [];
@@ -147,8 +148,13 @@ export const getTodayEvents = async () => {
 export const getUpcomingEvents = async (days = 30) => {
   const keys = getUpcomingKeys(days);
   const todayKey = getTodayKey();
+  const keysArray = Array.from(keys);
 
-  const members = await Member.find({ isDeleted: { $ne: true }, isActive: { $ne: false } });
+  const members = await Member.find({ 
+    isDeleted: { $ne: true }, 
+    isActive: { $ne: false },
+    $or: [{ birthday: { $in: keysArray } }, { wedding: { $in: keysArray } }]
+  });
 
   const birthdays = [];
   const weddings = [];
@@ -275,7 +281,8 @@ export const getTomorrowEvents = async () => {
 
   const members = await Member.find({
     isDeleted: { $ne: true },
-    isActive:  { $ne: false }
+    isActive:  { $ne: false },
+    $or: [{ birthday: tomorrowKey }, { wedding: tomorrowKey }]
   });
 
   const birthdays = members.filter(

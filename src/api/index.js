@@ -12,13 +12,25 @@ router.post("/bot-webhook", express.json(), (req, res) => {
   res.sendStatus(200);
 });
 
+const photoCache = new Map();
+
 router.get("/members/:id/photo", async (req, res) => {
   try {
     const m = await Member.findById(req.params.id);
     if (!m || !m.photo) return res.status(404).send("No photo");
+    
+    if (photoCache.has(m.photo)) {
+      const cached = photoCache.get(m.photo);
+      if (Date.now() < cached.expires) {
+        return res.redirect(cached.url);
+      }
+    }
+    
     const url = await fetch("https://api.telegram.org/bot" + process.env.BOT_TOKEN + "/getFile?file_id=" + m.photo)
       .then(r => r.json())
       .then(d => "https://api.telegram.org/file/bot" + process.env.BOT_TOKEN + "/" + d.result.file_path);
+      
+    photoCache.set(m.photo, { url, expires: Date.now() + 50 * 60 * 1000 });
     res.redirect(url);
   } catch (err) {
     res.status(500).send("Error fetching photo");
