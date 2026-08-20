@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -8,98 +8,200 @@
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body { background-color: var(--tg-theme-bg-color, #f3f4f6); color: var(--tg-theme-text-color, #111827); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    .card { background-color: var(--tg-theme-secondary-bg-color, #ffffff); border-radius: 0.75rem; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .btn { background-color: var(--tg-theme-button-color, #3b82f6); color: var(--tg-theme-button-text-color, #ffffff); padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; text-align: center; }
-    .input { width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #d1d5db; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); margin-top: 0.25rem; }
+    body { background-color: var(--tg-theme-bg-color, #f3f4f6); color: var(--tg-theme-text-color, #111827); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding-bottom: 80px; }
+    .card { background-color: var(--tg-theme-secondary-bg-color, #ffffff); border-radius: 1rem; padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .btn { background-color: var(--tg-theme-button-color, #3b82f6); color: var(--tg-theme-button-text-color, #ffffff); padding: 0.5rem 1rem; border-radius: 0.75rem; font-weight: 600; text-align: center; transition: opacity 0.2s; }
+    .btn:active { opacity: 0.7; }
+    .btn-secondary { background-color: var(--tg-theme-secondary-bg-color, #e5e7eb); color: var(--tg-theme-text-color, #1f2937); }
+    .input { width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid rgba(128,128,128,0.2); background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); margin-top: 0.25rem; }
+    
+    /* Animations */
+    .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+    .fade-enter-from, .fade-leave-to { opacity: 0; }
+    .slide-enter-active, .slide-leave-active { transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+    .slide-enter-from { transform: translateX(100%); opacity: 0; }
+    .slide-leave-to { transform: translateX(-100%); opacity: 0; position: absolute; width: 100%; }
+
+    /* Bottom Nav */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--tg-theme-secondary-bg-color, #fff); border-top: 1px solid rgba(128,128,128,0.2); display: flex; justify-content: space-around; padding: 0.75rem 0; z-index: 50; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)); }
+    .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 0.75rem; color: var(--tg-theme-hint-color, #6b7280); font-weight: 500; cursor: pointer; }
+    .nav-item.active { color: var(--tg-theme-button-color, #3b82f6); }
+    .nav-icon { font-size: 1.25rem; margin-bottom: 2px; }
+
+    /* Avatars & Badges */
+    .avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; flex-shrink: 0; }
+    .badge { padding: 0.1rem 0.5rem; border-radius: 1rem; font-size: 0.7rem; font-weight: bold; }
+    .badge-active { background: rgba(34, 197, 94, 0.2); color: #166534; }
+    .badge-inactive { background: rgba(107, 114, 128, 0.2); color: #374151; }
   </style>
 </head>
-<body class="p-4">
-  <div id="app" v-cloak>
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-xl font-bold">SPBC Members</h1>
-      <button @click="view = 'add'" class="btn text-sm" v-if="view === 'list'">➕ Add</button>
-      <button @click="view = 'list'" class="btn text-sm" v-if="view !== 'list'">🔙 Back</button>
-    </div>
-
+<body class="p-4 overflow-x-hidden">
+  <div id="app" v-cloak class="relative">
+    
     <!-- Error/Loading -->
-    <div v-if="loading" class="text-center py-4">⏳ Loading...</div>
-    <div v-if="error" class="bg-red-100 text-red-700 p-3 rounded-lg mb-4">{{ error }}</div>
-
-    <!-- LIST VIEW -->
-    <div v-if="view === 'list' && !loading">
-      <input type="text" v-model="search" placeholder="🔍 Search members..." class="input mb-4" />
-      <div class="space-y-3">
-        <div v-for="m in filteredMembers" :key="m._id" class="card flex justify-between items-center cursor-pointer" @click="editMember(m)">
-          <div>
-            <div class="font-bold flex items-center gap-2">
-              <span v-if="!m.isActive" title="Inactive">🚪</span>
-              {{ m.name }}
-            </div>
-            <div class="text-sm opacity-70">{{ m.role || 'Member' }} • {{ m.gender }}</div>
-          </div>
-          <div class="text-xl opacity-50">›</div>
-        </div>
-        <div v-if="!filteredMembers.length" class="text-center opacity-50 py-4">No members found.</div>
-      </div>
+    <div v-if="loading" class="text-center py-10 opacity-70">
+      <div class="text-3xl animate-spin mb-2">⏳</div>
+      Loading Database...
     </div>
+    <div v-if="error" class="bg-red-100 text-red-700 p-4 rounded-xl mb-4 font-semibold">{{ error }}</div>
 
-    <!-- FORM VIEW (Add/Edit) -->
-    <div v-if="view === 'add' || view === 'edit'" class="card space-y-4">
-      <h2 class="font-bold text-lg border-b pb-2 mb-2">{{ view === 'edit' ? '✏️ Edit Member' : '➕ New Member' }}</h2>
-      
-      <div><label class="text-sm font-semibold">Full Name *</label><input type="text" v-model="form.name" class="input" /></div>
-      
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="text-sm font-semibold">Gender *</label>
-          <select v-model="form.gender" class="input">
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-          </select>
+    <transition name="slide">
+      <div v-if="!loading" :key="currentTab">
+        
+        <!-- ================= MEMBERS TAB ================= -->
+        <div v-if="currentTab === 'members'">
+          <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold">Members</h1>
+            <button @click="openMemberForm()" class="btn text-sm">➕ Add</button>
+          </div>
+
+          <!-- Quick Filters -->
+          <div class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+            <button @click="memberFilter = 'active'" :class="['px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap', memberFilter === 'active' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700']">✅ Active</button>
+            <button @click="memberFilter = 'all'" :class="['px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap', memberFilter === 'all' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700']">👥 All</button>
+            <button @click="memberFilter = 'inactive'" :class="['px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap', memberFilter === 'inactive' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700']">🚪 Inactive</button>
+          </div>
+
+          <input type="text" v-model="search" placeholder="🔍 Search names, roles..." class="input mb-4" />
+          
+          <div class="space-y-3">
+            <div v-for="m in filteredMembers" :key="m._id" class="card flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform" @click="openMemberForm(m)">
+              <div class="avatar" :style="avatarStyle(m.name)">{{ getInitials(m.name) }}</div>
+              <div class="flex-1">
+                <div class="font-bold text-lg leading-tight">{{ m.name }}</div>
+                <div class="text-sm opacity-70 mt-0.5 flex gap-2 items-center">
+                  <span :class="['badge', m.isActive ? 'badge-active' : 'badge-inactive']">{{ m.isActive ? 'Active' : 'Left' }}</span>
+                  <span>{{ m.role || 'Member' }}</span>
+                </div>
+              </div>
+              <div class="text-xl opacity-30">›</div>
+            </div>
+            <div v-if="!filteredMembers.length" class="text-center opacity-50 py-10 font-medium">No members found.</div>
+          </div>
         </div>
-        <div>
-          <label class="text-sm font-semibold">Role / Designation</label>
-          <input type="text" v-model="form.role" class="input" list="role-options" placeholder="e.g. Member, Pastor..." />
-          <datalist id="role-options">
-            <option value="Member"></option>
-            <option value="Pastor"></option>
-            <option value="Elder"></option>
-            <option value="Deacon"></option>
-            <option value="Treasurer"></option>
-            <option value="Secretary"></option>
-            <option value="Worship Leader"></option>
-            <option value="Sunday School"></option>
-            <option value="Youth Leader"></option>
-            <option value="Admin"></option>
-          </datalist>
+
+
+        <!-- ================= TEMPLATES TAB ================= -->
+        <div v-if="currentTab === 'templates'">
+          <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold">Templates</h1>
+            <button @click="openTemplateForm()" class="btn text-sm">➕ New</button>
+          </div>
+
+          <div class="space-y-4">
+            <div v-for="t in templates" :key="t._id" class="card cursor-pointer active:scale-[0.98] transition-transform" @click="openTemplateForm(t)">
+              <div class="flex justify-between items-start mb-2">
+                <div class="font-bold text-blue-600 flex items-center gap-1">
+                  {{ t.type === 'birthday' ? '🎂' : '💍' }} {{ t.type.toUpperCase() }}
+                </div>
+                <div class="badge bg-gray-100 text-gray-600 border">{{ t.category }}</div>
+              </div>
+              <p class="text-sm opacity-80 line-clamp-3">{{ t.content }}</p>
+              <div class="text-xs opacity-50 mt-2">Used: {{ t.usageCount }} times</div>
+            </div>
+          </div>
         </div>
+
+
+        <!-- ================= MEMBER FORM ================= -->
+        <div v-if="currentTab === 'memberForm'" class="card space-y-4">
+          <div class="flex justify-between items-center mb-2 pb-2 border-b">
+            <h2 class="font-bold text-xl">{{ form._id ? '✏️ Edit Profile' : '➕ New Profile' }}</h2>
+            <button @click="currentTab = 'members'" class="text-gray-500 font-bold px-2">✕</button>
+          </div>
+          
+          <div><label class="text-sm font-semibold opacity-80">Full Name *</label><input type="text" v-model="form.name" class="input" /></div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-semibold opacity-80">Gender *</label>
+              <select v-model="form.gender" class="input">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-semibold opacity-80">Role / Designation</label>
+              <input type="text" v-model="form.role" class="input" list="role-options" placeholder="e.g. Pastor..." />
+              <datalist id="role-options">
+                <option value="Member"></option>
+                <option value="Pastor"></option>
+                <option value="Elder"></option>
+                <option value="Treasurer"></option>
+                <option value="Secretary"></option>
+              </datalist>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="text-sm font-semibold opacity-80">DOB</label><input type="date" v-model="form.dob" class="input" /></div>
+            <div><label class="text-sm font-semibold opacity-80">Wedding Date</label><input type="date" v-model="form.weddingDate" class="input" /></div>
+          </div>
+
+          <div><label class="text-sm font-semibold opacity-80">Family Name</label><input type="text" v-model="form.familyName" class="input" placeholder="e.g. Kumar Family" /></div>
+
+          <div class="flex items-center gap-6 mt-2 pt-4 border-t">
+            <label class="flex items-center gap-2 cursor-pointer font-medium"><input type="checkbox" v-model="form.isChild" class="w-5 h-5 accent-blue-500" /> Child</label>
+            <label class="flex items-center gap-2 cursor-pointer font-medium"><input type="checkbox" v-model="form.isActive" class="w-5 h-5 accent-blue-500" /> Active</label>
+          </div>
+
+          <div class="mt-6 pt-4 border-t flex gap-3">
+            <button @click="saveMember" class="btn flex-1 py-3" :disabled="saving">
+              {{ saving ? '⏳ Saving...' : '💾 Save Profile' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- ================= TEMPLATE FORM ================= -->
+        <div v-if="currentTab === 'templateForm'" class="card space-y-4">
+          <div class="flex justify-between items-center mb-2 pb-2 border-b">
+            <h2 class="font-bold text-xl">{{ tplForm._id ? '✏️ Edit Template' : '➕ New Template' }}</h2>
+            <button @click="currentTab = 'templates'" class="text-gray-500 font-bold px-2">✕</button>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-semibold opacity-80">Type</label>
+              <select v-model="tplForm.type" class="input">
+                <option value="birthday">Birthday</option>
+                <option value="wedding">Wedding</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-semibold opacity-80">Category</label>
+              <select v-model="tplForm.category" class="input">
+                <option value="formal">Formal</option>
+                <option value="short">Short</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-sm font-semibold opacity-80">Message Content</label>
+            <textarea v-model="tplForm.content" class="input min-h-[150px]" placeholder="Use {name}, {husband}, {wife}, {years}..."></textarea>
+            <div class="text-xs opacity-60 mt-1">Available vars: {name}, {designation}, {suffix}, {years}, {husband}, {wife}</div>
+          </div>
+
+          <div class="mt-6 pt-4 border-t flex gap-3">
+            <button @click="saveTemplate" class="btn flex-1 py-3" :disabled="saving">
+              {{ saving ? '⏳ Saving...' : '💾 Save Template' }}
+            </button>
+            <button v-if="tplForm._id" @click="deleteTemplate" class="btn btn-secondary py-3 px-4">🗑</button>
+          </div>
+        </div>
+
       </div>
+    </transition>
 
-      <div class="grid grid-cols-2 gap-4">
-        <div><label class="text-sm font-semibold">DOB</label><input type="date" v-model="form.dob" class="input" /></div>
-        <div><label class="text-sm font-semibold">Wedding Date</label><input type="date" v-model="form.weddingDate" class="input" /></div>
+    <!-- Bottom Navigation -->
+    <div v-if="!loading && currentTab !== 'memberForm' && currentTab !== 'templateForm'" class="bottom-nav">
+      <div class="nav-item" :class="{ active: currentTab === 'members' }" @click="currentTab = 'members'">
+        <div class="nav-icon">👥</div>
+        <div>Members</div>
       </div>
-
-      <div><label class="text-sm font-semibold">Family Name</label><input type="text" v-model="form.familyName" class="input" placeholder="e.g. Kumar Family" /></div>
-
-      <div class="flex items-center gap-4 mt-4 pt-4 border-t">
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" v-model="form.isChild" class="w-4 h-4" /> Child
-        </label>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" v-model="form.isPastor" class="w-4 h-4" /> Pastor
-        </label>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" v-model="form.isActive" class="w-4 h-4" /> Active
-        </label>
-      </div>
-
-      <div class="mt-6">
-        <button @click="saveMember" class="btn w-full py-3 text-lg" :disabled="saving">
-          {{ saving ? '⏳ Saving...' : '💾 Save Member' }}
-        </button>
+      <div class="nav-item" :class="{ active: currentTab === 'templates' }" @click="currentTab = 'templates'">
+        <div class="nav-icon">📝</div>
+        <div>Templates</div>
       </div>
     </div>
 

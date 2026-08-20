@@ -1,6 +1,7 @@
-import express from "express";
+﻿import express from "express";
 import crypto from "crypto";
 import Member from "../models/Member.js";
+import Template from "../models/Template.js";
 
 const router = express.Router();
 
@@ -44,6 +45,8 @@ const verifyTelegramWebAppData = (req, res, next) => {
 router.use(express.json());
 router.use(verifyTelegramWebAppData);
 
+import Template from "../models/Template.js";
+
 router.get("/members", async (req, res) => {
   const members = await Member.find({ isDeleted: { $ne: true } }).sort({ name: 1 });
   res.json(members);
@@ -57,6 +60,27 @@ router.post("/members", async (req, res) => {
 router.put("/members/:id", async (req, res) => {
   const m = await Member.findByIdAndUpdate(req.params.id, req.body, { new: true });
   res.json(m);
+});
+
+/* TEMPLATES API */
+router.get("/templates", async (req, res) => {
+  const templates = await Template.find().sort({ type: 1, category: 1 });
+  res.json(templates);
+});
+
+router.post("/templates", async (req, res) => {
+  const t = await Template.create(req.body);
+  res.json(t);
+});
+
+router.put("/templates/:id", async (req, res) => {
+  const t = await Template.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json(t);
+});
+
+router.delete("/templates/:id", async (req, res) => {
+  await Template.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
 });
 
 export default router;
