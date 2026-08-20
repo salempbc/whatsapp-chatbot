@@ -1,4 +1,4 @@
-﻿import { getUpcomingEvents } from "../../services/eventService.js";
+import { getUpcomingEvents } from "../../services/eventService.js";
 import { renderScreen } from "../ui.js";
 
 const screen = async (days) => {

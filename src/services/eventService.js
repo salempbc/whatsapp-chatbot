@@ -1,4 +1,4 @@
-﻿import Member from "../models/Member.js";
+import Member from "../models/Member.js";
 import Meta from "../models/Meta.js";
 import Template from "../models/Template.js";
 import { enhanceTamil } from "./aiService.js";

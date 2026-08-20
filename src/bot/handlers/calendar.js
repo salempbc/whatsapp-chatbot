@@ -1,4 +1,4 @@
-﻿import { getMonthlyCalendar } from "../../services/eventService.js";
+import { getMonthlyCalendar } from "../../services/eventService.js";
 import { MONTH_NAMES, currentMonthMM, shiftMonth, renderScreen } from "../ui.js";
 
 const screen = async (mm) => {

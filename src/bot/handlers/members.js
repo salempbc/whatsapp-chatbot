@@ -1,4 +1,4 @@
-﻿import Member from "../../models/Member.js";
+import Member from "../../models/Member.js";
 import { findSimilar, softDeleteMember } from "../../services/memberService.js";
 import { PAGE_SIZE, DOB_RE, deriveMMDD, renderScreen } from "../ui.js";
 import { getState, setState, clearState } from "../session.js";

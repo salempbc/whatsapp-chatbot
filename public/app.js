@@ -1,4 +1,4 @@
-﻿const { createApp, ref, computed, onMounted } = Vue;
+const { createApp, ref, computed, onMounted } = Vue;
 
 const tg = window.Telegram.WebApp;
 tg.expand(); // make it full screen
