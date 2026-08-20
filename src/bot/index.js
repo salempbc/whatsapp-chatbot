@@ -78,6 +78,15 @@ export const sendAdminMessage = async (text) => {
   await bot.sendMessage(process.env.ADMIN_ID, text);
 };
 
+export const waitForQueueToDrain = async () => {
+  if (messageQueue.length === 0 && !isProcessingQueue) return;
+  console.log("⏳ Waiting for message queue to drain before shutdown...");
+  while (messageQueue.length > 0 || isProcessingQueue) {
+    await new Promise(r => setTimeout(r, 500));
+  }
+  console.log("✅ Message queue drained.");
+};
+
 /* STOP */
 export const stopTelegram = async () => {
   if (!bot) return;

@@ -1,0 +1,1 @@
+﻿const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); pkg.dependencies.helmet = '^8.0.0'; pkg.dependencies['express-rate-limit'] = '^7.4.1'; const badKey = Object.keys(pkg.dependencies).find(k => k.includes('helmet')); if (badKey) delete pkg.dependencies[badKey]; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
