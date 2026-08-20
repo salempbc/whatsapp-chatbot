@@ -10,6 +10,7 @@ createApp({
     
     // Telegram BackButton Logic
     watch(currentTab, (newTab) => {
+      if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
       if (['memberForm', 'templateForm'].includes(newTab)) {
         tg.BackButton.show();
       } else {
@@ -134,6 +135,7 @@ createApp({
     };
 
     const openMemberForm = (m = null) => {
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
       form.value = m ? { ...m, customData: m.customData || {} } : defaultForm();
       currentTab.value = 'memberForm';
     };
@@ -154,6 +156,7 @@ createApp({
     };
 
     const openTemplateForm = (t = null) => {
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
       tplForm.value = t ? { ...t } : defaultTplForm();
       currentTab.value = 'templateForm';
     };
