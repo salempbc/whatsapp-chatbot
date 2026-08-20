@@ -4,7 +4,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import { startBot } from "./bot/index.js";
+import { initTelegram } from "./bot/index.js";
 import { startScheduler } from "./scheduler/dailyJob.js";
 import apiRouter from "./api/index.js";
 
@@ -32,7 +32,7 @@ const PORT = process.env.PORT || 3000;
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log("✅ MongoDB connected");
-    startBot();
+    initTelegram();
     startScheduler();
     app.listen(PORT, () => console.log(`🌍 Web Server & API listening on port ${PORT}`));
   })
