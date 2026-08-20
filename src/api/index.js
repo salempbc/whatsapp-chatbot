@@ -81,4 +81,56 @@ router.delete("/templates/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+/* BULK MEMBER ACTIONS */
+router.post("/members/bulk", async (req, res) => {
+  const { ids, action, payload } = req.body;
+  if (!ids || !ids.length) return res.status(400).json({ error: "No ids provided" });
+
+  if (action === "delete") {
+    await Member.updateMany({ _id: { $in: ids } }, { isDeleted: true });
+  } else if (action === "update") {
+    await Member.updateMany({ _id: { $in: ids } }, { $set: payload });
+  }
+  res.json({ success: true });
+});
+
+/* SETTINGS & ACTIONS API */
+import { getSetting, setSetting } from "../models/Settings.js";
+import { restartScheduler, triggerNow } from "../scheduler/dailyJob.js";
+import { sendMessage } from "../bot/index.js";
+
+router.get("/settings", async (req, res) => {
+  const sendTime = await getSetting("sendTime", "06:00");
+  const reminderTime = await getSetting("reminderTime", "20:00"); // Not fully dynamic in dailyJob yet but we'll store it
+  res.json({ sendTime, reminderTime });
+});
+
+router.post("/settings", async (req, res) => {
+  const { sendTime, reminderTime } = req.body;
+  if (sendTime) await setSetting("sendTime", sendTime);
+  if (reminderTime) await setSetting("reminderTime", reminderTime);
+  
+  // Restart scheduler to apply new cron times
+  await restartScheduler();
+  res.json({ success: true });
+});
+
+router.post("/actions/ping", async (req, res) => {
+  try {
+    await sendMessage("🔔 <b>CMS Ping Test</b>\n<i>If you see this, the Web App is successfully connected to the Telegram Group.</i>");
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/actions/trigger-today", async (req, res) => {
+  try {
+    const sent = await triggerNow();
+    res.json({ success: true, count: sent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

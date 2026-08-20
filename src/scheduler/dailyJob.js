@@ -76,12 +76,14 @@ export const startScheduler = async () => {
   const [hh, mm] = sendTime.split(":");
   const morningCron = `${mm} ${hh} * * *`;
 
+  const reminderTime = await getSetting("reminderTime", "20:00");
+  const [rhh, rmm] = reminderTime.split(":");
+  const reminderCron = `${rmm} ${rhh} * * *`;
+
   morningTask = cron.schedule(morningCron, runMorningJob, { timezone: "Asia/Kolkata" });
+  reminderTask = cron.schedule(reminderCron, runReminderJob, { timezone: "Asia/Kolkata" });
 
-  /* Day-before reminder fixed at 8 PM IST */
-  reminderTask = cron.schedule("0 20 * * *", runReminderJob, { timezone: "Asia/Kolkata" });
-
-  console.log(`📅 Scheduler started (${sendTime} IST daily + 8 PM reminder)`);
+  console.log(`⏱️ Scheduler started (${sendTime} IST daily + ${reminderTime} IST reminder)`);
 };
 
 export const restartScheduler = async () => {

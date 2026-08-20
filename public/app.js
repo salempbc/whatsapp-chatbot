@@ -6,26 +6,27 @@ tg.ready();
 
 createApp({
   setup() {
-    const currentTab = ref('members'); // 'members', 'templates', 'memberForm', 'templateForm'
+    const currentTab = ref('members');
     
     const members = ref([]);
     const templates = ref([]);
+    const settings = ref({ sendTime: '06:00', reminderTime: '20:00' });
     
     const search = ref('');
-    const memberFilter = ref('active'); // 'active', 'inactive', 'all'
+    const memberFilter = ref('active');
+    const selectedIds = ref([]);
     
     const loading = ref(true);
     const saving = ref(false);
+    const triggering = ref(false);
     const error = ref('');
 
-    // Forms
     const defaultForm = () => ({ name: '', gender: 'male', role: '', dob: '', weddingDate: '', familyName: '', isChild: false, isActive: true });
     const form = ref(defaultForm());
     
     const defaultTplForm = () => ({ type: 'birthday', category: 'formal', content: '' });
     const tplForm = ref(defaultTplForm());
 
-    // API Helpers
     const apiCall = async (url, method = 'GET', body = null) => {
       const opts = { method, headers: { 'Authorization': `Bearer ${tg.initData}` } };
       if (body) {
@@ -40,12 +41,14 @@ createApp({
     const loadData = async () => {
       loading.value = true;
       try {
-        const [mRes, tRes] = await Promise.all([
+        const [mRes, tRes, sRes] = await Promise.all([
           apiCall('/members'),
-          apiCall('/templates')
+          apiCall('/templates'),
+          apiCall('/settings')
         ]);
         members.value = mRes;
         templates.value = tRes;
+        settings.value = sRes;
       } catch (err) {
         error.value = "Failed to load database. Are you the admin?";
       } finally {
@@ -55,7 +58,6 @@ createApp({
 
     onMounted(loadData);
 
-    // Member Logic
     const filteredMembers = computed(() => {
       let filtered = members.value;
       if (memberFilter.value === 'active') filtered = filtered.filter(m => m.isActive !== false);
@@ -66,6 +68,40 @@ createApp({
       }
       return filtered;
     });
+
+    const selectAll = () => {
+      if (selectedIds.value.length === filteredMembers.value.length) {
+        selectedIds.value = [];
+      } else {
+        selectedIds.value = filteredMembers.value.map(m => m._id);
+      }
+    };
+
+    const bulkAction = async (action, value) => {
+      if (!selectedIds.value.length) return;
+      
+      const count = selectedIds.value.length;
+      tg.showConfirm(`Apply to ${count} members?`, async (ok) => {
+        if (!ok) return;
+        
+        let payload = null;
+        let endpointAction = action;
+        
+        if (action === 'active') {
+          endpointAction = 'update';
+          payload = { isActive: value };
+        }
+        
+        try {
+          await apiCall('/members/bulk', 'POST', { ids: selectedIds.value, action: endpointAction, payload });
+          selectedIds.value = [];
+          await loadData();
+          tg.HapticFeedback.notificationOccurred('success');
+        } catch (e) {
+          tg.showAlert(e.message);
+        }
+      });
+    };
 
     const openMemberForm = (m = null) => {
       form.value = m ? { ...m } : defaultForm();
@@ -87,7 +123,6 @@ createApp({
       }
     };
 
-    // Template Logic
     const openTemplateForm = (t = null) => {
       tplForm.value = t ? { ...t } : defaultTplForm();
       currentTab.value = 'templateForm';
@@ -125,7 +160,36 @@ createApp({
       });
     };
 
-    // UI Helpers
+    const saveSettings = async () => {
+      saving.value = true;
+      try {
+        await apiCall('/settings', 'POST', settings.value);
+        tg.HapticFeedback.notificationOccurred('success');
+        tg.showAlert("Settings saved! Schedule updated.");
+      } catch (e) {
+        tg.showAlert(e.message);
+      } finally {
+        saving.value = false;
+      }
+    };
+
+    const triggerAction = async (act) => {
+      triggering.value = true;
+      try {
+        const res = await apiCall(`/actions/${act}`, 'POST');
+        tg.HapticFeedback.notificationOccurred('success');
+        if (act === 'trigger-today') {
+          tg.showAlert(`Success! ${res.count} messages were sent to the group.`);
+        } else {
+          tg.showAlert("Success! Ping sent.");
+        }
+      } catch (e) {
+        tg.showAlert(e.message);
+      } finally {
+        triggering.value = false;
+      }
+    };
+
     const getInitials = (name) => name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     const avatarStyle = (name) => {
       const colors = ['#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#10b981', '#3b82f6'];
@@ -134,8 +198,9 @@ createApp({
     };
 
     return { 
-      currentTab, members, templates, search, memberFilter, loading, saving, error, 
-      form, tplForm, filteredMembers, 
+      currentTab, members, templates, search, memberFilter, loading, saving, error, triggering,
+      form, tplForm, filteredMembers, settings, selectedIds,
+      selectAll, bulkAction, saveSettings, triggerAction,
       openMemberForm, saveMember, 
       openTemplateForm, saveTemplate, deleteTemplate,
       getInitials, avatarStyle

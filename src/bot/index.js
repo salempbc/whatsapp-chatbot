@@ -29,9 +29,9 @@ export const sendMessage = async (text, member = null) => {
   if (!bot) return;
 
   if (member?.photo) {
-    await bot.sendPhoto(process.env.CHAT_ID, member.photo, { caption: text });
+    await bot.sendPhoto(process.env.CHAT_ID, member.photo, { caption: text, parse_mode: "HTML" });
   } else {
-    await bot.sendMessage(process.env.CHAT_ID, text);
+    await bot.sendMessage(process.env.CHAT_ID, text, { parse_mode: "HTML" });
   }
 };
 
