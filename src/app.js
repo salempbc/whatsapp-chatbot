@@ -31,7 +31,7 @@ app.use(compression());
 app.use(cors());
 
 // Helmet for security headers (CSP disabled to allow Vue/Tailwind/Telegram CDNs)
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({ contentSecurityPolicy: false, xFrameOptions: false }));
 
 // Rate limiter for API routes to prevent DDoS / Spam
 const apiLimiter = rateLimit({
