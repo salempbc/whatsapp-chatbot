@@ -1,4 +1,4 @@
-﻿const { createApp, ref, computed, onMounted, watch } = Vue;
+const { createApp, ref, computed, onMounted, watch } = Vue;
 
 const tg = window.Telegram.WebApp;
 tg.expand();
