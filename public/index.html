@@ -268,9 +268,20 @@
       <option value="Secretary"></option>
     </datalist>
 
-    
+    <!-- Toast Notification -->
+    <transition name="toast">
+      <div v-if="toastMessage" class="toast">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+        {{ toastMessage }}
+      </div>
+    </transition>
 
-    
+      <!-- Bottom Navigation -->
+    <div v-if="!loading && !['memberForm', 'templateForm'].includes(currentTab)" class="bottom-nav">
+      <div class="nav-item" :class="{ active: currentTab === 'members' }" @click="currentTab = 'members'"><div class="nav-icon">👥</div><div>Members</div></div>
+      <div class="nav-item" :class="{ active: currentTab === 'templates' }" @click="currentTab = 'templates'"><div class="nav-icon">📝</div><div>Templates</div></div>
+      <div class="nav-item" :class="{ active: currentTab === 'settings' }" @click="currentTab = 'settings'"><div class="nav-icon">⚙️</div><div>Settings</div></div>
+    </div>
   </div>
 
   <script src="/app.js"></script>
