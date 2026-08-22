@@ -22,12 +22,10 @@ export const homeScreen = () => ({
 <b>Timezone:</b> 🇮🇳 Asia/Kolkata</blockquote>
 What would you like to manage today?`,
   keyboard: [
-    [{ text: "🚀 Open Web CMS (New!)", web_app: { url: (() => { let d = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "https://whatsapp-chatbot-production-131e.up.railway.app"); return d.startsWith("http") ? d : "https://" + d; })() } }],
-    [{ text: "👥 Member Roster", callback_data: "members:list:0:active" }, { text: "🔍 Global Search", callback_data: "members:search" }],
-    [{ text: "📅 Monthly Calendar", callback_data: "calendar:show:current" }, { text: "🗓 Coming Up (Next 7 days)", callback_data: "upcoming:show:7" }],
-    [{ text: "📝 Message Templates", callback_data: "templates:show" }, { text: "📤 Export Database", callback_data: "export:run" }],
-    [{ text: "📊 Demographics & Stats", callback_data: "stats:show" }, { text: "⚙️ System Settings", callback_data: "settings:show" }],
-    [{ text: "❓ Help & Documentation", callback_data: "help:show" }]
+    [{ text: "🌐 Open Web CMS", web_app: { url: (() => { let d = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "https://whatsapp-chatbot-production-131e.up.railway.app"); return d.startsWith("http") ? d : "https://" + d; })() } }],
+    [{ text: "📅 Monthly Calendar", callback_data: "calendar:show:current" }, { text: "🔜 Coming Up", callback_data: "upcoming:show:7" }],
+    [{ text: "📊 Demographics & Stats", callback_data: "stats:show" }],
+    [{ text: "⚙️ Bot Diagnostics", callback_data: "settings:show" }, { text: "❓ Help", callback_data: "help:show" }]
   ]
 });
 

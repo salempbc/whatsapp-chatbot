@@ -7,7 +7,7 @@ import { sendMessage } from "../index.js";
 const settingsScreen = async () => {
   const sendTime = await getSetting("sendTime", "06:00");
   return {
-    text: `⚙️ Settings\n\nDaily message time : ${sendTime} IST\nDay-before reminder: 20:00 IST (fixed)`,
+    text: `⚙️ Bot Diagnostics\n\nDaily message time : ${sendTime} IST\nDay-before reminder: 20:00 IST (fixed)`,
     keyboard: [
       [{ text: "🕐 Change Send Time", callback_data: "settings:edittime" }],
       [{ text: "📨 Send Today Now",   callback_data: "settings:testsend" }],

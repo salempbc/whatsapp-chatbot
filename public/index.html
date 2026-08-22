@@ -100,6 +100,13 @@
             <div v-if="!filteredMembers.length" class="text-center opacity-50 py-10 font-medium">No members found.</div>
           </div>
         </div>
+        
+          <div class="mt-4 px-2 pb-6">
+            <button @click="exportCSV" class="w-full bg-green-100 text-green-700 font-bold rounded-2xl py-3 text-lg active:opacity-70 flex items-center justify-center gap-2">
+              📥 Download Member Database (CSV)
+            </button>
+          </div>
+
         <!-- TEMPLATES TAB -->
         <div v-if="currentTab === 'templates'">
           <div class="flex justify-between items-center mb-4 mt-2">
