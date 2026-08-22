@@ -192,6 +192,38 @@ export const getUpcomingEvents = async (days = 30) => {
   return { birthdays, weddings };
 };
 
+
+/* ================= TEMPLATE ENGINE ================= */
+const processConditionals = (str, ctx) => {
+  if (!str) return str;
+  let res = str;
+  for (const [k, v] of Object.entries(ctx)) {
+    res = res.replace(new RegExp("\\{" + k + "\\}", "gi"), v === null || v === undefined ? "" : v);
+  }
+  
+  res = res.replace(/\{if\s+([a-zA-Z0-9_]+)\s*(==|=|!=|>|<|>=|<=)\s*(\d+)\}([\s\S]*?)\{endif\}/gi, (match, varName, op, val, content) => {
+    const contextVal = ctx[varName];
+    if (contextVal === undefined || contextVal === null) return "";
+    const left = Number(contextVal);
+    const right = Number(val);
+    let isTrue = false;
+    
+    switch (op) {
+      case "==":
+      case "=": isTrue = left === right; break;
+      case "!=": isTrue = left !== right; break;
+      case ">": isTrue = left > right; break;
+      case "<": isTrue = left < right; break;
+      case ">=": isTrue = left >= right; break;
+      case "<=": isTrue = left <= right; break;
+    }
+    
+    return isTrue ? content : "";
+  });
+  
+  return res;
+};
+
 /* ================= BUILD ================= */
 export const buildMessages = async ({ birthdays, weddings }) => {
   const results = [];
@@ -201,14 +233,16 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 
   /* ===== BIRTHDAY ===== */
   for (const m of birthdays) {
-    /* Under 18 (or flagged as child) → ஐ, else → அவர்களை */
     const age = getAge(m.dob);
-    const suffix = (m.isChild || (age !== null && age < 18)) ? "ஐ" : "அவர்களை";
+    const suffix = (m.isChild || (age !== null && age < 18)) ? "👧👦" : "🎉🎂💐";
 
-    let text = (bTpl || "{designation} {name} {suffix}")
-      .replace("{designation}", getDesignation(m))
-      .replace("{name}", m.name)
-      .replace("{suffix}", suffix);
+    let text = bTpl || "{designation} {name} {suffix}";
+    text = processConditionals(text, {
+      designation: getDesignation(m),
+      name: m.name,
+      suffix: suffix,
+      age: age
+    });
 
     text = await enhanceTamil(text, {
       type: "birthday",
@@ -225,15 +259,13 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 
   /* ===== WEDDING ===== */
   for (const m of weddings) {
-    /* Look up spouse record so we can use their designation too */
     const spouseDoc = m.spouseName
       ? await Member.findOne({ name: m.spouseName, isDeleted: { $ne: true } })
       : null;
 
-    /* Fallback designation for spouse if not found in DB */
     const spouseDesig = spouseDoc
       ? getDesignation(spouseDoc)
-      : (m.spouseGender === "male" ? "சகோதரர்" : "சகோதரி");
+      : (m.spouseGender === "male" ? "சகோதரன்" : "சகோதரி");
 
     const mDesig = getDesignation(m);
 
@@ -245,24 +277,15 @@ export const buildMessages = async ({ birthdays, weddings }) => {
       ? `${mDesig} ${m.name}`
       : `${spouseDesig} ${m.spouseName}`;
 
-    /* Anniversary year suffix — only shown when weddingDate is known */
-    let years = 0;
-    let yearSuffix = "";
-    if (m.weddingDate) {
-      const weddingYear = new Date(m.weddingDate).getFullYear();
-      const thisYear = new Date(
-        new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-      ).getFullYear();
-      years = thisYear - weddingYear;
-      if (years > 0) yearSuffix = ` (${years} ஆண்டுகள்)`;
-    }
+    const years = getAge(m.weddingDate);
 
-    let text = (wTpl || "{husband} மற்றும் {wife}")
-      .replace("{husband}", husband)
-      .replace("{wife}", wife)
-      .replace("{years}", years > 0 ? `${years}வது` : "");
-
-    if (yearSuffix) text = text + yearSuffix;
+    let text = wTpl || "{husband} {wife}";
+    text = processConditionals(text, {
+      husband: husband,
+      wife: wife,
+      years: years,
+      age: years
+    });
 
     text = await enhanceTamil(text, {
       type: "wedding",
