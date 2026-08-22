@@ -1,4 +1,6 @@
-/* ===============================
+﻿const fs = require("fs");
+
+const aiService = `/* ===============================
    TAMIL BIBLE ENGINE - TAOVBSI
    (Tamil Aruna Old Version, Bible Society of India)
    =============================== */
@@ -42,7 +44,7 @@ const weddingVerses = [
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const normalize = (t) =>
-  t.replace(/\s+/g, " ")
+  t.replace(/\\s+/g, " ")
    .trim();
 
 /* ===== AGE ===== */
@@ -95,7 +97,7 @@ export const enhanceTamil = async (text, context = {}) => {
 
     if (!verse) return t;
 
-    return `${t}\n\n📖 ${verse}`;
+    return \`\${t}\\n\\n📖 \${verse}\`;
   } catch {
     return text;
   }
@@ -111,3 +113,6 @@ export const detectDuplicateAI = async (name, existingNames) => {
     return ln.includes(lower) || lower.includes(ln);
   });
 };
+`;
+
+fs.writeFileSync("src/services/aiService.js", aiService, "utf8");

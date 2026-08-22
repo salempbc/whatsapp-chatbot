@@ -88,7 +88,62 @@
           <button @click="bulkAction('delete', true)" class="bg-red-500/80 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">🗑 Delete</button>
         </div>
       </div>
-    </transition>
+    ﻿
+      ﻿<!-- MEMBER FORM -->
+        <div v-if="currentTab === 'memberForm'" class="card space-y-4">
+          <div class="flex justify-between items-center mb-2 pb-2 border-b">
+            <h2 class="font-bold text-xl">{{ form._id ? '✏️ Edit Profile' : '➕ New Profile' }}</h2>
+            <button @click="currentTab = 'members'" class="text-gray-500 font-bold px-2">✕</button>
+          </div>
+          <div><label class="text-sm font-semibold opacity-80">Full Name *</label><input type="text" v-model="form.name" class="input" /></div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="text-sm font-semibold opacity-80">Gender *</label><select v-model="form.gender" class="input"><option value="male">Male</option><option value="female">Female</option></select></div>
+            <div><label class="text-sm font-semibold opacity-80">Role / Designation</label><input type="text" v-model="form.role" class="input" list="role-options" placeholder="e.g. Pastor..." /></div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="text-sm font-semibold opacity-80">DOB</label><input type="date" v-model="form.dob" class="input" /></div>
+            <div><label class="text-sm font-semibold opacity-80">Wedding Date</label><input type="date" v-model="form.weddingDate" class="input" /></div>
+          </div>
+          <div><label class="text-sm font-semibold opacity-80">Family Name</label><input type="text" v-model="form.familyName" class="input" placeholder="e.g. Kumar Family" /></div>
+          
+          <div v-if="settings.customFields?.length" class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t">
+            <div v-for="field in settings.customFields" :key="field.id">
+              <label class="text-sm font-semibold opacity-80">{{ field.label }}</label>
+              <input :type="field.type" v-model="form.customData[field.id]" class="input" />
+            </div>
+          </div>
+          <div class="flex items-center gap-6 mt-2 pt-4 border-t">
+            <label class="flex items-center gap-2 cursor-pointer font-medium"><input type="checkbox" v-model="form.isChild" class="w-5 h-5 accent-blue-500" /> Child</label>
+            <label class="flex items-center gap-2 cursor-pointer font-medium"><input type="checkbox" v-model="form.isActive" class="w-5 h-5 accent-blue-500" /> Active</label>
+          </div>
+          <div class="mt-6 pt-4 border-t flex gap-3">
+            <button @click="saveMember" class="btn flex-1 py-3" :disabled="saving">{{ saving ? '⏳ Saving...' : '💾 Save Profile' }}</button>
+          </div>
+        </div>
+
+        <!-- TEMPLATE FORM -->
+        <div v-if="currentTab === 'templateForm'" class="card space-y-4">
+          <div class="flex justify-between items-center mb-2 pb-2 border-b">
+            <h2 class="font-bold text-xl">{{ tplForm._id ? '✏️ Edit Template' : '➕ New Template' }}</h2>
+            <button @click="currentTab = 'templates'" class="text-gray-500 font-bold px-2">✕</button>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="text-sm font-semibold opacity-80">Type</label><select v-model="tplForm.type" class="input"><option value="birthday">Birthday</option><option value="wedding">Wedding</option></select></div>
+            <div><label class="text-sm font-semibold opacity-80">Category</label><select v-model="tplForm.category" class="input"><option value="formal">Formal</option><option value="short">Short</option></select></div>
+          </div>
+          <div>
+            <label class="text-sm font-semibold opacity-80">Message Content</label>
+            <textarea v-model="tplForm.content" class="input min-h-[150px]"></textarea>
+            <div class="text-xs opacity-60 mt-1">Available vars: {name}, {age}, {designation}, {suffix}, {years}, {husband}, {wife}. Use {if age >= 60} ... {endif} for conditionals.</div>
+          </div>
+          <div class="mt-6 pt-4 border-t flex gap-3">
+            <button @click="saveTemplate" class="btn flex-1 py-3" :disabled="saving">{{ saving ? '⏳ Saving...' : '💾 Save Template' }}</button>
+            <button v-if="tplForm._id" @click="deleteTemplate" class="btn btn-secondary py-3 px-4">🗑</button>
+          </div>
+        </div>
+      </div>
+    
+      </transition>
 
     <div v-if="loading" class="text-center py-10 opacity-70">
       <div class="text-3xl animate-spin mb-2">⏳</div>

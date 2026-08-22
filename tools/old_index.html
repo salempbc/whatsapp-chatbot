@@ -1,0 +1,249 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SPBC Admin CMS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { background-color: var(--tg-theme-bg-color, #f3f4f6); color: var(--tg-theme-text-color, #111827); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding-bottom: calc(90px + env(safe-area-inset-bottom, 20px)); }
+    .card { background-color: var(--tg-theme-secondary-bg-color, #ffffff); border-radius: 1rem; padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .btn { background-color: var(--tg-theme-button-color, #3b82f6); color: var(--tg-theme-button-text-color, #ffffff); padding: 0.5rem 1rem; border-radius: 0.75rem; font-weight: 600; text-align: center; transition: opacity 0.2s; }
+    .btn:active { opacity: 0.7; }
+    .btn-secondary { background-color: var(--tg-theme-secondary-bg-color, #e5e7eb); color: var(--tg-theme-text-color, #1f2937); }
+    .input { width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid rgba(128,128,128,0.2); background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); margin-top: 0.25rem; }
+    
+    .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+    .fade-enter-from, .fade-leave-to { opacity: 0; }
+    .slide-enter-active, .slide-leave-active { transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+    .slide-enter-from { transform: translateX(100%); opacity: 0; }
+    .slide-leave-to { transform: translateX(-100%); opacity: 0; position: absolute; width: 100%; }
+
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--tg-theme-secondary-bg-color, #fff); border-top: 1px solid rgba(128,128,128,0.2); display: flex; justify-content: space-around; padding: 0.75rem 0; z-index: 50; padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 20px)); }
+    .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 0.75rem; color: var(--tg-theme-hint-color, #6b7280); font-weight: 500; cursor: pointer; }
+    .nav-item.active { color: var(--tg-theme-button-color, #3b82f6); }
+    .nav-icon { font-size: 1.25rem; margin-bottom: 2px; }
+
+    .avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; flex-shrink: 0; }
+    .badge { padding: 0.1rem 0.5rem; border-radius: 1rem; font-size: 0.7rem; font-weight: bold; }
+    .badge-active { background: rgba(34, 197, 94, 0.2); color: #166534; }
+    .badge-inactive { background: rgba(107, 114, 128, 0.2); color: #374151; }
+    
+    .checkbox-custom { width: 1.25rem; height: 1.25rem; accent-color: var(--tg-theme-button-color, #3b82f6); cursor: pointer; }
+    
+    .bulk-bar { position: fixed; top: 1rem; left: 1rem; right: 1rem; background: var(--tg-theme-button-color, #3b82f6); color: white; border-radius: 1rem; padding: 1rem; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+  </style>
+</head>
+<body class="p-4 overflow-x-hidden">
+  <div id="app" v-cloak class="relative">
+    
+    <!-- Bulk Actions Bar -->
+    <transition name="fade">
+      <div v-if="selectedIds.length > 0" class="bulk-bar flex flex-col gap-3">
+        <div class="flex justify-between items-center font-bold">
+          <span>{{ selectedIds.length }} Selected</span>
+          <button @click="selectedIds = []" class="text-white opacity-80 text-sm">Cancel</button>
+        </div>
+        <div class="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+          <button @click="bulkAction('active', true)" class="bg-white/20 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">✅ Set Active</button>
+          <button @click="bulkAction('active', false)" class="bg-white/20 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">🚪 Set Inactive</button>
+          <button @click="bulkAction('delete', true)" class="bg-red-500/80 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap">🗑 Delete</button>
+        </div>
+      </div>
+    </transition>
+
+    <div v-if="loading" class="text-center py-10 opacity-70">
+      <div class="text-3xl animate-spin mb-2">⏳</div>
+      Loading Database...
+    </div>
+    <div v-if="error" class="bg-red-100 text-red-700 p-4 rounded-xl mb-4 font-semibold">{{ error }}</div>
+
+    <transition name="slide">
+      <div v-if="!loading" :key="currentTab">
+        
+        <!-- MEMBERS TAB -->
+        <div v-if="currentTab === 'members'">
+          <div class="flex justify-between items-center mb-4 mt-2">
+            <h1 class="text-2xl font-bold">Members</h1>
+            <button @click="openMemberForm()" class="btn text-sm">➕ Add</button>
+          </div>
+
+          <div class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+            <button @click="memberFilter = 'active'" :class="['px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap', memberFilter === 'active' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700']">✅ Active</button>
+            <button @click="memberFilter = 'all'" :class="['px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap', memberFilter === 'all' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700']">👥 All</button>
+            <button @click="memberFilter = 'inactive'" :class="['px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap', memberFilter === 'inactive' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700']">🚪 Inactive</button>
+            <button @click="selectAll" class="px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap bg-gray-200 text-gray-700">☑️ Select All</button>
+          </div>
+
+          <input type="text" v-model="search" placeholder="🔍 Search names, roles..." class="input mb-4" />
+          
+          <div class="space-y-3 pb-4">
+            <div v-for="m in filteredMembers" :key="m._id" class="card flex items-center gap-3 active:scale-[0.98] transition-transform">
+              <input type="checkbox" :value="m._id" v-model="selectedIds" class="checkbox-custom flex-shrink-0" />
+              <div class="avatar relative overflow-hidden" :style="avatarStyle(m.name)" @click="openMemberForm(m)">
+                <img v-if="m.photo" :src="photoUrl(m._id)" class="w-full h-full object-cover absolute inset-0" />
+                <span v-if="!m.photo">{{ getInitials(m.name) }}</span>
+              </div>
+              <div class="flex-1 cursor-pointer" @click="openMemberForm(m)">
+                <div class="font-bold text-lg leading-tight">{{ m.name }}</div>
+                <div class="text-sm opacity-70 mt-0.5 flex gap-2 items-center">
+                  <span :class="['badge', m.isActive ? 'badge-active' : 'badge-inactive']">{{ m.isActive ? 'Active' : 'Left' }}</span>
+                  <span>{{ m.role || 'Member' }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="!filteredMembers.length" class="text-center opacity-50 py-10 font-medium">No members found.</div>
+          </div>
+        </div>
+
+        <!-- TEMPLATES TAB -->
+        <div v-if="currentTab === 'templates'">
+          <div class="flex justify-between items-center mb-4 mt-2">
+            <h1 class="text-2xl font-bold">Templates</h1>
+            <button @click="openTemplateForm()" class="btn text-sm">➕ New</button>
+          </div>
+          <div class="space-y-4 pb-4">
+            <div v-for="t in templates" :key="t._id" class="card cursor-pointer active:scale-[0.98] transition-transform" @click="openTemplateForm(t)">
+              <div class="flex justify-between items-start mb-2">
+                <div class="font-bold text-blue-600 flex items-center gap-1">
+                  {{ t.type === 'birthday' ? '🎂' : '💍' }} {{ t.type.toUpperCase() }}
+                </div>
+                <div class="badge bg-gray-100 text-gray-600 border">{{ t.category }}</div>
+              </div>
+              <p class="text-sm opacity-80 line-clamp-3">{{ t.content }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- SETTINGS TAB -->
+        <div v-if="currentTab === 'settings'">
+          <div class="mb-4 mt-2">
+            <h1 class="text-2xl font-bold">Settings</h1>
+            <p class="text-sm opacity-70 mt-1">Configure bot automation & triggers.</p>
+          </div>
+
+          <div class="card space-y-4 mb-6">
+            <h2 class="font-bold border-b pb-2">➕ Custom Profile Fields</h2>
+            <div class="space-y-2">
+              <div v-for="(field, idx) in settings.customFields" :key="idx" class="flex gap-2 items-center">
+                <input type="text" v-model="field.label" placeholder="Field Name (e.g. Phone)" class="input !mt-0" />
+                <select v-model="field.type" class="input !mt-0 w-24 flex-shrink-0">
+                  <option value="text">Text</option>
+                  <option value="date">Date</option>
+                  <option value="number">Number</option>
+                </select>
+                <button @click="settings.customFields.splice(idx, 1)" class="btn btn-secondary !px-3">🗑</button>
+              </div>
+            </div>
+            <button @click="settings.customFields.push({ id: `custom_${Date.now()}`, label: ``, type: `text` })" class="text-blue-500 font-bold text-sm">➕ Add Custom Field</button>
+          </div>
+          
+          <div class="card space-y-4 mb-6">
+            <h2 class="font-bold border-b pb-2">⏱️ Automation Times</h2>
+            <div>
+              <label class="text-sm font-semibold opacity-80">Daily Broadcast Time</label>
+              <input type="time" v-model="settings.sendTime" class="input" />
+              <p class="text-xs opacity-50 mt-1">When to send birthday messages to the group (IST).</p>
+            </div>
+            <div>
+              <label class="text-sm font-semibold opacity-80">Admin Reminder Time</label>
+              <input type="time" v-model="settings.reminderTime" class="input" />
+              <p class="text-xs opacity-50 mt-1">When to DM the admin the night before.</p>
+            </div>
+            <button @click="saveSettings" class="btn w-full" :disabled="saving">{{ saving ? '⏳ Saving...' : '💾 Save Settings' }}</button>
+          </div>
+
+          <div class="card space-y-3">
+            <h2 class="font-bold border-b pb-2">🛠️ Manual Triggers</h2>
+            <button @click="triggerAction('ping')" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3" :disabled="triggering">
+              <span class="text-xl">🔔</span> <div><div class="font-bold">Ping Group Test</div><div class="text-xs opacity-70 font-normal">Send a test text to verify connection</div></div>
+            </button>
+            <button @click="triggerAction('trigger-today')" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3" :disabled="triggering">
+              <span class="text-xl">▶️</span> <div><div class="font-bold">Force Run Today</div><div class="text-xs opacity-70 font-normal">Manually trigger today's automated messages</div></div>
+            </button>
+            <button @click="exportCSV" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3" :disabled="triggering">
+              <span class="text-xl">📥</span> <div><div class="font-bold">Download Database (CSV)</div><div class="text-xs opacity-70 font-normal">Export full roster to your device</div></div>
+            </button>
+            <button @click="triggerAction('trigger-today')" class="btn btn-secondary w-full text-left flex items-center gap-3 py-3 hidden" :disabled="triggering">
+              <span class="text-xl">▶️</span> <div><div class="font-bold">Force Run Today</div><div class="text-xs opacity-70 font-normal">Manually trigger today's automated messages</div></div>
+            </button>
+          </div>
+        </div>
+
+        <!-- MEMBER FORM -->
+        <div v-if="currentTab === 'memberForm'" class="card space-y-4">
+          <div class="flex justify-between items-center mb-2 pb-2 border-b">
+            <h2 class="font-bold text-xl">{{ form._id ? '✏️ Edit Profile' : '➕ New Profile' }}</h2>
+            <button @click="currentTab = 'members'" class="text-gray-500 font-bold px-2">✕</button>
+          </div>
+          <div><label class="text-sm font-semibold opacity-80">Full Name *</label><input type="text" v-model="form.name" class="input" /></div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="text-sm font-semibold opacity-80">Gender *</label><select v-model="form.gender" class="input"><option value="male">Male</option><option value="female">Female</option></select></div>
+            <div><label class="text-sm font-semibold opacity-80">Role / Designation</label><input type="text" v-model="form.role" class="input" list="role-options" placeholder="e.g. Pastor..." /></div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="text-sm font-semibold opacity-80">DOB</label><input type="date" v-model="form.dob" class="input" /></div>
+            <div><label class="text-sm font-semibold opacity-80">Wedding Date</label><input type="date" v-model="form.weddingDate" class="input" /></div>
+          </div>
+          <div><label class="text-sm font-semibold opacity-80">Family Name</label><input type="text" v-model="form.familyName" class="input" placeholder="e.g. Kumar Family" /></div>
+          
+          <div v-if="settings.customFields?.length" class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t">
+            <div v-for="field in settings.customFields" :key="field.id">
+              <label class="text-sm font-semibold opacity-80">{{ field.label }}</label>
+              <input :type="field.type" v-model="form.customData[field.id]" class="input" />
+            </div>
+          </div>
+          <div class="flex items-center gap-6 mt-2 pt-4 border-t">
+            <label class="flex items-center gap-2 cursor-pointer font-medium"><input type="checkbox" v-model="form.isChild" class="w-5 h-5 accent-blue-500" /> Child</label>
+            <label class="flex items-center gap-2 cursor-pointer font-medium"><input type="checkbox" v-model="form.isActive" class="w-5 h-5 accent-blue-500" /> Active</label>
+          </div>
+          <div class="mt-6 pt-4 border-t flex gap-3">
+            <button @click="saveMember" class="btn flex-1 py-3" :disabled="saving">{{ saving ? '⏳ Saving...' : '💾 Save Profile' }}</button>
+          </div>
+        </div>
+
+        <!-- TEMPLATE FORM -->
+        <div v-if="currentTab === 'templateForm'" class="card space-y-4">
+          <div class="flex justify-between items-center mb-2 pb-2 border-b">
+            <h2 class="font-bold text-xl">{{ tplForm._id ? '✏️ Edit Template' : '➕ New Template' }}</h2>
+            <button @click="currentTab = 'templates'" class="text-gray-500 font-bold px-2">✕</button>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="text-sm font-semibold opacity-80">Type</label><select v-model="tplForm.type" class="input"><option value="birthday">Birthday</option><option value="wedding">Wedding</option></select></div>
+            <div><label class="text-sm font-semibold opacity-80">Category</label><select v-model="tplForm.category" class="input"><option value="formal">Formal</option><option value="short">Short</option></select></div>
+          </div>
+          <div>
+            <label class="text-sm font-semibold opacity-80">Message Content</label>
+            <textarea v-model="tplForm.content" class="input min-h-[150px]"></textarea>
+            <div class="text-xs opacity-60 mt-1">Available vars: {name}, {designation}, {suffix}, {years}, {husband}, {wife}</div>
+          </div>
+          <div class="mt-6 pt-4 border-t flex gap-3">
+            <button @click="saveTemplate" class="btn flex-1 py-3" :disabled="saving">{{ saving ? '⏳ Saving...' : '💾 Save Template' }}</button>
+            <button v-if="tplForm._id" @click="deleteTemplate" class="btn btn-secondary py-3 px-4">🗑</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <datalist id="role-options">
+      <option value="Member"></option>
+      <option value="Pastor"></option>
+      <option value="Elder"></option>
+      <option value="Deacon"></option>
+      <option value="Treasurer"></option>
+      <option value="Secretary"></option>
+    </datalist>
+
+    <!-- Bottom Navigation -->
+    <div v-if="!loading && !['memberForm', 'templateForm'].includes(currentTab)" class="bottom-nav">
+      <div class="nav-item" :class="{ active: currentTab === 'members' }" @click="currentTab = 'members'"><div class="nav-icon">👥</div><div>Members</div></div>
+      <div class="nav-item" :class="{ active: currentTab === 'templates' }" @click="currentTab = 'templates'"><div class="nav-icon">📝</div><div>Templates</div></div>
+      <div class="nav-item" :class="{ active: currentTab === 'settings' }" @click="currentTab = 'settings'"><div class="nav-icon">⚙️</div><div>Settings</div></div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
