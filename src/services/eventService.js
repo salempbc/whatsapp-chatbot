@@ -121,7 +121,7 @@ export const getTodayEvents = async () => {
   const members = await Member.find({
     isDeleted: { $ne: true },
     isActive:  { $ne: false },
-    ...(enableBday && enableWed ? [{ $or: [{ birthday: todayKey }, { wedding: todayKey }] }] : enableBday ? [{ birthday: todayKey }] : enableWed ? [{ wedding: todayKey }] : [{ _id: null }])
+    ...(enableBday && enableWed ? { $or: [{ birthday: todayKey }, { wedding: todayKey }] } : enableBday ? { birthday: todayKey } : enableWed ? { wedding: todayKey } : { _id: null })
   });
 
   const birthdays = [];
@@ -289,7 +289,7 @@ export const getTomorrowEvents = async () => {
   const members = await Member.find({
     isDeleted: { $ne: true },
     isActive:  { $ne: false },
-    ...(enableBday && enableWed ? [{ $or: [{ birthday: tomorrowKey }, { wedding: tomorrowKey }] }] : enableBday ? [{ birthday: tomorrowKey }] : enableWed ? [{ wedding: tomorrowKey }] : [{ _id: null }])
+    ...(enableBday && enableWed ? { $or: [{ birthday: tomorrowKey }, { wedding: tomorrowKey }] } : enableBday ? { birthday: tomorrowKey } : enableWed ? { wedding: tomorrowKey } : { _id: null })
   });
 
   const birthdays = members.filter(

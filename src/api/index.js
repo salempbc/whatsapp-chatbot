@@ -163,11 +163,15 @@ router.get("/members", async (req, res) => {
 });
 
 router.post("/members", async (req, res) => {
+    if (req.body.dob) req.body.birthday = req.body.dob.substring(5);
+    if (req.body.weddingDate) req.body.wedding = req.body.weddingDate.substring(5);
   const m = await Member.create(req.body);
   res.json(m);
 });
 
 router.put("/members/:id", async (req, res) => {
+    if (req.body.dob) req.body.birthday = req.body.dob.substring(5); else if (req.body.dob === '') req.body.birthday = '';
+    if (req.body.weddingDate) req.body.wedding = req.body.weddingDate.substring(5); else if (req.body.weddingDate === '') req.body.wedding = '';
   /* runValidators — otherwise schema rules (gender enum, required name) are
      skipped entirely on updates. */
   const m = await Member.findByIdAndUpdate(req.params.id, req.body, {
