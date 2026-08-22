@@ -44,7 +44,7 @@ createApp({
       toastTimeout = setTimeout(() => { toastMessage.value = ''; }, 3000);
     };
 
-    const defaultForm = () => ({ name: '', gender: 'male', role: '', dob: '', weddingDate: '', familyName: '', isChild: false, isActive: true, customData: {} });
+    const defaultForm = () => ({ name: '', gender: 'male', role: '', dob: '', isMarried: false, spouseName: '', spouseGender: 'female', weddingDate: '', familyName: '', isChild: false, isPastor: false, isActive: true, customData: {} });
     const form = ref(defaultForm());
     
     const defaultTplForm = () => ({ type: 'birthday', category: 'formal', content: '' });
