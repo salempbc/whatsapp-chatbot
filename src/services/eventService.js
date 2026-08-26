@@ -234,7 +234,7 @@ export const buildMessages = async ({ birthdays, weddings }) => {
   /* ===== BIRTHDAY ===== */
   for (const m of birthdays) {
     const age = getAge(m.dob);
-    const suffix = (m.isChild || (age !== null && age < 18)) ? (m.gender === "male" ? "👦" : "👧") : "🎉🎂💐";
+    const suffix = (m.isChild || (age !== null && age < 25)) ? (m.gender === "male" ? "👦" : "👧") : "🎉🎂💐";
 
     let text = bTpl || "{designation} {name} {suffix}";
     text = processConditionals(text, {
