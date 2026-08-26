@@ -1,6 +1,7 @@
 ﻿import TelegramBot from "node-telegram-bot-api";
 import crypto from "crypto";
 import { registerHome } from "./handlers/home.js";
+import { registerBible } from "./handlers/bible.js";
 import { registerRouter } from "./router.js";
 
 let bot;
@@ -49,10 +50,12 @@ export const initTelegram = () => {
     { command: "start", description: "Open main menu" },
     { command: "menu", description: "Open main menu" },
     { command: "help", description: "Show help" },
-    { command: "cancel", description: "Cancel current action" }
+    { command: "cancel", description: "Cancel current action" },
+    { command: "bible", description: "Search for a Bible verse" }
   ]).catch((err) => console.error("❌ setMyCommands failed:", err.message));
 
   registerHome(bot);
+  registerBible(bot);
   registerRouter(bot);
 
   console.log("🚀 Telegram CMS READY");
