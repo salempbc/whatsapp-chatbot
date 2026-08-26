@@ -1,3 +1,4 @@
+import { adminOnly } from "../guard.js";
 import EventVerse from "../../models/EventVerse.js";
 ﻿import Bible from "../../models/Bible.js";
 
@@ -99,7 +100,7 @@ export const fetchVerseText = async (query) => {
 };
 
 export const registerBible = (bot) => {
-  bot.onText(/^\/addverse\s+(birthday|wedding|youth|elder)\s+(.+)$/i, async (msg, match) => {
+  bot.onText(/^\/addverse\s+(birthday|wedding|youth|elder)\s+(.+)$/i, adminOnly(async (msg, match) => {
     const chatId = msg.chat.id;
     const type = match[1].toLowerCase();
     const reference = match[2];
@@ -111,9 +112,9 @@ export const registerBible = (bot) => {
 
     await EventVerse.create({ type, reference });
     bot.sendMessage(chatId, `✅ Saved custom ${type} verse!\n\n${text}`);
-  });
+  }));
 
-  bot.onText(/^\/listverses(?:\s+(birthday|wedding|youth|elder))?$/i, async (msg, match) => {
+  bot.onText(/^\/listverses(?:\s+(birthday|wedding|youth|elder))?$/i, adminOnly(async (msg, match) => {
     const chatId = msg.chat.id;
     const type = match[1] ? match[1].toLowerCase() : null;
     
@@ -127,9 +128,9 @@ export const registerBible = (bot) => {
       out += `${i + 1}. [${v.type}] ${v.reference} (ID: ${v._id})\n`;
     });
     bot.sendMessage(chatId, out, { parse_mode: "Markdown" });
-  });
+  }));
 
-  bot.onText(/^\/delverse\s+([a-zA-Z0-9_]+)$/i, async (msg, match) => {
+  bot.onText(/^\/delverse\s+([a-zA-Z0-9_]+)$/i, adminOnly(async (msg, match) => {
     const chatId = msg.chat.id;
     const id = match[1];
 
@@ -139,9 +140,9 @@ export const registerBible = (bot) => {
     } catch {
       bot.sendMessage(chatId, "⚠️ Invalid ID.");
     }
-  });
+  }));
 
-  bot.onText(/^\/bible(?:\s+(.+))?$/i, async (msg, match) => {
+  bot.onText(/^\/bible(?:\s+(.+))?$/i, adminOnly(async (msg, match) => {
     const chatId = msg.chat.id;
     const query = match[1];
 
@@ -201,5 +202,5 @@ export const registerBible = (bot) => {
       console.error(err);
       await bot.sendMessage(chatId, "⚠️ Database error while fetching the verse.");
     }
-  });
+  }));
 };
