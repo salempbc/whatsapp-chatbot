@@ -237,9 +237,17 @@ export const buildMessages = async ({ birthdays, weddings }) => {
     const suffix = (m.isChild || (age !== null && age < 25)) ? (m.gender === "male" ? "👦" : "👧") : "🎉🎂💐";
 
     let text = bTpl || "{designation} {name} {suffix}";
+    let nameAccusative = m.name;
+    if (age !== null && age < 30) {
+      nameAccusative = m.name + " -ஐ";
+    } else {
+      nameAccusative = m.name + " அவர்களை";
+    }
+
     text = processConditionals(text, {
       designation: getDesignation(m),
-      name: m.name,
+      name: nameAccusative,
+      raw_name: m.name,
       suffix: suffix,
       age: age
     });
