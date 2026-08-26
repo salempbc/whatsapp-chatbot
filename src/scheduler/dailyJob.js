@@ -1,3 +1,5 @@
+import Memorial from "../models/Memorial.js";
+import { getTodayKey, getTomorrowKey } from "../services/eventService.js";
 import cron from "node-cron";
 import { getTodayEvents, buildMessages, getTomorrowEvents } from "../services/eventService.js";
 import { sendMessage, sendAdminMessage } from "../bot/index.js";
@@ -11,6 +13,18 @@ const runMorningJob = async () => {
   try {
     console.log("⏱️ Morning cron triggered");
     const events = await getTodayEvents();
+    
+    const todayStr = getTodayKey();
+    const todayMemorials = await Memorial.find({ date: todayStr });
+    if (todayMemorials.length > 0) {
+      let mText = "🕊️ *Memorial Anniversary Today*\n\n";
+      todayMemorials.forEach(m => {
+        mText += `- ${m.name} ${m.relation ? "(" + m.relation + ")" : ""}\n`;
+      });
+      mText += "\n_Please keep the family in your prayers and reach out to them._";
+      await sendAdminMessage(mText);
+    }
+
     const messages = await buildMessages(events);
 
     if (!messages.length) {
@@ -49,6 +63,16 @@ const runReminderJob = async () => {
     if (weddings.length) {
       text += "\n💍 திருமண நாள்:\n";
       for (const m of weddings) text += `  • ${m.name} & ${m.spouseName || "?"}\n`;
+    }
+
+    
+    const tomorrowStr = getTomorrowKey();
+    const tomorrowMemorials = await Memorial.find({ date: tomorrowStr });
+    if (tomorrowMemorials.length > 0) {
+      text += "\n🕊️ *Memorials Tomorrow:*\n";
+      tomorrowMemorials.forEach(m => {
+        text += `  - ${m.name} ${m.relation ? "(" + m.relation + ")" : ""}\n`;
+      });
     }
 
     await sendAdminMessage(text);

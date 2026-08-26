@@ -2,6 +2,7 @@
 import crypto from "crypto";
 import { registerHome } from "./handlers/home.js";
 import { registerBible } from "./handlers/bible.js";
+import { registerMemorial } from "./handlers/memorial.js";
 import { registerRouter } from "./router.js";
 
 let bot;
@@ -53,11 +54,14 @@ export const initTelegram = () => {
     { command: "cancel", description: "Cancel current action" },
     { command: "bible", description: "Search for a Bible verse" },
     { command: "addverse", description: "<type> <ref> - Add a custom event verse" },
-    { command: "listverses", description: "List custom event verses" }
+    { command: "listverses", description: "List custom event verses" },
+    { command: "addmemorial", description: "<MM-DD> <Name> [, Note] - Add memorial" },
+    { command: "listmemorials", description: "List tracked memorials" }
   ]).catch((err) => console.error("❌ setMyCommands failed:", err.message));
 
   registerHome(bot);
   registerBible(bot);
+  registerMemorial(bot);
   registerRouter(bot);
 
   console.log("🚀 Telegram CMS READY");

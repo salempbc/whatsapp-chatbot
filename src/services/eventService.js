@@ -5,7 +5,7 @@ import { getSetting } from "../models/Settings.js";
 import { enhanceTamil } from "./aiService.js";
 
 /* ================= DATE ================= */
-const getTodayKey = () => {
+export const getTodayKey = () => {
   const ist = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
   );
@@ -15,7 +15,7 @@ const getTodayKey = () => {
   ).padStart(2, "0")}`;
 };
 
-const getTomorrowKey = () => {
+export const getTomorrowKey = () => {
   const ist = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
   );
