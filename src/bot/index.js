@@ -51,7 +51,9 @@ export const initTelegram = () => {
     { command: "menu", description: "Open main menu" },
     { command: "help", description: "Show help" },
     { command: "cancel", description: "Cancel current action" },
-    { command: "bible", description: "Search for a Bible verse" }
+    { command: "bible", description: "Search for a Bible verse" },
+    { command: "addverse", description: "<type> <ref> - Add a custom event verse" },
+    { command: "listverses", description: "List custom event verses" }
   ]).catch((err) => console.error("❌ setMyCommands failed:", err.message));
 
   registerHome(bot);

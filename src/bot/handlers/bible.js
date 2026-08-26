@@ -1,3 +1,4 @@
+import EventVerse from "../../models/EventVerse.js";
 ﻿import Bible from "../../models/Bible.js";
 
 const bibleAliases = {
@@ -60,7 +61,86 @@ const getBookId = (query) => {
   return null;
 };
 
+
+export const fetchVerseText = async (query) => {
+  const regex = /^(.+?)\s+(\d+)\s*[:\.]\s*(\d+)(?:\s*-\s*(\d+))?$/;
+  const parts = query.match(regex);
+  if (!parts) return null;
+
+  const bookQuery = parts[1];
+  const chapter = parseInt(parts[2], 10);
+  const verseStart = parseInt(parts[3], 10);
+  const verseEnd = parts[4] ? parseInt(parts[4], 10) : verseStart;
+
+  const bookId = getBookId(bookQuery);
+  if (!bookId) return null;
+
+  const verses = await Bible.find({
+    bookId,
+    chapter,
+    verse: { $gte: verseStart, $lte: verseEnd }
+  }).sort({ verse: 1 });
+
+  if (!verses || verses.length === 0) return null;
+
+  let text = "";
+  for (const v of verses) {
+    if (verseStart !== verseEnd) {
+       text += `${v.verse}. ${v.text} `;
+    } else {
+       text += `${v.text} `;
+    }
+  }
+
+  const bookName = verses[0].bookName;
+  const citation = verseStart === verseEnd ? `${bookName} ${chapter}:${verseStart}` : `${bookName} ${chapter}:${verseStart}-${verseEnd}`;
+  
+  return `${text.trim()} (${citation})`;
+};
+
 export const registerBible = (bot) => {
+  bot.onText(/^\/addverse\s+(birthday|wedding|youth|elder)\s+(.+)$/i, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const type = match[1].toLowerCase();
+    const reference = match[2];
+
+    const text = await fetchVerseText(reference);
+    if (!text) {
+      return bot.sendMessage(chatId, "⚠️ Could not resolve reference. Ensure it is formatted correctly (e.g. John 3:16)");
+    }
+
+    await EventVerse.create({ type, reference });
+    bot.sendMessage(chatId, `✅ Saved custom ${type} verse!\n\n${text}`);
+  });
+
+  bot.onText(/^\/listverses(?:\s+(birthday|wedding|youth|elder))?$/i, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const type = match[1] ? match[1].toLowerCase() : null;
+    
+    const query = type ? { type } : {};
+    const verses = await EventVerse.find(query);
+
+    if (verses.length === 0) return bot.sendMessage(chatId, "No custom verses found.");
+
+    let out = "📖 *Custom Verses Collection*\n\n";
+    verses.forEach((v, i) => {
+      out += `${i + 1}. [${v.type}] ${v.reference} (ID: ${v._id})\n`;
+    });
+    bot.sendMessage(chatId, out, { parse_mode: "Markdown" });
+  });
+
+  bot.onText(/^\/delverse\s+([a-zA-Z0-9_]+)$/i, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const id = match[1];
+
+    try {
+      await EventVerse.findByIdAndDelete(id);
+      bot.sendMessage(chatId, "✅ Verse deleted from collection.");
+    } catch {
+      bot.sendMessage(chatId, "⚠️ Invalid ID.");
+    }
+  });
+
   bot.onText(/^\/bible(?:\s+(.+))?$/i, async (msg, match) => {
     const chatId = msg.chat.id;
     const query = match[1];

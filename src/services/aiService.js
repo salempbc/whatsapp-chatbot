@@ -1,3 +1,5 @@
+import EventVerse from "../models/EventVerse.js";
+import { fetchVerseText } from "../bot/handlers/bible.js";
 /* ===============================
    TAMIL BIBLE ENGINE - TAOVBSI
    (Tamil Aruna Old Version, Bible Society of India)
@@ -65,17 +67,36 @@ const getAge = (dob) => {
 
 /* ===== VERSE SELECTION ===== */
 
-const getBirthdayVerse = (member) => {
+const getBirthdayVerse = async (member) => {
   const age = getAge(member.dob);
+  
+  let type = "birthday";
+  if (age && age <= 25) type = "youth";
+  if (age && age >= 60) type = "elder";
 
+  const customVerses = await EventVerse.find({ type });
+  if (customVerses.length > 0) {
+    const chosen = pick(customVerses);
+    const text = await fetchVerseText(chosen.reference);
+    if (text) return text;
+  }
+
+  // Fallback
   if (!age) return pick(birthdayVerses);
   if (age <= 25) return pick(youthVerses);
   if (age >= 60) return pick(elderVerses);
-
   return pick(birthdayVerses);
 };
 
-const getWeddingVerse = () => pick(weddingVerses);
+const getWeddingVerse = async () => {
+  const customVerses = await EventVerse.find({ type: "wedding" });
+  if (customVerses.length > 0) {
+    const chosen = pick(customVerses);
+    const text = await fetchVerseText(chosen.reference);
+    if (text) return text;
+  }
+  return pick(weddingVerses);
+};
 
 /* ===== MAIN ===== */
 
@@ -86,11 +107,11 @@ export const enhanceTamil = async (text, context = {}) => {
     let verse = "";
 
     if (context.type === "birthday") {
-      verse = getBirthdayVerse(context.member);
+      verse = await getBirthdayVerse(context.member);
     }
 
     if (context.type === "wedding") {
-      verse = getWeddingVerse();
+      verse = await getWeddingVerse();
     }
 
     if (!verse) return t;
