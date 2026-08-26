@@ -95,7 +95,7 @@ export const enhanceTamil = async (text, context = {}) => {
 
     if (!verse) return t;
 
-    return `${t}\n\n📖 ${verse}`;
+    return `📖 ${verse}\n\n${t}`;
   } catch {
     return text;
   }
