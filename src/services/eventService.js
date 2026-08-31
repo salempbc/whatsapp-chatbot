@@ -136,7 +136,6 @@ export const getTodayEvents = async () => {
     if (
       (m.wedding || "").trim() === todayKey &&
       m.isMarried &&
-      m.spouseName &&
       !processed.has(m.name)
     ) {
       weddings.push(m);
@@ -175,7 +174,6 @@ export const getUpcomingEvents = async (days = 30) => {
       wKey &&
       keys.has(wKey) &&
       m.isMarried &&
-      m.spouseName &&
       !processed.has(m.name)
     ) {
       weddings.push({ member: m, mmdd: wKey, isToday: wKey === todayKey });
@@ -277,13 +275,15 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 
     const mDesig = getDesignation(m);
 
+    const sName = m.spouseName ? `${spouseDesig} ${m.spouseName}` : (m.spouseGender === "male" ? "அவர் கணவர்" : "அவர் மனைவி");
+    
     const husband = m.gender === "male"
       ? `${mDesig} ${m.name}`
-      : `${spouseDesig} ${m.spouseName}`;
+      : sName;
 
     const wife = m.gender === "female"
       ? `${mDesig} ${m.name}`
-      : `${spouseDesig} ${m.spouseName}`;
+      : sName;
 
     const years = getAge(m.weddingDate);
 
@@ -334,7 +334,6 @@ export const getTomorrowEvents = async () => {
     if (
       (m.wedding || "").trim() === tomorrowKey &&
       m.isMarried &&
-      m.spouseName &&
       !processed.has(m.name)
     ) {
       weddings.push(m);
