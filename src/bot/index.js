@@ -1,4 +1,4 @@
-﻿import TelegramBot from "node-telegram-bot-api";
+import TelegramBot from "node-telegram-bot-api";
 import crypto from "crypto";
 import { registerHome } from "./handlers/home.js";
 import { registerBible } from "./handlers/bible.js";
@@ -32,7 +32,7 @@ const processQueue = async () => {
 };
 
 export const initTelegram = () => {
-  let domain = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "https://whatsapp-chatbot-production-131e.up.railway.app");
+  let domain = process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "");
   if (domain && !domain.startsWith("http")) domain = "https://" + domain;
   
   if (domain) {

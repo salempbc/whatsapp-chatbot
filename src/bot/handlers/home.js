@@ -1,4 +1,4 @@
-﻿import { renderScreen } from "../ui.js";
+import { renderScreen } from "../ui.js";
 import { clearState } from "../session.js";
 import { adminOnly } from "../guard.js";
 
@@ -22,7 +22,7 @@ export const homeScreen = () => ({
 <b>Timezone:</b> 🇮🇳 Asia/Kolkata</blockquote>
 What would you like to manage today?`,
   keyboard: [
-    [{ text: "🌐 Open Web CMS", web_app: { url: (() => { let d = process.env.WEBAPP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "https://whatsapp-chatbot-production-131e.up.railway.app"); return d.startsWith("http") ? d : "https://" + d; })() } }],
+    [{ text: "🌐 Open Web CMS", web_app: { url: (() => { let d = process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : ""); return d.startsWith("http") ? d : "https://" + d; })() } }],
     [{ text: "📅 Monthly Calendar", callback_data: "calendar:show:current" }, { text: "🔜 Coming Up", callback_data: "upcoming:show:7" }],
     [{ text: "📊 Demographics & Stats", callback_data: "stats:show" }],
     [{ text: "⚙️ Bot Diagnostics", callback_data: "settings:show" }, { text: "❓ Help", callback_data: "help:show" }]

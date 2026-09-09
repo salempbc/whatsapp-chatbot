@@ -31,7 +31,7 @@ export const settingsCallbacks = {
       });
     } catch (err) {
       await renderScreen(bot, chatId, messageId, {
-        text: `❌ Failed to send ping: ${err.message}\nCheck your CHAT_ID in the Railway variables.`,
+        text: `❌ Failed to send ping: ${err.message}\nCheck your CHAT_ID in your environment variables.`,
         keyboard: [[{ text: "🔙 Back", callback_data: "settings:show" }]]
       });
     }
