@@ -194,6 +194,121 @@ router.get("/export", async (req, res) => {
   });
 });
 
+/* PRINTABLE CHURCH DIRECTORY (PDF / PRINT READY) */
+router.get("/directory", async (req, res) => {
+  const members = await Member.find({ isDeleted: { $ne: true } }).sort({ familyName: 1, name: 1 });
+  
+  // Group by Family
+  const families = {};
+  for (const m of members) {
+    const fam = m.familyName || "General Roster";
+    if (!families[fam]) families[fam] = [];
+    families[fam].push(m);
+  }
+
+  let html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Church Directory - SPBC</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #1e293b; max-width: 900px; margin: 0 auto; }
+    h1 { color: #1e3a8a; border-bottom: 3px solid #3b82f6; padding-bottom: 10px; font-size: 28px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+    .print-btn { background: #2563eb; color: white; border: none; padding: 10px 20px; font-weight: bold; border-radius: 8px; cursor: pointer; }
+    @media print { .print-btn { display: none; } body { padding: 0; } }
+    .family-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px; page-break-inside: avoid; }
+    .family-title { font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 12px; border-bottom: 2px solid #cbd5e1; padding-bottom: 5px; }
+    .member-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+    .member-item { background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; }
+    .role-badge { background: #dbeafe; color: #1e40af; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: bold; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>⛪ Salem PBC - Official Church Directory</h1>
+      <p style="color: #64748b; margin-top: -15px;">Generated on ${new Date().toLocaleDateString('en-US', { dateStyle: 'full' })}</p>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+  </div>
+`;
+
+  for (const [famName, famMembers] of Object.entries(families)) {
+    html += `<div class="family-card">
+      <div class="family-title">🏡 ${famName} (${famMembers.length})</div>
+      <div class="member-grid">`;
+    
+    for (const m of famMembers) {
+      html += `<div class="member-item">
+        <div style="display:flex; justify-between; align-items:center;">
+          <strong style="font-size: 16px;">${m.name}</strong>
+          ${m.role ? `<span class="role-badge">${m.role}</span>` : ''}
+        </div>
+        <div style="font-size: 13px; color: #475569; margin-top: 6px;">
+          Gender: ${m.gender === 'male' ? '♂ Male' : '♀ Female'}<br>
+          ${m.dob ? `DOB: ${m.dob}<br>` : ''}
+          ${m.isMarried ? `Spouse: ${m.spouseName || 'Married'}<br>` : ''}
+          ${m.weddingDate ? `Anniversary: ${m.weddingDate}` : ''}
+        </div>
+      </div>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  html += `</body></html>`;
+  res.send(html);
+});
+
+/* BULK MEMBER IMPORT (JSON/CSV UPSERT) */
+router.post("/members/import", async (req, res) => {
+  const { members } = req.body;
+  if (!Array.isArray(members) || !members.length) {
+    return res.status(400).json({ error: "Please provide an array of members to import." });
+  }
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const item of members) {
+    if (!item.name || !item.gender) {
+      skipped++;
+      continue;
+    }
+
+    const dob = item.dob || "";
+    const weddingDate = item.weddingDate || "";
+
+    const payload = {
+      name: item.name.trim(),
+      gender: item.gender.toLowerCase(),
+      role: item.role || "",
+      dob: dob,
+      birthday: dob ? dob.substring(5) : "",
+      weddingDate: weddingDate,
+      wedding: weddingDate ? weddingDate.substring(5) : "",
+      isMarried: Boolean(item.isMarried),
+      spouseName: item.spouseName || "",
+      spouseGender: item.spouseGender || "",
+      familyName: item.familyName || "",
+      isChild: Boolean(item.isChild),
+      isPastor: Boolean(item.isPastor),
+      isActive: item.isActive !== false,
+      customData: item.customData || {}
+    };
+
+    await Member.findOneAndUpdate(
+      { name: payload.name },
+      payload,
+      { upsert: true, new: true, runValidators: true }
+    );
+    created++;
+  }
+
+  res.json({ success: true, count: created, skipped });
+});
+
 /* TEMPLATES API */
 router.get("/templates", async (req, res) => {
   const templates = await Template.find().sort({ type: 1, category: 1 });

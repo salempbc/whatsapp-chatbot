@@ -265,7 +265,7 @@ createApp({
         toastMessage, showToast,
       currentTab, members, templates, search, memberFilter, loading, saving, error, triggering,
       form, tplForm, filteredMembers, settings, selectedIds,
-      selectAll, bulkAction, saveSettings, triggerAction, exportCSV,
+      selectAll, bulkAction, saveSettings, triggerAction, exportCSV, openDirectory: () => window.open(`/api/directory?auth=${encodeURIComponent(tg.initData)}`),
       openMemberForm, saveMember,
       openTemplateForm, saveTemplate, deleteTemplate,
       getInitials, avatarStyle, photoUrl
