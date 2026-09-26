@@ -1,4 +1,4 @@
-﻿import "dotenv/config";
+import "dotenv/config";
 import express from "express";
 import compression from "compression";
 import cors from "cors";
@@ -25,6 +25,9 @@ const app = express();
    express-rate-limit v7 refuses to trust X-Forwarded-For and every request
    looks like it comes from the same proxy IP. */
 app.set("trust proxy", 1);
+
+// Lightweight health check for uptime pingers (cron-job.org)
+app.get("/ping", (req, res) => res.status(200).send("pong"));
 
 /* --- 1. SECURITY & OPTIMIZATION MIDDLEWARE --- */
 app.use(compression());

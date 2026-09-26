@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import crypto from "crypto";
 import mongoose from "mongoose";
 import Member from "../models/Member.js";
@@ -115,6 +115,7 @@ const verifyTelegramWebAppData = (req, res, next) => {
 };
 
 router.use(express.json());
+router.get("/ping", (req, res) => res.status(200).send("pong"));
 router.get("/test-telegram", async (req, res) => {
   try {
     const resp = await fetch("https://api.telegram.org/bot" + process.env.BOT_TOKEN + "/getMe");
