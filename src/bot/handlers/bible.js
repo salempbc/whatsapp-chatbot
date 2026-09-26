@@ -1,6 +1,8 @@
 import { adminOnly } from "../guard.js";
 import EventVerse from "../../models/EventVerse.js";
-﻿import Bible from "../../models/Bible.js";
+import Bible from "../../models/Bible.js";
+import Member from "../../models/Member.js";
+import { enhanceTamil } from "../../services/aiService.js";
 
 const bibleAliases = {
   "genesis": 1, "gen": 1, "ge": 1, "gn": 1, "exodus": 2, "exo": 2, "ex": 2, "leviticus": 3, "lev": 3, "le": 3, "lv": 3,
@@ -201,6 +203,32 @@ export const registerBible = (bot) => {
     } catch (err) {
       console.error(err);
       await bot.sendMessage(chatId, "⚠️ Database error while fetching the verse.");
+    }
+  }));
+
+  bot.onText(/^\/genwish\s+(.+)$/i, adminOnly(async (msg, match) => {
+    const chatId = msg.chat.id;
+    const searchName = match[1].trim();
+
+    const member = await Member.findOne({
+      name: { $regex: new RegExp(searchName, "i") },
+      isDeleted: { $ne: true }
+    });
+
+    if (!member) {
+      return bot.sendMessage(chatId, `⚠️ Member "${searchName}" not found.`);
+    }
+
+    bot.sendMessage(chatId, `⏳ Generating AI wish for *${member.name}*...`, { parse_mode: "Markdown" });
+
+    try {
+      const wish = await enhanceTamil(`இனிய பிறந்தநாள் வாழ்த்துகள், ${member.name}!`, {
+        type: "birthday",
+        member
+      });
+      bot.sendMessage(chatId, `✨ *AI Wish Preview:* \n\n${wish}`, { parse_mode: "Markdown" });
+    } catch (e) {
+      bot.sendMessage(chatId, `⚠️ AI Generation failed: ${e.message}`);
     }
   }));
 };

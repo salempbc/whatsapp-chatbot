@@ -56,7 +56,8 @@ export const initTelegram = () => {
     { command: "addverse", description: "<type> <ref> - Add a custom event verse" },
     { command: "listverses", description: "List custom event verses" },
     { command: "addmemorial", description: "<MM-DD> <Name> [, Note] - Add memorial" },
-    { command: "listmemorials", description: "List tracked memorials" }
+    { command: "listmemorials", description: "List tracked memorials" },
+    { command: "genwish", description: "<Name> - Preview AI-generated Tamil wish" }
   ]).catch((err) => console.error("❌ setMyCommands failed:", err.message));
 
   registerHome(bot);

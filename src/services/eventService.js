@@ -1,4 +1,4 @@
-﻿import Member from "../models/Member.js";
+import Member from "../models/Member.js";
 import Meta from "../models/Meta.js";
 import Template from "../models/Template.js";
 import { getSetting } from "../models/Settings.js";
@@ -242,7 +242,10 @@ export const buildMessages = async ({ birthdays, weddings }) => {
       nameAccusative = m.name + " அவர்களை";
     }
 
+    const customVars = (m.customData && typeof m.customData === "object") ? m.customData : {};
+
     text = processConditionals(text, {
+      ...customVars,
       designation: getDesignation(m),
       name: nameAccusative,
       raw_name: m.name,
@@ -287,8 +290,10 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 
     const years = getAge(m.weddingDate);
 
+    const customVars = (m.customData && typeof m.customData === "object") ? m.customData : {};
     let text = wTpl || "{husband} {wife}";
     text = processConditionals(text, {
+      ...customVars,
       husband: husband,
       wife: wife,
       years: years,

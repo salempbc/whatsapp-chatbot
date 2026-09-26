@@ -98,6 +98,43 @@ const getWeddingVerse = async () => {
   return pick(weddingVerses);
 };
 
+const generateAIWishWithGemini = async (member, eventType, verse) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const age = getAge(member.dob);
+    const prompt = `You are a warm, respectful Tamil Christian Pastor. Write a short, heart-felt, unique Tamil Christian wish (2-3 sentences) for a ${eventType}.
+Member details:
+Name: ${member.name}
+Role/Designation: ${member.role || 'Church Member'}
+Age: ${age || 'N/A'}
+Spouse: ${member.spouseName || 'N/A'}
+Bible verse selected for them: "${verse}"
+
+Rules:
+1. Write in natural, elegant, grammatically sound Tamil.
+2. Incorporate the spirit of the verse.
+3. Keep it encouraging and suitable for posting in a church WhatsApp/Telegram group.
+4. Output ONLY the Tamil wish text (do not include English explanations).`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return generatedText ? normalize(generatedText) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
 /* ===== MAIN ===== */
 
 export const enhanceTamil = async (text, context = {}) => {
@@ -115,6 +152,14 @@ export const enhanceTamil = async (text, context = {}) => {
     }
 
     if (!verse) return t;
+
+    // Generative AI Wish via Gemini API if key is set
+    if (process.env.GEMINI_API_KEY && context.member) {
+      const aiWish = await generateAIWishWithGemini(context.member, context.type, verse);
+      if (aiWish) {
+        return `📖 ${verse}\n\n${aiWish}`;
+      }
+    }
 
     return `📖 ${verse}\n\n${t}`;
   } catch {
