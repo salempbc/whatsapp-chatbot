@@ -1,4 +1,4 @@
-const { createApp, ref, computed, onMounted, watch } = Vue;
+const { createApp, ref, computed, onMounted, watch } = window.Vue || Vue || {};
 
 const tg = window.Telegram?.WebApp || {
   expand: () => {},
@@ -22,11 +22,13 @@ try {
 
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/sw.js?v=3').then((reg) => {
+      reg.update().catch(() => {});
+    }).catch(() => {});
   });
 }
 
-createApp({
+const app = createApp({
   setup() {
     // Theme Management (Supports Telegram Dark/Light + System + Manual Toggle)
     const isDark = ref(false);
@@ -1352,3 +1354,13 @@ window.addEventListener("error", (event) => {
 });
 
 app.mount('#app');
+
+// Smoothly dismiss preloader once app has mounted
+const preloader = document.getElementById('preloader');
+if (preloader) {
+  preloader.style.opacity = '0';
+  setTimeout(() => {
+    if (preloader.parentNode) preloader.parentNode.removeChild(preloader);
+  }, 300);
+}
+

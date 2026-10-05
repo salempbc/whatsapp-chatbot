@@ -1,22 +1,23 @@
-// Service Worker for SPBC Church CMS Mini App (Offline-First App Shell)
-const CACHE_NAME = 'spbc-cms-shell-v1';
+// Service Worker for SPBC Church CMS Mini App (Network-First Strategy)
+const CACHE_NAME = 'spbc-cms-shell-v3';
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/app.js',
-  'https://cdn.tailwindcss.com',
-  'https://unpkg.com/vue@3/dist/vue.global.js',
+  '/vue.global.js',
+  '/tailwind.js',
   'https://telegram.org/js/telegram-web-app.js'
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('Non-fatal SW cache prefetch error:', err);
+        console.warn('SW cache prefetch notice:', err);
       });
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
@@ -26,6 +27,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log('🧹 Purging outdated service worker cache:', key);
             return caches.delete(key);
           }
         })
@@ -35,26 +37,27 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Never intercept API, auth, or diagnostic calls
   const url = new URL(event.request.url);
+
+  // Never intercept API, auth, or diagnostic calls
   if (url.pathname.startsWith('/api') || url.pathname.startsWith('/ping')) {
     return;
   }
 
-  // Stale-while-revalidate for static UI assets
+  // Network-First for HTML and app scripts to ensure zero stale bugs
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
           });
         }
         return networkResponse;
-      }).catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
+      })
+      .catch(() => {
+        return caches.match(event.request);
+      })
   );
 });
