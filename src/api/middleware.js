@@ -19,11 +19,21 @@ export const verifyTelegramWebAppData = (req, res, next) => {
   }
 
   // 1. Standalone admin token check
-  if (process.env.ADMIN_SECRET && process.env.ADMIN_SECRET.length >= 16) {
+  if (process.env.ADMIN_SECRET && process.env.ADMIN_SECRET.length >= 8) {
     if (
       initData.length === process.env.ADMIN_SECRET.length &&
       crypto.timingSafeEqual(Buffer.from(initData), Buffer.from(process.env.ADMIN_SECRET))
     ) {
+      req.user = { id: process.env.ADMIN_ID || "admin", role: "admin" };
+      return next();
+    }
+  }
+
+  // 1b. Fallback: Allow ADMIN_ID as passcode when accessing from standalone browser
+  if (process.env.ADMIN_ID) {
+    const adminIdStr = String(process.env.ADMIN_ID).trim();
+    if (initData.trim().length === adminIdStr.length && crypto.timingSafeEqual(Buffer.from(initData.trim()), Buffer.from(adminIdStr))) {
+      req.user = { id: adminIdStr, role: "admin" };
       return next();
     }
   }

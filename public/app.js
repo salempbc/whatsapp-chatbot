@@ -178,22 +178,86 @@ createApp({
     const defaultTplForm = () => ({ type: 'birthday', category: 'formal', content: '' });
     const tplForm = ref(defaultTplForm());
 
+    // Standalone Browser and Telegram Authentication
+    const getStoredToken = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('auth') || urlParams.get('token');
+      if (urlToken) {
+        localStorage.setItem('spbc_auth_token', urlToken);
+        return urlToken;
+      }
+      if (tg.initData && tg.initData.length > 5) {
+        return tg.initData;
+      }
+      return localStorage.getItem('spbc_auth_token') || '';
+    };
+
+    const authToken = ref(getStoredToken());
+    const authModalOpen = ref(false);
+    const authPasscode = ref('');
+    const authError = ref('');
+    const authVerifying = ref(false);
+
     // API Helper
     const apiCall = async (url, method = 'GET', body = null) => {
+      const token = authToken.value || getStoredToken();
       const opts = {
         method,
-        headers: { 'Authorization': `Bearer ${tg.initData}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       };
       if (body) {
         opts.headers['Content-Type'] = 'application/json';
         opts.body = JSON.stringify(body);
       }
       const res = await fetch(`/api${url}`, opts);
+      if (res.status === 401 || res.status === 403) {
+        if (!tg.initData || tg.initData.length < 5) {
+          authModalOpen.value = true;
+        }
+      }
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
         throw new Error(detail?.error || `Request failed (${res.status})`);
       }
       return await res.json();
+    };
+
+    const verifyAndSavePasscode = async () => {
+      if (!authPasscode.value || !authPasscode.value.trim()) {
+        authError.value = 'Please enter your Admin Passcode or Secret';
+        return;
+      }
+      authVerifying.value = true;
+      authError.value = '';
+      try {
+        const candidate = authPasscode.value.trim();
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${candidate}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!res.ok) {
+          throw new Error('Invalid Admin Passcode or Secret Key');
+        }
+        localStorage.setItem('spbc_auth_token', candidate);
+        authToken.value = candidate;
+        authModalOpen.value = false;
+        authPasscode.value = '';
+        showToast('🔓 Admin Verified Successfully');
+        await loadData();
+      } catch (err) {
+        authError.value = err.message;
+      } finally {
+        authVerifying.value = false;
+      }
+    };
+
+    const logoutStandalone = () => {
+      localStorage.removeItem('spbc_auth_token');
+      authToken.value = '';
+      authModalOpen.value = true;
     };
 
     // Load All Data
@@ -225,7 +289,13 @@ createApp({
       }
     };
 
-    onMounted(loadData);
+    onMounted(() => {
+      if (!authToken.value && (!tg.initData || tg.initData.length < 5)) {
+        authModalOpen.value = true;
+      } else {
+        loadData();
+      }
+    });
 
     // Age Calculator
     const getAge = (dob) => {
@@ -1119,7 +1189,8 @@ createApp({
 
     const exportCSV = async () => {
       try {
-        const res = await fetch('/api/export', { headers: { 'Authorization': `Bearer ${tg.initData}` } });
+        const token = authToken.value || getStoredToken();
+        const res = await fetch('/api/export', { headers: { 'Authorization': `Bearer ${token}` } });
         if (!res.ok) throw new Error("Export failed");
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
@@ -1135,7 +1206,8 @@ createApp({
     };
 
     const openDirectory = () => {
-      window.open(`/api/directory?auth=${encodeURIComponent(tg.initData)}`, '_blank');
+      const token = authToken.value || getStoredToken();
+      window.open(`/api/directory?auth=${encodeURIComponent(token)}`, '_blank');
     };
 
     // Formatting Helpers
@@ -1152,7 +1224,10 @@ createApp({
       return { backgroundColor: color };
     };
 
-    const photoUrl = (id) => `/api/members/${id}/photo?auth=${encodeURIComponent(tg.initData)}`;
+    const photoUrl = (id) => {
+      const token = authToken.value || getStoredToken();
+      return `/api/members/${id}/photo?auth=${encodeURIComponent(token)}`;
+    };
 
     const getCelebrationPill = (mmdd, isToday) => {
       if (isToday) return { label: 'Today 🎉', class: 'bg-emerald-500 text-white font-bold animate-pulse' };
@@ -1161,6 +1236,7 @@ createApp({
 
     return {
       isDark, toggleTheme,
+      authToken, authModalOpen, authPasscode, authError, authVerifying, verifyAndSavePasscode, logoutStandalone,
       currentTab, memberView, members, templates, upcomingEvents, churchEvents, tasks, churchStats, dataQuality, settings,
       search, memberFilter, sortBy, selectedIds,
       loading, saving, triggering, toastMessage, showToast,

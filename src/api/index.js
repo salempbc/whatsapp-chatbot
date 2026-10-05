@@ -127,6 +127,11 @@ router.get("/diagnostics", async (req, res) => {
 /* 2. PROTECTED ADMIN ROUTES */
 router.use(verifyTelegramWebAppData);
 
+/* Auth verification ping for WebApp standalone browser sessions */
+router.post("/auth/verify", (req, res) => {
+  res.json({ success: true, user: req.user || { role: "admin" } });
+});
+
 /* Member Photo Proxy & Upload */
 router.get("/members/:id/photo", async (req, res) => {
   const m = await Member.findById(req.params.id).catch(() => null);
