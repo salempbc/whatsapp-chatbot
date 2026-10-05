@@ -193,7 +193,7 @@ router.get("/members", async (req, res) => {
     ];
   }
 
-  const members = await Member.find(filter).sort({ name: 1 });
+  const members = await Member.find(filter).sort({ name: 1 }).lean();
   res.json(members);
 });
 
@@ -412,7 +412,7 @@ router.get("/events", async (req, res) => {
   if (category && category !== "all") {
     filter.category = category;
   }
-  const events = await ChurchEvent.find(filter).sort({ startDate: 1, startTime: 1 });
+  const events = await ChurchEvent.find(filter).sort({ startDate: 1, startTime: 1 }).lean();
   res.json(events);
 });
 
@@ -449,7 +449,7 @@ router.get("/tasks", async (req, res) => {
   if (category && category !== "all") filter.category = category;
   if (priority && priority !== "all") filter.priority = priority;
 
-  const tasks = await Task.find(filter).sort({ dueDate: 1, priority: -1 });
+  const tasks = await Task.find(filter).sort({ dueDate: 1, priority: -1 }).lean();
   res.json(tasks);
 });
 
@@ -488,7 +488,7 @@ router.get("/reports/data-quality", async (req, res) => {
 
 /* Templates */
 router.get("/templates", async (req, res) => {
-  const templates = await Template.find().sort({ type: 1, category: 1 });
+  const templates = await Template.find().sort({ type: 1, category: 1 }).lean();
   res.json(templates);
 });
 

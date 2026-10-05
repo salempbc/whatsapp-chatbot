@@ -89,7 +89,7 @@ createApp({
 
     // Unified BackButton management across all tabs, forms, and modals
     const updateBackButtonState = () => {
-      const isSubForm = ['memberForm', 'templateForm'].includes(currentTab.value);
+      const isSubForm = ['memberForm', 'templateForm', 'fastEntry'].includes(currentTab.value);
       const isModalActive = eventModalOpen.value || taskModalOpen.value || wishModal.value.open || importModal.value.open;
       if (isSubForm || isModalActive) {
         tg.BackButton.show();
@@ -111,7 +111,7 @@ createApp({
       if (eventModalOpen.value) { eventModalOpen.value = false; return; }
       if (taskModalOpen.value) { taskModalOpen.value = false; return; }
       // 2. Sub-forms return to their parent list tab
-      if (currentTab.value === 'memberForm') { currentTab.value = 'members'; return; }
+      if (currentTab.value === 'memberForm' || currentTab.value === 'fastEntry') { currentTab.value = 'members'; return; }
       if (currentTab.value === 'templateForm') { currentTab.value = 'templates'; return; }
     });
 
@@ -536,6 +536,157 @@ createApp({
         saving.value = false;
       }
     };
+
+    // ==========================================
+    // FAST MEMBER ENTRY MODE (RAPID REGISTRATION)
+    // ==========================================
+    const defaultFastForm = (retained = {}) => ({
+      name: '',
+      gender: 'male',
+      role: 'Member',
+      familyName: retained.familyName || '',
+      phone: retained.phone || '',
+      address: retained.address || '',
+      dob: '',
+      ageEstimate: '',
+      isChild: false,
+      isPastor: false,
+      isMarried: false,
+      spouseName: '',
+      weddingDate: '',
+      status: 'active'
+    });
+
+    const fastForm = ref(defaultFastForm());
+    const retainHousehold = ref(true);
+    const fastSessionMembers = ref([]);
+    const fastSaving = ref(false);
+
+    // Dynamic known family names for datalist autocomplete
+    const existingFamilies = computed(() => {
+      const set = new Set();
+      for (const m of members.value) {
+        if (m.familyName && m.familyName.trim()) {
+          set.add(m.familyName.trim());
+        }
+      }
+      return Array.from(set).sort();
+    });
+
+    const existingRoles = ['Member', 'Youth', 'Elder', 'Deacon', 'Choir', 'Sunday School', 'Pastor', 'Treasurer', 'Secretary'];
+
+    // Fast Age Estimator
+    const handleAgeEstimateChange = () => {
+      const val = fastForm.value.ageEstimate;
+      if (val === '' || val === null || val === undefined) return;
+      const age = parseInt(val, 10);
+      if (!isNaN(age) && age >= 0 && age <= 120) {
+        const currentYear = new Date().getFullYear();
+        const birthYear = currentYear - age;
+        fastForm.value.dob = `${birthYear}-01-01`;
+        if (age < 18) {
+          fastForm.value.isChild = true;
+          if (fastForm.value.role === 'Member') fastForm.value.role = 'Youth';
+        } else {
+          fastForm.value.isChild = false;
+        }
+      }
+    };
+
+    const setFastPrefix = (prefix) => {
+      const current = fastForm.value.name.replace(/^(Bro\.|Sis\.|Pastor|Master)\s*/i, '').trim();
+      fastForm.value.name = prefix + (current ? ' ' + current : ' ');
+      const el = document.getElementById('fast-name-input');
+      if (el) el.focus();
+    };
+
+    const setFastRole = (role) => {
+      fastForm.value.role = role;
+      if (role === 'Youth' || role === 'Sunday School') {
+        fastForm.value.isChild = true;
+      }
+      if (role === 'Pastor') {
+        fastForm.value.isPastor = true;
+      }
+      if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+    };
+
+    const resetFastForm = (keepFamily = true) => {
+      const retained = {};
+      if (keepFamily && retainHousehold.value) {
+        retained.familyName = fastForm.value.familyName;
+        retained.phone = fastForm.value.phone;
+        retained.address = fastForm.value.address;
+      }
+      fastForm.value = defaultFastForm(retained);
+      setTimeout(() => {
+        const el = document.getElementById('fast-name-input');
+        if (el) el.focus();
+      }, 50);
+    };
+
+    const openFastEntry = (prefillFamily = '') => {
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      resetFastForm(false);
+      if (prefillFamily) {
+        fastForm.value.familyName = prefillFamily;
+        const match = members.value.find(m => m.familyName === prefillFamily);
+        if (match) {
+          if (match.address) fastForm.value.address = match.address;
+          if (match.phone) fastForm.value.phone = match.phone;
+        }
+      }
+      currentTab.value = 'fastEntry';
+      setTimeout(() => {
+        const el = document.getElementById('fast-name-input');
+        if (el) el.focus();
+      }, 100);
+    };
+
+    const saveFastMember = async (addAnother = true) => {
+      if (!fastForm.value.name || !fastForm.value.name.trim()) {
+        tg.showAlert("Please enter member full name!");
+        const el = document.getElementById('fast-name-input');
+        if (el) el.focus();
+        return;
+      }
+
+      fastSaving.value = true;
+      try {
+        const payload = { ...fastForm.value };
+        delete payload.ageEstimate;
+
+        if (payload.dob) payload.birthday = payload.dob.substring(5);
+        if (payload.weddingDate) payload.wedding = payload.weddingDate.substring(5);
+
+        const newMember = await apiCall('/members', 'POST', payload);
+        members.value.unshift(newMember);
+        fastSessionMembers.value.unshift(newMember);
+
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        showToast(`⚡ Added "${newMember.name}"!`);
+
+        if (addAnother) {
+          resetFastForm(true);
+        } else {
+          currentTab.value = 'members';
+          await loadData();
+        }
+      } catch (e) {
+        tg.showAlert(e.message);
+      } finally {
+        fastSaving.value = false;
+      }
+    };
+
+    window.addEventListener('keydown', (e) => {
+      if (currentTab.value === 'fastEntry') {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          saveFastMember(true);
+        }
+      }
+    });
 
     // Template Form
     const openTemplateForm = (t = null) => {
@@ -1024,6 +1175,8 @@ createApp({
       openWishModal, copyWishToClipboard, openWhatsAppWish,
       openImportModal, parseCSVFile, executeBulkImport,
       handlePhotoFileInput, calendarMonth, calendarMonthDays, shiftCalendarMonth, mergeMemberAction,
+      fastForm, retainHousehold, fastSessionMembers, fastSaving, existingFamilies, existingRoles,
+      handleAgeEstimateChange, setFastPrefix, setFastRole, resetFastForm, openFastEntry, saveFastMember,
       saveSettings, triggerAction, exportCSV, openDirectory,
       getAge, computeAge, getInitials, avatarStyle, photoUrl, getCelebrationPill
     };

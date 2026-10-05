@@ -24,7 +24,8 @@ const memberSchema = new mongoose.Schema(
     phone: {
       type: String,
       trim: true,
-      default: ""
+      default: "",
+      index: true
     },
 
     address: {
@@ -86,7 +87,8 @@ const memberSchema = new mongoose.Schema(
     /* 👨‍👩‍👧 Family group label (free text, e.g. "Kumar Family") */
     familyName: {
       type: String,
-      trim: true
+      trim: true,
+      index: true
     },
 
     dob: {
