@@ -1,14 +1,32 @@
 const { createApp, ref, computed, onMounted, watch } = Vue;
 
-const tg = window.Telegram.WebApp;
-tg.expand();
-tg.ready();
+const tg = window.Telegram?.WebApp || {
+  expand: () => {},
+  ready: () => {},
+  initData: "",
+  HapticFeedback: {
+    impactOccurred: () => {},
+    notificationOccurred: () => {},
+    selectionChanged: () => {}
+  },
+  BackButton: { show: () => {}, hide: () => {} },
+  onEvent: () => {},
+  showAlert: (msg) => alert(msg),
+  showConfirm: (msg, cb) => cb(confirm(msg))
+};
+
+try {
+  tg.expand();
+  tg.ready();
+} catch (e) {}
 
 createApp({
   setup() {
-    const currentTab = ref('members');
+    // Navigation State
+    const currentTab = ref('members'); // 'members', 'upcoming', 'templates', 'settings', 'memberForm', 'templateForm'
+    const memberView = ref('cards'); // 'cards' | 'families'
     
-    // Telegram BackButton Logic
+    // Telegram BackButton integration
     watch(currentTab, (newTab) => {
       if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
       if (['memberForm', 'templateForm'].includes(newTab)) {
@@ -22,21 +40,32 @@ createApp({
       if (currentTab.value === 'memberForm') currentTab.value = 'members';
       else if (currentTab.value === 'templateForm') currentTab.value = 'templates';
     });
-    
+
+    // Core Data Collections
     const members = ref([]);
     const templates = ref([]);
-    const settings = ref({ sendTime: '06:00', reminderTime: '20:00', enableBirthdays: true, enableWeddings: true, customFields: [] });
-    
+    const upcomingEvents = ref({ birthdays: [], weddings: [] });
+    const settings = ref({
+      sendTime: '06:00',
+      reminderTime: '20:00',
+      enableBirthdays: true,
+      enableWeddings: true,
+      customFields: []
+    });
+
+    // Search, Filter & Sort State
     const search = ref('');
-    const memberFilter = ref('active');
+    const memberFilter = ref('active'); // 'all', 'active', 'inactive', 'married', 'youth', 'elder', 'pastor'
+    const sortBy = ref('name'); // 'name', 'birthday', 'wedding'
     const selectedIds = ref([]);
-    
+
+    // UI Loading & Toast State
     const loading = ref(true);
     const saving = ref(false);
     const triggering = ref(false);
-    const error = ref('');
     const toastMessage = ref('');
     let toastTimeout = null;
+
     const showToast = (msg) => {
       if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
       toastMessage.value = msg;
@@ -44,52 +73,81 @@ createApp({
       toastTimeout = setTimeout(() => { toastMessage.value = ''; }, 3000);
     };
 
-    const defaultForm = () => ({ name: '', gender: 'male', role: '', dob: '', isMarried: false, spouseName: '', spouseGender: 'female', weddingDate: '', familyName: '', isChild: false, isPastor: false, isActive: true, customData: {} });
+    // Forms
+    const defaultForm = () => ({
+      name: '',
+      gender: 'male',
+      role: '',
+      dob: '',
+      weddingDate: '',
+      isMarried: false,
+      spouseName: '',
+      spouseGender: 'female',
+      familyName: '',
+      isChild: false,
+      isPastor: false,
+      isActive: true,
+      customData: {}
+    });
     const form = ref(defaultForm());
-    
+
     const defaultTplForm = () => ({ type: 'birthday', category: 'formal', content: '' });
     const tplForm = ref(defaultTplForm());
 
+    // Live AI Wish Preview & Sender Modal
+    const wishModal = ref({
+      open: false,
+      loading: false,
+      sending: false,
+      member: null,
+      type: 'birthday',
+      text: '',
+      photo: null
+    });
+
+    // Bulk CSV Import Modal
+    const importModal = ref({
+      open: false,
+      parsing: false,
+      importing: false,
+      parsedMembers: [],
+      error: ''
+    });
+
+    // API Helper
     const apiCall = async (url, method = 'GET', body = null) => {
-      const opts = { method, headers: { 'Authorization': `Bearer ${tg.initData}` } };
+      const opts = {
+        method,
+        headers: { 'Authorization': `Bearer ${tg.initData}` }
+      };
       if (body) {
         opts.headers['Content-Type'] = 'application/json';
         opts.body = JSON.stringify(body);
       }
       const res = await fetch(`/api${url}`, opts);
       if (!res.ok) {
-        /* Surface the server's message — validation errors say what was wrong. */
         const detail = await res.json().catch(() => null);
         throw new Error(detail?.error || `Request failed (${res.status})`);
       }
       return await res.json();
     };
 
-        const loadData = async () => {
-      // Optimistic cache load
-      const cacheM = localStorage.getItem('cache_members');
-      const cacheT = localStorage.getItem('cache_templates');
-      const cacheS = localStorage.getItem('cache_settings');
-      if (cacheM) members.value = JSON.parse(cacheM);
-      if (cacheT) templates.value = JSON.parse(cacheT);
-      if (cacheS) settings.value = JSON.parse(cacheS);
-      
-      if (!cacheM) loading.value = true;
+    // Load All Data
+    const loadData = async () => {
+      loading.value = true;
       try {
-        const [mRes, tRes, sRes] = await Promise.all([
-          apiCall('/members'),
-          apiCall('/templates'),
-          apiCall('/settings')
+        const [mRes, tRes, sRes, uRes] = await Promise.all([
+          apiCall('/members').catch(() => []),
+          apiCall('/templates').catch(() => []),
+          apiCall('/settings').catch(() => ({ sendTime: '06:00', reminderTime: '20:00', customFields: [] })),
+          apiCall('/upcoming?days=30').catch(() => ({ birthdays: [], weddings: [] }))
         ]);
         members.value = mRes;
         templates.value = tRes;
         settings.value = sRes;
-        
-        localStorage.setItem('cache_members', JSON.stringify(mRes));
-        localStorage.setItem('cache_templates', JSON.stringify(tRes));
-        localStorage.setItem('cache_settings', JSON.stringify(sRes));
+        upcomingEvents.value = uRes;
       } catch (err) {
-        error.value = "Failed to load database. Are you the admin?";
+        showToast("⚠️ Could not load data.");
       } finally {
         loading.value = false;
       }
@@ -97,17 +155,80 @@ createApp({
 
     onMounted(loadData);
 
+    // Age Calculator
+    const getAge = (dob) => {
+      if (!dob) return null;
+      const today = new Date();
+      const birth = new Date(dob);
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+      return age;
+    };
+
+    // Metrics Overview
+    const totalCount = computed(() => members.value.length);
+    const activeCount = computed(() => members.value.filter(m => m.isActive !== false).length);
+    const marriedCount = computed(() => members.value.filter(m => m.isMarried).length);
+    const celebrationsCount = computed(() => (upcomingEvents.value.birthdays?.length || 0) + (upcomingEvents.value.weddings?.length || 0));
+
+    // Filtered & Sorted Members
     const filteredMembers = computed(() => {
-      let filtered = members.value;
-      if (memberFilter.value === 'active') filtered = filtered.filter(m => m.isActive !== false);
-      if (memberFilter.value === 'inactive') filtered = filtered.filter(m => m.isActive === false);
-      if (search.value) {
-        const s = search.value.toLowerCase();
-        filtered = filtered.filter(m => m.name.toLowerCase().includes(s) || (m.role || '').toLowerCase().includes(s) || (m.familyName || '').toLowerCase().includes(s));
+      let list = [...members.value];
+
+      // Filter by Status / Demographics
+      if (memberFilter.value === 'active') list = list.filter(m => m.isActive !== false);
+      if (memberFilter.value === 'inactive') list = list.filter(m => m.isActive === false);
+      if (memberFilter.value === 'married') list = list.filter(m => m.isMarried);
+      if (memberFilter.value === 'pastor') list = list.filter(m => m.isPastor);
+      if (memberFilter.value === 'youth') {
+        list = list.filter(m => {
+          const age = getAge(m.dob);
+          return m.isChild || (age !== null && age < 30);
+        });
       }
-      return filtered;
+      if (memberFilter.value === 'elder') {
+        list = list.filter(m => {
+          const age = getAge(m.dob);
+          return age !== null && age >= 60;
+        });
+      }
+
+      // Search Query
+      if (search.value) {
+        const s = search.value.toLowerCase().trim();
+        list = list.filter(m =>
+          (m.name || '').toLowerCase().includes(s) ||
+          (m.role || '').toLowerCase().includes(s) ||
+          (m.familyName || '').toLowerCase().includes(s) ||
+          (m.spouseName || '').toLowerCase().includes(s)
+        );
+      }
+
+      // Sort
+      if (sortBy.value === 'name') {
+        list.sort((a, b) => a.name.localeCompare(b.name));
+      } else if (sortBy.value === 'birthday') {
+        list.sort((a, b) => (a.birthday || '99-99').localeCompare(b.birthday || '99-99'));
+      } else if (sortBy.value === 'wedding') {
+        list.sort((a, b) => (a.wedding || '99-99').localeCompare(b.wedding || '99-99'));
+      }
+
+      return list;
     });
 
+    // Grouped Family Units
+    const groupedFamilies = computed(() => {
+      const groups = {};
+      for (const m of filteredMembers.value) {
+        const famName = m.familyName?.trim() || 'General Roster';
+        if (!groups[famName]) groups[famName] = [];
+        groups[famName].push(m);
+      }
+      return groups;
+    });
+
+    // Selection
     const selectAll = () => {
       if (selectedIds.value.length === filteredMembers.value.length) {
         selectedIds.value = [];
@@ -118,30 +239,27 @@ createApp({
 
     const bulkAction = async (action, value) => {
       if (!selectedIds.value.length) return;
-      
       const count = selectedIds.value.length;
       tg.showConfirm(`Apply to ${count} members?`, async (ok) => {
         if (!ok) return;
-        
         let payload = null;
         let endpointAction = action;
-        
         if (action === 'active') {
           endpointAction = 'update';
           payload = { isActive: value };
         }
-        
         try {
           await apiCall('/members/bulk', 'POST', { ids: selectedIds.value, action: endpointAction, payload });
           selectedIds.value = [];
           await loadData();
-          tg.HapticFeedback.notificationOccurred('success');
+          showToast(`✅ Updated ${count} members`);
         } catch (e) {
           tg.showAlert(e.message);
         }
       });
     };
 
+    // Member Form
     const openMemberForm = (m = null) => {
       if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
       form.value = m ? { ...m, customData: m.customData || {} } : defaultForm();
@@ -149,13 +267,13 @@ createApp({
     };
 
     const saveMember = async () => {
-      if (!form.value.name) return tg.showAlert("Name is required!");
+      if (!form.value.name) return tg.showAlert("Full Name is required!");
       saving.value = true;
       try {
         await apiCall(form.value._id ? `/members/${form.value._id}` : '/members', form.value._id ? 'PUT' : 'POST', form.value);
         await loadData();
         currentTab.value = 'members';
-        tg.HapticFeedback.notificationOccurred('success');
+        showToast("Profile saved successfully");
       } catch (e) {
         tg.showAlert(e.message);
       } finally {
@@ -163,20 +281,26 @@ createApp({
       }
     };
 
+    // Template Form
     const openTemplateForm = (t = null) => {
       if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
       tplForm.value = t ? { ...t } : defaultTplForm();
       currentTab.value = 'templateForm';
     };
 
+    const insertVariable = (varName) => {
+      tplForm.value.content = (tplForm.value.content || '') + ` ${varName}`;
+      showToast(`Added ${varName}`);
+    };
+
     const saveTemplate = async () => {
-      if (!tplForm.value.content) return tg.showAlert("Content is required!");
+      if (!tplForm.value.content) return tg.showAlert("Message content is required!");
       saving.value = true;
       try {
         await apiCall(tplForm.value._id ? `/templates/${tplForm.value._id}` : '/templates', tplForm.value._id ? 'PUT' : 'POST', tplForm.value);
         await loadData();
         currentTab.value = 'templates';
-        tg.HapticFeedback.notificationOccurred('success');
+        showToast("Template saved");
       } catch (e) {
         tg.showAlert(e.message);
       } finally {
@@ -192,7 +316,7 @@ createApp({
           await apiCall(`/templates/${tplForm.value._id}`, 'DELETE');
           await loadData();
           currentTab.value = 'templates';
-          tg.HapticFeedback.notificationOccurred('success');
+          showToast("Template deleted");
         } catch (e) {
           tg.showAlert(e.message);
         } finally {
@@ -201,12 +325,127 @@ createApp({
       });
     };
 
+    // Live AI Wish Preview & Sender Modal
+    const openWishModal = async (member, type = 'birthday') => {
+      wishModal.value = {
+        open: true,
+        loading: true,
+        sending: false,
+        member,
+        type,
+        text: '',
+        photo: member.photo || null
+      };
+
+      try {
+        const res = await apiCall('/actions/preview-wish', 'POST', { memberId: member._id, type });
+        wishModal.value.text = res.preview;
+        wishModal.value.photo = res.photo;
+      } catch (err) {
+        wishModal.value.text = `இனிய ${type === 'birthday' ? 'பிறந்தநாள்' : 'திருமண நாள்'} வாழ்த்துகள், ${member.name}!`;
+      } finally {
+        wishModal.value.loading = false;
+      }
+    };
+
+    const sendWishToGroup = async () => {
+      if (!wishModal.value.text) return;
+      wishModal.value.sending = true;
+      try {
+        await apiCall('/actions/send-wish', 'POST', {
+          memberId: wishModal.value.member._id,
+          text: wishModal.value.text
+        });
+        showToast("🚀 Wish posted to Telegram Group!");
+        wishModal.value.open = false;
+      } catch (err) {
+        tg.showAlert(err.message);
+      } finally {
+        wishModal.value.sending = false;
+      }
+    };
+
+    // Bulk CSV Import
+    const openImportModal = () => {
+      importModal.value = {
+        open: true,
+        parsing: false,
+        importing: false,
+        parsedMembers: [],
+        error: ''
+      };
+    };
+
+    const parseCSVFile = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      importModal.value.parsing = true;
+      importModal.value.error = '';
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const text = e.target.result;
+          const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+          if (lines.length < 2) throw new Error("CSV has no data rows");
+
+          const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[\"\']/g, ''));
+          const parsed = [];
+
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',').map(c => c.trim().replace(/^[\"\']|[\"\']$/g, ''));
+            if (!cols[0]) continue;
+
+            const row = {};
+            headers.forEach((h, idx) => {
+              row[h] = cols[idx] || '';
+            });
+
+            parsed.push({
+              name: row.name || cols[0],
+              gender: (row.gender || cols[1] || 'male').toLowerCase().includes('f') ? 'female' : 'male',
+              role: row.role || cols[2] || 'Member',
+              dob: row.dob || row.birthday || '',
+              weddingDate: row.weddingdate || row.anniversary || '',
+              isMarried: Boolean(row.ismarried === 'true' || row.spouse || row.weddingdate),
+              spouseName: row.spousename || row.spouse || '',
+              familyName: row.familyname || row.family || ''
+            });
+          }
+
+          importModal.value.parsedMembers = parsed;
+          showToast(`✅ Parsed ${parsed.length} members`);
+        } catch (err) {
+          importModal.value.error = "Failed to parse CSV: " + err.message;
+        } finally {
+          importModal.value.parsing = false;
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    const executeBulkImport = async () => {
+      if (!importModal.value.parsedMembers.length) return;
+      importModal.value.importing = true;
+      try {
+        const res = await apiCall('/members/import', 'POST', { members: importModal.value.parsedMembers });
+        await loadData();
+        importModal.value.open = false;
+        showToast(`🎉 Imported ${res.count} members!`);
+      } catch (err) {
+        importModal.value.error = err.message;
+      } finally {
+        importModal.value.importing = false;
+      }
+    };
+
+    // System Settings & Actions
     const saveSettings = async () => {
       saving.value = true;
       try {
-        await apiCall('/settings', 'POST', settings.value); showToast('Settings saved');
-        tg.HapticFeedback.notificationOccurred('success');
-        tg.showAlert("Settings saved! Schedule updated.");
+        await apiCall('/settings', 'POST', settings.value);
+        showToast('Settings saved successfully');
       } catch (e) {
         tg.showAlert(e.message);
       } finally {
@@ -218,11 +457,10 @@ createApp({
       triggering.value = true;
       try {
         const res = await apiCall(`/actions/${act}`, 'POST');
-        tg.HapticFeedback.notificationOccurred('success');
         if (act === 'trigger-today') {
-          tg.showAlert(`Success! ${res.count} messages were sent to the group.`);
+          showToast(`Success: ${res.count} wishes sent to group!`);
         } else {
-          tg.showAlert("Success! Ping sent.");
+          showToast("🔔 Ping sent to group!");
         }
       } catch (e) {
         tg.showAlert(e.message);
@@ -231,8 +469,7 @@ createApp({
       }
     };
 
-        const exportCSV = async () => {
-      triggering.value = true;
+    const exportCSV = async () => {
       try {
         const res = await fetch('/api/export', { headers: { 'Authorization': `Bearer ${tg.initData}` } });
         if (!res.ok) throw new Error("Export failed");
@@ -243,37 +480,50 @@ createApp({
         a.download = "church_database.csv";
         a.click();
         window.URL.revokeObjectURL(url);
+        showToast("📥 Database downloaded");
       } catch (e) {
         tg.showAlert(e.message);
-      } finally {
-        triggering.value = false;
       }
     };
-    const getInitials = (name) => name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-    const avatarStyle = (name) => {
-      const colors = ['#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#10b981', '#3b82f6'];
-      const idx = name.charCodeAt(0) % colors.length;
-      const totalCount = computed(() => members.value.length);
-    const activeCount = computed(() => members.value.filter(m => m.isActive !== false).length);
-    const marriedCount = computed(() => members.value.filter(m => m.isMarried).length);
 
-    return {
-      totalCount, activeCount, marriedCount,
-      toastMessage, showToast, backgroundColor: colors[idx] };
+    const openDirectory = () => {
+      window.open(`/api/directory?auth=${encodeURIComponent(tg.initData)}`, '_blank');
     };
 
-    /* The photo endpoint is admin-only; an <img> tag cannot send an
-       Authorization header, so the signed initData rides along as a param. */
+    // Formatting Helpers
+    const getInitials = (name) => {
+      if (!name) return '??';
+      return name.split(' ').map(n => n[0]).filter(Boolean).join('').substring(0, 2).toUpperCase();
+    };
+
+    const avatarColors = ['#4f46e5', '#7c3aed', '#db2777', '#ea580c', '#059669', '#0284c7'];
+    const avatarStyle = (name = '') => {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      const color = avatarColors[Math.abs(hash) % avatarColors.length];
+      return { backgroundColor: color };
+    };
+
     const photoUrl = (id) => `/api/members/${id}/photo?auth=${encodeURIComponent(tg.initData)}`;
 
+    const getCelebrationPill = (mmdd, isToday) => {
+      if (isToday) return { label: 'Today 🎉', class: 'bg-emerald-500 text-white font-bold animate-pulse' };
+      return { label: mmdd, class: 'bg-indigo-50 text-indigo-700 font-semibold' };
+    };
+
     return {
-        toastMessage, showToast,
-      currentTab, members, templates, search, memberFilter, loading, saving, error, triggering,
-      form, tplForm, filteredMembers, settings, selectedIds,
-      selectAll, bulkAction, saveSettings, triggerAction, exportCSV, openDirectory: () => window.open(`/api/directory?auth=${encodeURIComponent(tg.initData)}`),
-      openMemberForm, saveMember,
-      openTemplateForm, saveTemplate, deleteTemplate,
-      getInitials, avatarStyle, photoUrl
+      currentTab, memberView, members, templates, upcomingEvents, settings,
+      search, memberFilter, sortBy, selectedIds,
+      loading, saving, triggering, toastMessage, showToast,
+      form, tplForm, wishModal, importModal,
+      totalCount, activeCount, marriedCount, celebrationsCount,
+      filteredMembers, groupedFamilies,
+      selectAll, bulkAction, openMemberForm, saveMember,
+      openTemplateForm, saveTemplate, deleteTemplate, insertVariable,
+      openWishModal, sendWishToGroup,
+      openImportModal, parseCSVFile, executeBulkImport,
+      saveSettings, triggerAction, exportCSV, openDirectory,
+      getAge, getInitials, avatarStyle, photoUrl, getCelebrationPill
     };
   }
 }).mount('#app');

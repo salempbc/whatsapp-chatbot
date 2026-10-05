@@ -405,6 +405,48 @@ router.post("/actions/ping", async (req, res) => {
   }
 });
 
+import { getUpcomingEvents } from "../services/eventService.js";
+import { enhanceTamil } from "../services/aiService.js";
+
+router.get("/upcoming", async (req, res) => {
+  try {
+    const days = Number(req.query.days) || 30;
+    const data = await getUpcomingEvents(days);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/actions/preview-wish", async (req, res) => {
+  try {
+    const { memberId, type = "birthday" } = req.body;
+    const member = await Member.findById(memberId);
+    if (!member) return res.status(404).json({ error: "Member not found" });
+
+    const preview = await enhanceTamil(
+      type === "birthday" ? `இனிய பிறந்தநாள் வாழ்த்துகள், ${member.name}!` : `இனிய திருமண நாள் வாழ்த்துகள்!`,
+      { type, member }
+    );
+    res.json({ success: true, preview, photo: member.photo || null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/actions/send-wish", async (req, res) => {
+  try {
+    const { memberId, text } = req.body;
+    const member = await Member.findById(memberId);
+    if (!member) return res.status(404).json({ error: "Member not found" });
+
+    await sendMessage(text, member);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post("/actions/trigger-today", async (req, res) => {
   try {
     const sent = await triggerNow();

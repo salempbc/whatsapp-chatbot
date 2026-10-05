@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Salem PBC - Church CMS</title>
+  <title>Salem PBC - Church Operating System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,24 +11,20 @@
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    :root {
-      --primary: #4f46e5;
-      --primary-hover: #4338ca;
-    }
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       background-color: var(--tg-theme-bg-color, #f8fafc);
       color: var(--tg-theme-text-color, #0f172a);
       -webkit-font-smoothing: antialiased;
-      padding-bottom: max(120px, calc(90px + env(safe-area-inset-bottom)));
+      padding-bottom: max(120px, calc(95px + env(safe-area-inset-bottom)));
     }
-    .glass-card {
+    .glass-surface {
       background: var(--tg-theme-secondary-bg-color, #ffffff);
-      border: 1px solid rgba(226, 232, 240, 0.8);
+      border: 1px solid rgba(226, 232, 240, 0.85);
       border-radius: 1.25rem;
       box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
     }
-    .input-field {
+    .glass-input {
       width: 100%;
       padding: 0.75rem 1rem;
       border-radius: 0.85rem;
@@ -38,23 +34,23 @@
       font-size: 0.95rem;
       transition: all 0.2s ease;
     }
-    .input-field:focus {
+    .glass-input:focus {
       outline: none;
       border-color: #6366f1;
       box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
     }
-    .btn-gradient {
+    .btn-brand {
       background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
       color: #ffffff;
       font-weight: 600;
       border-radius: 0.85rem;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .btn-gradient:active {
+    .btn-brand:active {
       transform: scale(0.98);
-      opacity: 0.9;
+      opacity: 0.92;
     }
-    .ios-toggle {
+    .ios-switch {
       appearance: none;
       width: 48px;
       height: 28px;
@@ -66,10 +62,10 @@
       transition: background 0.3s ease;
       flex-shrink: 0;
     }
-    .ios-toggle:checked {
+    .ios-switch:checked {
       background: #4f46e5;
     }
-    .ios-toggle::after {
+    .ios-switch::after {
       content: '';
       position: absolute;
       top: 2px;
@@ -81,7 +77,7 @@
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
       transition: transform 0.3s cubic-bezier(0.3, 1.05, 0.4, 1.05);
     }
-    .ios-toggle:checked::after {
+    .ios-switch:checked::after {
       transform: translateX(20px);
     }
     .nav-island {
@@ -89,34 +85,34 @@
       bottom: calc(12px + env(safe-area-inset-bottom, 12px));
       left: 1rem;
       right: 1rem;
-      max-width: 480px;
+      max-width: 500px;
       margin: 0 auto;
-      background: rgba(255, 255, 255, 0.88);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(226, 232, 240, 0.8);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(226, 232, 240, 0.85);
       border-radius: 1.5rem;
-      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -2px rgba(0, 0, 0, 0.03);
+      box-shadow: 0 12px 35px -5px rgba(0, 0, 0, 0.1), 0 4px 10px -2px rgba(0, 0, 0, 0.04);
       display: flex;
       justify-content: space-around;
-      padding: 0.6rem 0.75rem;
+      padding: 0.5rem 0.6rem;
       z-index: 50;
     }
     .nav-btn {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 0.35rem 1.25rem;
+      padding: 0.4rem 0.75rem;
       border-radius: 1rem;
       font-size: 0.72rem;
-      font-weight: 600;
+      font-weight: 700;
       color: #64748b;
-      transition: all 0.25s ease;
+      transition: all 0.2s ease;
       cursor: pointer;
     }
     .nav-btn.active {
       color: #4f46e5;
-      background: rgba(79, 70, 229, 0.08);
+      background: rgba(79, 70, 229, 0.09);
     }
     .nav-btn svg {
       transition: transform 0.2s ease;
@@ -124,8 +120,6 @@
     .nav-btn.active svg {
       transform: translateY(-1px);
     }
-    .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
-    .fade-enter-from, .fade-leave-to { opacity: 0; }
     .toast-pill {
       position: fixed;
       top: 1.25rem;
@@ -141,15 +135,25 @@
       align-items: center;
       gap: 0.5rem;
       z-index: 999;
-      box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.25);
     }
+    .chat-bubble {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 1.25rem;
+      border-top-left-radius: 0.25rem;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+      position: relative;
+    }
+    .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+    .fade-enter-from, .fade-leave-to { opacity: 0; }
     [v-cloak] { display: none; }
   </style>
 </head>
 <body class="antialiased">
   <div id="app" v-cloak class="max-w-xl mx-auto px-4 pt-4">
 
-    <!-- Toast Notification -->
+    <!-- Toast Pill Notification -->
     <transition name="fade">
       <div v-if="toastMessage" class="toast-pill">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -157,26 +161,28 @@
       </div>
     </transition>
 
-    <!-- App Header & Church Branding -->
-    <header class="flex items-center justify-between pb-4 mb-2 border-b border-slate-200/60">
+    <!-- Top Church Brand Header -->
+    <header class="flex items-center justify-between pb-3.5 mb-2.5 border-b border-slate-200/60">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white text-xl shadow-md shadow-indigo-500/20">
           ⛪
         </div>
         <div>
           <h1 class="text-lg font-bold tracking-tight text-slate-900 leading-none">Salem PBC</h1>
-          <p class="text-xs font-semibold text-slate-400 mt-1">Church Management Portal</p>
+          <p class="text-xs font-semibold text-slate-400 mt-1">Church Operating System</p>
         </div>
       </div>
-      <div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/60 text-emerald-700 text-xs font-bold">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span>Online</span>
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/60 text-emerald-700 text-xs font-bold">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Online</span>
+        </div>
       </div>
     </header>
 
-    <!-- Bulk Selection Bar -->
+    <!-- Floating Bulk Selection Bar -->
     <transition name="fade">
-      <div v-if="selectedIds.length > 0" class="fixed top-3 left-4 right-4 max-w-xl mx-auto glass-card bg-slate-900 text-white p-3 z-50 flex items-center justify-between shadow-2xl rounded-2xl border-none">
+      <div v-if="selectedIds.length > 0" class="fixed top-3 left-4 right-4 max-w-xl mx-auto glass-surface bg-slate-900 text-white p-3 z-50 flex items-center justify-between shadow-2xl rounded-2xl border-none">
         <div class="flex items-center gap-2 font-bold text-sm pl-2">
           <span class="px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 text-xs">{{ selectedIds.length }}</span>
           <span>Selected</span>
@@ -191,60 +197,86 @@
     </transition>
 
     <!-- ========================================== -->
-    <!-- 1. MEMBERS TAB                             -->
+    <!-- TAB 1: MEMBERS ROSTER & FAMILY EXPLORER   -->
     <!-- ========================================== -->
     <main v-if="currentTab === 'members'" class="space-y-4">
       
       <!-- Metrics Overview Cards -->
-      <div class="grid grid-cols-3 gap-2.5">
-        <div class="glass-card p-3 text-center">
-          <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total</div>
-          <div class="text-xl font-extrabold text-slate-900 mt-0.5">{{ totalCount }}</div>
+      <div class="grid grid-cols-4 gap-2">
+        <div class="glass-surface p-2.5 text-center">
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</div>
+          <div class="text-lg font-extrabold text-slate-900 mt-0.5">{{ totalCount }}</div>
         </div>
-        <div class="glass-card p-3 text-center border-emerald-100 bg-emerald-50/20">
-          <div class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Active</div>
-          <div class="text-xl font-extrabold text-emerald-700 mt-0.5">{{ activeCount }}</div>
+        <div class="glass-surface p-2.5 text-center border-emerald-100 bg-emerald-50/20">
+          <div class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Active</div>
+          <div class="text-lg font-extrabold text-emerald-700 mt-0.5">{{ activeCount }}</div>
         </div>
-        <div class="glass-card p-3 text-center border-rose-100 bg-rose-50/20">
-          <div class="text-xs font-semibold text-rose-500 uppercase tracking-wider">Married</div>
-          <div class="text-xl font-extrabold text-rose-600 mt-0.5">{{ marriedCount }}</div>
+        <div class="glass-surface p-2.5 text-center border-rose-100 bg-rose-50/20">
+          <div class="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Married</div>
+          <div class="text-lg font-extrabold text-rose-600 mt-0.5">{{ marriedCount }}</div>
+        </div>
+        <div class="glass-surface p-2.5 text-center border-indigo-100 bg-indigo-50/20 cursor-pointer hover:border-indigo-300 transition-colors" @click="currentTab = 'upcoming'">
+          <div class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Events</div>
+          <div class="text-lg font-extrabold text-indigo-700 mt-0.5">{{ celebrationsCount }}</div>
         </div>
       </div>
 
-      <!-- Search & Add Actions Header -->
+      <!-- Search, View Switcher & Add Actions -->
       <div class="flex items-center gap-2">
         <div class="relative flex-1">
           <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           </span>
-          <input type="text" v-model="search" placeholder="Search members, roles, families..." class="input-field pl-10 pr-8 text-sm bg-white" />
+          <input type="text" v-model="search" placeholder="Search name, family, role..." class="glass-input pl-10 pr-8 text-sm bg-white" />
           <button v-if="search" @click="search = ''" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600">✕</button>
         </div>
-        <button @click="openMemberForm()" class="btn-gradient px-4 py-2.5 text-sm flex items-center gap-1.5 shadow-sm">
+
+        <!-- View Switcher (Cards vs Family Tree) -->
+        <div class="flex items-center p-1 rounded-xl bg-slate-200/60 border border-slate-200/80">
+          <button @click="memberView = 'cards'" :class="['p-1.5 rounded-lg text-xs transition-all', memberView === 'cards' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500']" title="Cards View">
+            📇
+          </button>
+          <button @click="memberView = 'families'" :class="['p-1.5 rounded-lg text-xs transition-all', memberView === 'families' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500']" title="Families View">
+            🏡
+          </button>
+        </div>
+
+        <button @click="openMemberForm()" class="btn-brand px-3.5 py-2.5 text-sm flex items-center gap-1 shadow-sm">
           <span>➕</span>
           <span>Add</span>
         </button>
       </div>
 
-      <!-- Segmented Filter Chips -->
-      <div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide text-xs font-semibold">
-        <button @click="memberFilter = 'active'" :class="['px-3.5 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'active' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200/70 text-slate-600 hover:bg-slate-200']">
-          Active ({{ activeCount }})
-        </button>
-        <button @click="memberFilter = 'all'" :class="['px-3.5 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200/70 text-slate-600 hover:bg-slate-200']">
-          All ({{ totalCount }})
-        </button>
-        <button @click="memberFilter = 'inactive'" :class="['px-3.5 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'inactive' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200/70 text-slate-600 hover:bg-slate-200']">
-          Inactive
-        </button>
-        <button @click="selectAll" class="ml-auto px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60 whitespace-nowrap transition-colors">
-          {{ selectedIds.length === filteredMembers.length && filteredMembers.length > 0 ? 'Deselect All' : 'Select All' }}
-        </button>
+      <!-- Segmented Filters & Sort Row -->
+      <div class="flex items-center justify-between gap-1 overflow-x-auto pb-1 scrollbar-hide text-xs font-semibold">
+        <div class="flex items-center gap-1.5">
+          <button @click="memberFilter = 'active'" :class="['px-3 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'active' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200/70 text-slate-600']">
+            Active
+          </button>
+          <button @click="memberFilter = 'all'" :class="['px-3 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200/70 text-slate-600']">
+            All
+          </button>
+          <button @click="memberFilter = 'married'" :class="['px-3 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'married' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200/70 text-slate-600']">
+            💍 Married
+          </button>
+          <button @click="memberFilter = 'youth'" :class="['px-3 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'youth' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200/70 text-slate-600']">
+            Youth
+          </button>
+          <button @click="memberFilter = 'pastor'" :class="['px-3 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'pastor' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200/70 text-slate-600']">
+            Pastors
+          </button>
+        </div>
+
+        <select v-model="sortBy" class="px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-semibold focus:outline-none ml-2">
+          <option value="name">Sort: A-Z</option>
+          <option value="birthday">Sort: Birthday</option>
+          <option value="wedding">Sort: Wedding</option>
+        </select>
       </div>
 
-      <!-- Member Roster List -->
-      <div class="space-y-2.5">
-        <div v-for="m in filteredMembers" :key="m._id" class="glass-card p-3.5 flex items-center gap-3 transition-all hover:border-slate-300">
+      <!-- VIEW A: MEMBER CARDS GRID -->
+      <div v-if="memberView === 'cards'" class="space-y-2.5">
+        <div v-for="m in filteredMembers" :key="m._id" class="glass-surface p-3.5 flex items-center gap-3 transition-all hover:border-slate-300">
           <input type="checkbox" :value="m._id" v-model="selectedIds" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0" />
           
           <div class="w-11 h-11 rounded-2xl relative overflow-hidden flex items-center justify-center font-bold text-white text-sm shadow-sm cursor-pointer flex-shrink-0" :style="avatarStyle(m.name)" @click="openMemberForm(m)">
@@ -252,47 +284,166 @@
             <span v-if="!m.photo">{{ getInitials(m.name) }}</span>
           </div>
 
-          <div class="flex-1 min-w-0 cursor-pointer" @click="openMemberForm(m)">
+          <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-1">
-              <h3 class="font-bold text-slate-900 text-base leading-tight truncate">{{ m.name }}</h3>
-              <span v-if="m.isPastor" class="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-extrabold text-[10px] uppercase border border-purple-200/60 flex-shrink-0">Pastor</span>
+              <h3 class="font-bold text-slate-900 text-base leading-tight truncate cursor-pointer hover:text-indigo-600" @click="openMemberForm(m)">{{ m.name }}</h3>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <button @click="openWishModal(m, 'birthday')" class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold text-xs flex items-center gap-1 transition-colors" title="Live AI Wish Preview">
+                  <span>✨</span>
+                  <span>Wish</span>
+                </button>
+              </div>
             </div>
 
             <div class="flex flex-wrap items-center gap-1.5 mt-1 text-xs">
-              <span :class="['px-2 py-0.5 rounded-md font-semibold text-[11px]', m.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500']">
+              <span v-if="m.isPastor" class="px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 font-extrabold text-[10px] uppercase border border-purple-200/60">Pastor</span>
+              <span :class="['px-1.5 py-0.5 rounded-md font-semibold text-[11px]', m.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500']">
                 {{ m.isActive ? 'Active' : 'Inactive' }}
               </span>
               <span v-if="m.role" class="text-slate-500 font-medium">{{ m.role }}</span>
               <span v-if="m.dob" class="text-slate-400 font-medium">🎂 {{ m.dob.substring(5) }}</span>
               <span v-if="m.isMarried && m.weddingDate" class="text-rose-400 font-medium">💍 {{ m.weddingDate.substring(5) }}</span>
+              <span v-if="m.familyName" class="text-slate-400 font-medium">🏡 {{ m.familyName }}</span>
             </div>
           </div>
         </div>
 
-        <div v-if="!filteredMembers.length" class="text-center py-12 glass-card">
+        <div v-if="!filteredMembers.length" class="text-center py-12 glass-surface">
           <div class="text-3xl mb-2">🔍</div>
-          <p class="text-slate-500 font-medium text-sm">No church members found matching your search.</p>
+          <p class="text-slate-500 font-medium text-sm">No members found matching your search.</p>
         </div>
       </div>
+
+      <!-- VIEW B: GROUPED FAMILY TREE VIEW -->
+      <div v-if="memberView === 'families'" class="space-y-4">
+        <div v-for="(famList, famName) in groupedFamilies" :key="famName" class="glass-surface p-4 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🏡</span>
+              <h3 class="font-extrabold text-slate-900 text-base">{{ famName }}</h3>
+            </div>
+            <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">{{ famList.length }} members</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div v-for="fm in famList" :key="fm._id" class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+              <div class="flex items-center gap-2.5 min-w-0 cursor-pointer" @click="openMemberForm(fm)">
+                <div class="w-8 h-8 rounded-xl font-bold text-white text-xs flex items-center justify-center flex-shrink-0" :style="avatarStyle(fm.name)">
+                  {{ getInitials(fm.name) }}
+                </div>
+                <div class="truncate">
+                  <div class="font-bold text-slate-800 text-sm truncate">{{ fm.name }}</div>
+                  <div class="text-[11px] text-slate-400">{{ fm.role || 'Member' }}</div>
+                </div>
+              </div>
+              <button @click="openWishModal(fm, 'birthday')" class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-xs font-bold">✨</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </main>
 
     <!-- ========================================== -->
-    <!-- 2. TEMPLATES TAB                           -->
+    <!-- TAB 2: UPCOMING CELEBRATIONS & CALENDAR    -->
+    <!-- ========================================== -->
+    <main v-if="currentTab === 'upcoming'" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Upcoming Celebrations</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Next 30 days birthdays & anniversaries</p>
+        </div>
+        <button @click="loadData()" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200">
+          🔄 Refresh
+        </button>
+      </div>
+
+      <!-- Birthdays Section -->
+      <section class="glass-surface p-4 space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div class="flex items-center gap-1.5 font-bold text-slate-900 text-sm">
+            <span>🎂</span>
+            <span>Birthdays ({{ upcomingEvents.birthdays?.length || 0 }})</span>
+          </div>
+          <span class="text-[11px] text-slate-400 font-semibold">Next 30 Days</span>
+        </div>
+
+        <div class="space-y-2">
+          <div v-for="b in upcomingEvents.birthdays" :key="b.member._id" class="p-3 rounded-xl border flex items-center justify-between transition-all" :class="b.isToday ? 'bg-amber-50/70 border-amber-200' : 'bg-slate-50/70 border-slate-100'">
+            <div class="flex items-center gap-3 min-w-0">
+              <span :class="['px-2 py-1 rounded-lg text-xs', getCelebrationPill(b.mmdd, b.isToday).class]">
+                {{ getCelebrationPill(b.mmdd, b.isToday).label }}
+              </span>
+              <div class="min-w-0">
+                <div class="font-bold text-slate-900 text-sm truncate">{{ b.member.name }}</div>
+                <div class="text-[11px] text-slate-500 font-medium">{{ b.member.role || 'Member' }}</div>
+              </div>
+            </div>
+
+            <button @click="openWishModal(b.member, 'birthday')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm">
+              <span>✨</span>
+              <span>Wish</span>
+            </button>
+          </div>
+
+          <div v-if="!upcomingEvents.birthdays?.length" class="text-center py-4 text-xs text-slate-400">
+            No birthdays in the next 30 days.
+          </div>
+        </div>
+      </section>
+
+      <!-- Wedding Anniversaries Section -->
+      <section class="glass-surface p-4 space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div class="flex items-center gap-1.5 font-bold text-slate-900 text-sm">
+            <span>💍</span>
+            <span>Wedding Anniversaries ({{ upcomingEvents.weddings?.length || 0 }})</span>
+          </div>
+          <span class="text-[11px] text-slate-400 font-semibold">Next 30 Days</span>
+        </div>
+
+        <div class="space-y-2">
+          <div v-for="w in upcomingEvents.weddings" :key="w.member._id" class="p-3 rounded-xl border flex items-center justify-between transition-all" :class="w.isToday ? 'bg-rose-50/70 border-rose-200' : 'bg-slate-50/70 border-slate-100'">
+            <div class="flex items-center gap-3 min-w-0">
+              <span :class="['px-2 py-1 rounded-lg text-xs', getCelebrationPill(w.mmdd, w.isToday).class]">
+                {{ getCelebrationPill(w.mmdd, w.isToday).label }}
+              </span>
+              <div class="min-w-0">
+                <div class="font-bold text-slate-900 text-sm truncate">{{ w.member.name }} & {{ w.member.spouseName || 'Spouse' }}</div>
+                <div class="text-[11px] text-rose-500 font-medium">💍 Anniversary</div>
+              </div>
+            </div>
+
+            <button @click="openWishModal(w.member, 'wedding')" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm">
+              <span>✨</span>
+              <span>Wish</span>
+            </button>
+          </div>
+
+          <div v-if="!upcomingEvents.weddings?.length" class="text-center py-4 text-xs text-slate-400">
+            No wedding anniversaries in the next 30 days.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: TEMPLATES STUDIO                    -->
     <!-- ========================================== -->
     <main v-if="currentTab === 'templates'" class="space-y-4">
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-xl font-bold text-slate-900">Message Templates</h2>
-          <p class="text-xs text-slate-400 mt-0.5">Automated wishing message formats</p>
+          <h2 class="text-xl font-bold text-slate-900">Message Templates Studio</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Wording & conditionals for automated wishes</p>
         </div>
-        <button @click="openTemplateForm()" class="btn-gradient px-4 py-2.5 text-sm flex items-center gap-1.5 shadow-sm">
+        <button @click="openTemplateForm()" class="btn-brand px-3.5 py-2.5 text-sm flex items-center gap-1.5 shadow-sm">
           <span>➕</span>
           <span>New</span>
         </button>
       </div>
 
       <div class="space-y-3">
-        <div v-for="t in templates" :key="t._id" class="glass-card p-4 cursor-pointer hover:border-slate-300 transition-all" @click="openTemplateForm(t)">
+        <div v-for="t in templates" :key="t._id" class="glass-surface p-4 cursor-pointer hover:border-slate-300 transition-all" @click="openTemplateForm(t)">
           <div class="flex items-center justify-between mb-2">
             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold" :class="t.type === 'birthday' ? 'bg-indigo-50 text-indigo-700' : 'bg-rose-50 text-rose-700'">
               <span>{{ t.type === 'birthday' ? '🎂' : '💍' }}</span>
@@ -300,170 +451,252 @@
             </span>
             <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{{ t.category }}</span>
           </div>
-          <p class="text-sm text-slate-600 line-clamp-3 leading-relaxed font-normal bg-slate-50 p-2.5 rounded-xl border border-slate-100">{{ t.content }}</p>
+          <p class="text-sm text-slate-600 line-clamp-3 leading-relaxed font-normal bg-slate-50 p-2.5 rounded-xl border border-slate-100 font-sans">{{ t.content }}</p>
         </div>
       </div>
     </main>
 
     <!-- ========================================== -->
-    <!-- 3. SETTINGS TAB                            -->
+    <!-- TAB 4: SYSTEM SETTINGS & DEV TOOLS         -->
     <!-- ========================================== -->
     <main v-if="currentTab === 'settings'" class="space-y-5">
       <div>
-        <h2 class="text-xl font-bold text-slate-900">System Preferences</h2>
-        <p class="text-xs text-slate-400 mt-0.5">Automation controls and data management</p>
+        <h2 class="text-xl font-bold text-slate-900">System Administration Suite</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Automation controls, custom fields & backups</p>
       </div>
 
       <!-- Feature Automation Toggles -->
-      <section class="glass-card p-4 space-y-3">
+      <section class="glass-surface p-4 space-y-3">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Automations</h3>
         <label class="flex items-center justify-between py-1 cursor-pointer">
           <div>
-            <div class="font-bold text-slate-900 text-sm">🎂 Birthday Messages</div>
-            <div class="text-xs text-slate-400">Auto-post birthday greetings daily</div>
+            <div class="font-bold text-slate-900 text-sm">🎂 Birthday Automation</div>
+            <div class="text-xs text-slate-400">Post automated birthday wishes daily</div>
           </div>
-          <input type="checkbox" v-model="settings.enableBirthdays" class="ios-toggle" @change="showToast('Birthday setting saved')" />
+          <input type="checkbox" v-model="settings.enableBirthdays" class="ios-switch" @change="showToast('Birthday setting saved')" />
         </label>
         <div class="border-t border-slate-100"></div>
         <label class="flex items-center justify-between py-1 cursor-pointer">
           <div>
-            <div class="font-bold text-slate-900 text-sm">💍 Wedding Messages</div>
-            <div class="text-xs text-slate-400">Auto-post wedding anniversary wishes daily</div>
+            <div class="font-bold text-slate-900 text-sm">💍 Wedding Automation</div>
+            <div class="text-xs text-slate-400">Post wedding anniversary greetings daily</div>
           </div>
-          <input type="checkbox" v-model="settings.enableWeddings" class="ios-toggle" @change="showToast('Wedding setting saved')" />
+          <input type="checkbox" v-model="settings.enableWeddings" class="ios-switch" @change="showToast('Wedding setting saved')" />
         </label>
       </section>
 
       <!-- Broadcast Schedule -->
-      <section class="glass-card p-4 space-y-3">
+      <section class="glass-surface p-4 space-y-3">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Daily Schedule (IST)</h3>
         <div class="flex items-center justify-between py-1">
           <span class="text-sm font-semibold text-slate-700">Daily Morning Post</span>
-          <input type="time" v-model="settings.sendTime" class="input-field w-32 py-1.5 text-center font-bold text-indigo-600" @change="showToast('Broadcast time updated')" />
+          <input type="time" v-model="settings.sendTime" class="glass-input w-32 py-1.5 text-center font-bold text-indigo-600" @change="showToast('Broadcast time updated')" />
         </div>
         <div class="border-t border-slate-100"></div>
         <div class="flex items-center justify-between py-1">
           <span class="text-sm font-semibold text-slate-700">Admin Night Reminder</span>
-          <input type="time" v-model="settings.reminderTime" class="input-field w-32 py-1.5 text-center font-bold text-indigo-600" @change="showToast('Reminder time updated')" />
+          <input type="time" v-model="settings.reminderTime" class="glass-input w-32 py-1.5 text-center font-bold text-indigo-600" @change="showToast('Reminder time updated')" />
         </div>
       </section>
 
       <!-- Dynamic Custom Fields Builder -->
-      <section class="glass-card p-4 space-y-3">
+      <section class="glass-surface p-4 space-y-3">
         <div class="flex items-center justify-between">
-          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Custom Member Fields</h3>
-          <button @click="settings.customFields.push({ id: 'custom_' + Date.now(), label: '', type: 'text' })" class="text-indigo-600 hover:text-indigo-700 font-bold text-xs">+ Add Field</button>
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Custom Member Attributes</h3>
+          <button @click="settings.customFields.push({ id: 'custom_' + Date.now(), label: '', type: 'text' })" class="text-indigo-600 hover:text-indigo-700 font-bold text-xs">+ Add Attribute</button>
         </div>
         <div v-for="(field, idx) in settings.customFields" :key="idx" class="flex items-center gap-2">
-          <input type="text" v-model="field.label" placeholder="e.g. Blood Group, Area..." class="input-field py-1.5 text-sm flex-1" />
-          <select v-model="field.type" class="input-field py-1.5 text-xs w-24">
+          <input type="text" v-model="field.label" placeholder="e.g. Blood Group, Area..." class="glass-input py-1.5 text-sm flex-1" />
+          <select v-model="field.type" class="glass-input py-1.5 text-xs w-24">
             <option value="text">Text</option>
             <option value="date">Date</option>
             <option value="number">Number</option>
           </select>
-          <button @click="settings.customFields.splice(idx, 1); showToast('Field removed')" class="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 font-bold hover:bg-rose-100 flex items-center justify-center">✕</button>
+          <button @click="settings.customFields.splice(idx, 1); showToast('Attribute removed')" class="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 font-bold hover:bg-rose-100 flex items-center justify-center">✕</button>
         </div>
-        <div v-if="!settings.customFields?.length" class="text-center py-2 text-xs text-slate-400">No custom fields defined.</div>
+        <div v-if="!settings.customFields?.length" class="text-center py-2 text-xs text-slate-400">No custom attributes defined.</div>
       </section>
 
       <!-- Save Settings Button -->
-      <button @click="saveSettings" class="btn-gradient w-full py-3.5 text-sm shadow-md" :disabled="saving">
+      <button @click="saveSettings" class="btn-brand w-full py-3.5 text-sm shadow-md" :disabled="saving">
         {{ saving ? '⏳ Saving Preferences...' : '💾 Save All Preferences' }}
       </button>
 
-      <!-- Tools & Exports -->
-      <section class="glass-card p-4 space-y-2">
-        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Administrative Tools</h3>
+      <!-- Tools & Database Operations -->
+      <section class="glass-surface p-4 space-y-2">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Operations & Backups</h3>
         <div class="grid grid-cols-2 gap-2">
-          <button @click="triggerAction('today')" class="p-3 rounded-xl bg-indigo-50/60 hover:bg-indigo-50 border border-indigo-100 text-left transition-colors">
-            <div class="text-base">▶️</div>
-            <div class="font-bold text-indigo-900 text-xs mt-1">Force Run Today</div>
-            <div class="text-[10px] text-indigo-500">Trigger daily wishes now</div>
-          </button>
-          <button @click="triggerAction('ping')" class="p-3 rounded-xl bg-amber-50/60 hover:bg-amber-50 border border-amber-100 text-left transition-colors">
-            <div class="text-base">🔔</div>
-            <div class="font-bold text-amber-900 text-xs mt-1">Group Ping Test</div>
-            <div class="text-[10px] text-amber-600">Verify group connectivity</div>
-          </button>
-          <button @click="openDirectory" class="p-3 rounded-xl bg-purple-50/60 hover:bg-purple-50 border border-purple-100 text-left transition-colors">
-            <div class="text-base">🖨️</div>
-            <div class="font-bold text-purple-900 text-xs mt-1">Print Directory</div>
-            <div class="text-[10px] text-purple-600">Printable Church PDF</div>
+          <button @click="openImportModal" class="p-3 rounded-xl bg-blue-50/60 hover:bg-blue-50 border border-blue-100 text-left transition-colors">
+            <div class="text-base">📤</div>
+            <div class="font-bold text-blue-900 text-xs mt-1">Bulk CSV Import</div>
+            <div class="text-[10px] text-blue-500">Upload 500+ members</div>
           </button>
           <button @click="exportCSV" class="p-3 rounded-xl bg-emerald-50/60 hover:bg-emerald-50 border border-emerald-100 text-left transition-colors">
             <div class="text-base">📥</div>
             <div class="font-bold text-emerald-900 text-xs mt-1">Download CSV</div>
             <div class="text-[10px] text-emerald-600">Export database backup</div>
           </button>
+          <button @click="openDirectory" class="p-3 rounded-xl bg-purple-50/60 hover:bg-purple-50 border border-purple-100 text-left transition-colors">
+            <div class="text-base">🖨️</div>
+            <div class="font-bold text-purple-900 text-xs mt-1">Print Directory</div>
+            <div class="text-[10px] text-purple-600">Printable Church PDF</div>
+          </button>
+          <button @click="triggerAction('today')" class="p-3 rounded-xl bg-indigo-50/60 hover:bg-indigo-50 border border-indigo-100 text-left transition-colors">
+            <div class="text-base">▶️</div>
+            <div class="font-bold text-indigo-900 text-xs mt-1">Force Run Today</div>
+            <div class="text-[10px] text-indigo-500">Trigger daily wishes now</div>
+          </button>
         </div>
       </section>
     </main>
 
     <!-- ========================================== -->
-    <!-- 4. MEMBER PROFILE FORM (MODAL/VIEW)        -->
+    <!-- MODAL 1: LIVE WISH PREVIEW & SENDER       -->
+    <!-- ========================================== -->
+    <transition name="fade">
+      <div v-if="wishModal.open" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="glass-surface w-full max-w-md p-5 space-y-4 shadow-2xl rounded-3xl" @click.stop>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">✨</span>
+              <h3 class="font-bold text-slate-900 text-base">Live Wish Dispatcher</h3>
+            </div>
+            <button @click="wishModal.open = false" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
+          </div>
+
+          <div v-if="wishModal.loading" class="text-center py-10 space-y-2">
+            <div class="animate-spin text-2xl">⏳</div>
+            <p class="text-sm text-slate-500 font-semibold">Generating AI Verse & Wish...</p>
+          </div>
+
+          <div v-else class="space-y-3">
+            <div class="chat-bubble p-4 space-y-2">
+              <div class="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+                <div class="w-8 h-8 rounded-xl font-bold text-white text-xs flex items-center justify-center flex-shrink-0" :style="avatarStyle(wishModal.member?.name)">
+                  {{ getInitials(wishModal.member?.name) }}
+                </div>
+                <div>
+                  <div class="font-bold text-slate-900 text-xs">{{ wishModal.member?.name }}</div>
+                  <div class="text-[10px] text-slate-400">Telegram Mock Preview</div>
+                </div>
+              </div>
+              <textarea v-model="wishModal.text" rows="7" class="w-full text-xs text-slate-800 leading-relaxed font-sans bg-transparent resize-none focus:outline-none"></textarea>
+            </div>
+
+            <div class="flex gap-2">
+              <button @click="openWishModal(wishModal.member, wishModal.type)" class="px-3.5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs">
+                🔄 Re-roll AI
+              </button>
+              <button @click="sendWishToGroup" class="btn-brand flex-1 py-3 text-xs font-bold shadow-md flex items-center justify-center gap-1.5" :disabled="wishModal.sending">
+                <span>{{ wishModal.sending ? '⏳ Posting...' : '🚀 Post to Telegram Group Now' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- ========================================== -->
+    <!-- MODAL 2: BULK CSV SPREADSHEET IMPORT       -->
+    <!-- ========================================== -->
+    <transition name="fade">
+      <div v-if="importModal.open" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="glass-surface w-full max-w-md p-5 space-y-4 shadow-2xl rounded-3xl" @click.stop>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">📤</span>
+              <h3 class="font-bold text-slate-900 text-base">Bulk CSV Import</h3>
+            </div>
+            <button @click="importModal.open = false" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
+          </div>
+
+          <p class="text-xs text-slate-500 leading-relaxed">
+            Upload your Church Excel or CSV file. Supported headers: <code>name, gender, role, dob, weddingDate, familyName, spouseName</code>.
+          </p>
+
+          <input type="file" accept=".csv" @change="parseCSVFile" class="block w-full text-xs text-slate-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" />
+
+          <div v-if="importModal.parsedMembers.length > 0" class="p-3 rounded-xl bg-emerald-50 border border-emerald-100 space-y-1">
+            <div class="text-xs font-bold text-emerald-800">✅ {{ importModal.parsedMembers.length }} Members Ready to Import</div>
+            <div class="text-[11px] text-emerald-600 truncate">Sample: {{ importModal.parsedMembers[0]?.name }} ({{ importModal.parsedMembers[0]?.gender }})</div>
+          </div>
+
+          <div v-if="importModal.error" class="p-3 rounded-xl bg-rose-50 border border-rose-100 text-xs text-rose-700 font-semibold">
+            {{ importModal.error }}
+          </div>
+
+          <button @click="executeBulkImport" :disabled="!importModal.parsedMembers.length || importModal.importing" class="btn-brand w-full py-3.5 text-xs font-bold shadow-md">
+            {{ importModal.importing ? '⏳ Importing Members...' : '🎉 Start Import (' + importModal.parsedMembers.length + ' Members)' }}
+          </button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- ========================================== -->
+    <!-- FORMS: MEMBER PROFILE FORM                 -->
     <!-- ========================================== -->
     <main v-if="currentTab === 'memberForm'" class="space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
         <div>
           <h2 class="text-xl font-bold text-slate-900">{{ form._id ? '✏️ Edit Member' : '➕ Add Member' }}</h2>
-          <p class="text-xs text-slate-400">Fill in church profile information</p>
+          <p class="text-xs text-slate-400">Fill in church member profile</p>
         </div>
         <button @click="currentTab = 'members'" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
       </div>
 
-      <div class="glass-card p-4 space-y-3.5">
+      <div class="glass-surface p-4 space-y-3.5">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">👤 Personal Information</h3>
         <div>
           <label class="text-xs font-bold text-slate-700">Full Name *</label>
-          <input type="text" v-model="form.name" placeholder="e.g. Bro. David Solomon" class="input-field mt-1" />
+          <input type="text" v-model="form.name" placeholder="e.g. Bro. David Solomon" class="glass-input mt-1" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-xs font-bold text-slate-700">Gender *</label>
-            <select v-model="form.gender" class="input-field mt-1">
+            <select v-model="form.gender" class="glass-input mt-1">
               <option value="male">Male</option>
               <option value="female">Female</option>
             </select>
           </div>
           <div>
             <label class="text-xs font-bold text-slate-700">Role / Designation</label>
-            <input type="text" v-model="form.role" list="role-options" placeholder="e.g. Deacon" class="input-field mt-1" />
+            <input type="text" v-model="form.role" list="role-options" placeholder="e.g. Deacon" class="glass-input mt-1" />
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-xs font-bold text-slate-700">Date of Birth</label>
-            <input type="date" v-model="form.dob" class="input-field mt-1" />
+            <input type="date" v-model="form.dob" class="glass-input mt-1" />
           </div>
           <div>
             <label class="text-xs font-bold text-slate-700">Family Group Name</label>
-            <input type="text" v-model="form.familyName" placeholder="e.g. Kumar Family" class="input-field mt-1" />
+            <input type="text" v-model="form.familyName" placeholder="e.g. Kumar Family" class="glass-input mt-1" />
           </div>
         </div>
       </div>
 
       <!-- Marriage Section -->
-      <div class="glass-card p-4 space-y-3">
+      <div class="glass-surface p-4 space-y-3">
         <label class="flex items-center justify-between cursor-pointer">
           <div>
             <div class="text-sm font-bold text-slate-900">💍 Married?</div>
             <div class="text-xs text-slate-400">Enable wedding anniversary celebrations</div>
           </div>
-          <input type="checkbox" v-model="form.isMarried" class="ios-toggle" />
+          <input type="checkbox" v-model="form.isMarried" class="ios-switch" />
         </label>
         <div v-if="form.isMarried" class="space-y-3 pt-2 border-t border-slate-100">
           <div>
             <label class="text-xs font-bold text-slate-700">Wedding Date</label>
-            <input type="date" v-model="form.weddingDate" class="input-field mt-1" />
+            <input type="date" v-model="form.weddingDate" class="glass-input mt-1" />
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="text-xs font-bold text-slate-700">Spouse Name</label>
-              <input type="text" v-model="form.spouseName" placeholder="Spouse's Name" class="input-field mt-1" />
+              <input type="text" v-model="form.spouseName" placeholder="Spouse's Name" class="glass-input mt-1" />
             </div>
             <div>
               <label class="text-xs font-bold text-slate-700">Spouse Gender</label>
-              <select v-model="form.spouseGender" class="input-field mt-1">
+              <select v-model="form.spouseGender" class="glass-input mt-1">
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </select>
@@ -473,61 +706,61 @@
       </div>
 
       <!-- Custom Fields Section -->
-      <div v-if="settings.customFields?.length" class="glass-card p-4 space-y-3">
+      <div v-if="settings.customFields?.length" class="glass-surface p-4 space-y-3">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">⚙️ Custom Attributes</h3>
         <div class="grid grid-cols-2 gap-3">
           <div v-for="field in settings.customFields" :key="field.id">
             <label class="text-xs font-bold text-slate-700">{{ field.label || 'Field' }}</label>
-            <input :type="field.type" v-model="form.customData[field.id]" class="input-field mt-1" />
+            <input :type="field.type" v-model="form.customData[field.id]" class="glass-input mt-1" />
           </div>
         </div>
       </div>
 
       <!-- Church Status Tags -->
-      <div class="glass-card p-4">
+      <div class="glass-surface p-4">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">🏷️ Status & Tags</h3>
         <div class="flex items-center justify-around">
           <label class="flex items-center gap-2 cursor-pointer font-semibold text-xs text-slate-700">
-            <input type="checkbox" v-model="form.isActive" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" /> Active Member
+            <input type="checkbox" v-model="form.isActive" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" /> Active
           </label>
           <label class="flex items-center gap-2 cursor-pointer font-semibold text-xs text-slate-700">
             <input type="checkbox" v-model="form.isPastor" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" /> Pastor
           </label>
           <label class="flex items-center gap-2 cursor-pointer font-semibold text-xs text-slate-700">
-            <input type="checkbox" v-model="form.isChild" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" /> Child / Youth
+            <input type="checkbox" v-model="form.isChild" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" /> Child/Youth
           </label>
         </div>
       </div>
 
-      <button @click="saveMember" class="btn-gradient w-full py-3.5 text-sm shadow-md" :disabled="saving">
+      <button @click="saveMember" class="btn-brand w-full py-3.5 text-sm shadow-md" :disabled="saving">
         {{ saving ? '⏳ Saving Member...' : '💾 Save Member Profile' }}
       </button>
     </main>
 
     <!-- ========================================== -->
-    <!-- 5. TEMPLATE FORM (MODAL/VIEW)              -->
+    <!-- FORMS: TEMPLATE FORM                       -->
     <!-- ========================================== -->
     <main v-if="currentTab === 'templateForm'" class="space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
         <div>
           <h2 class="text-xl font-bold text-slate-900">{{ tplForm._id ? '✏️ Edit Template' : '➕ New Template' }}</h2>
-          <p class="text-xs text-slate-400">Configure automated message wording</p>
+          <p class="text-xs text-slate-400">Configure message template wording</p>
         </div>
         <button @click="currentTab = 'templates'" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
       </div>
 
-      <div class="glass-card p-4 space-y-3.5">
+      <div class="glass-surface p-4 space-y-3.5">
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-xs font-bold text-slate-700">Event Type</label>
-            <select v-model="tplForm.type" class="input-field mt-1">
+            <select v-model="tplForm.type" class="glass-input mt-1">
               <option value="birthday">Birthday</option>
               <option value="wedding">Wedding</option>
             </select>
           </div>
           <div>
             <label class="text-xs font-bold text-slate-700">Category</label>
-            <select v-model="tplForm.category" class="input-field mt-1">
+            <select v-model="tplForm.category" class="glass-input mt-1">
               <option value="formal">Formal</option>
               <option value="short">Short</option>
             </select>
@@ -536,24 +769,25 @@
 
         <div>
           <label class="text-xs font-bold text-slate-700">Message Content</label>
-          <textarea v-model="tplForm.content" rows="6" class="input-field mt-1 font-sans text-sm leading-relaxed" placeholder="Type message template here..."></textarea>
-          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-500 mt-2 space-y-1">
-            <span class="font-bold text-slate-700">Available Variables:</span>
-            <div class="font-mono text-[10px] text-indigo-600 flex flex-wrap gap-1">
-              <span class="bg-indigo-50 px-1 py-0.5 rounded">{name}</span>
-              <span class="bg-indigo-50 px-1 py-0.5 rounded">{age}</span>
-              <span class="bg-indigo-50 px-1 py-0.5 rounded">{designation}</span>
-              <span class="bg-indigo-50 px-1 py-0.5 rounded">{suffix}</span>
-              <span class="bg-indigo-50 px-1 py-0.5 rounded">{husband}</span>
-              <span class="bg-indigo-50 px-1 py-0.5 rounded">{wife}</span>
-              <span class="bg-indigo-50 px-1 py-0.5 rounded">{years}</span>
+          <textarea v-model="tplForm.content" rows="6" class="glass-input mt-1 font-sans text-sm leading-relaxed" placeholder="Type template text..."></textarea>
+          
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-600 mt-2 space-y-1.5">
+            <span class="font-bold text-slate-800">Quick Insert Tags (Tap to add):</span>
+            <div class="flex flex-wrap gap-1 font-mono text-[10px]">
+              <button @click="insertVariable('{name}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md font-bold">{name}</button>
+              <button @click="insertVariable('{age}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md font-bold">{age}</button>
+              <button @click="insertVariable('{designation}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md font-bold">{designation}</button>
+              <button @click="insertVariable('{suffix}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md font-bold">{suffix}</button>
+              <button @click="insertVariable('{husband}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md font-bold">{husband}</button>
+              <button @click="insertVariable('{wife}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md font-bold">{wife}</button>
+              <button @click="insertVariable('{years}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md font-bold">{years}</button>
             </div>
           </div>
         </div>
       </div>
 
       <div class="flex gap-2.5">
-        <button @click="saveTemplate" class="btn-gradient flex-1 py-3.5 text-sm shadow-md" :disabled="saving">
+        <button @click="saveTemplate" class="btn-brand flex-1 py-3.5 text-sm shadow-md" :disabled="saving">
           {{ saving ? '⏳ Saving...' : '💾 Save Template' }}
         </button>
         <button v-if="tplForm._id" @click="deleteTemplate" class="px-4 py-3.5 rounded-xl bg-rose-50 text-rose-600 font-bold hover:bg-rose-100 text-sm">
@@ -575,18 +809,25 @@
       <option value="Member"></option>
     </datalist>
 
-    <!-- Floating Island Bottom Navigation -->
+    <!-- Floating Island Bottom Navigation (4 Tabs) -->
     <nav v-if="!loading && !['memberForm', 'templateForm'].includes(currentTab)" class="nav-island">
       <button class="nav-btn" :class="{ active: currentTab === 'members' }" @click="currentTab = 'members'">
-        <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
         <span>Members</span>
       </button>
+
+      <button class="nav-btn" :class="{ active: currentTab === 'upcoming' }" @click="currentTab = 'upcoming'">
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+        <span>Celebrations</span>
+      </button>
+
       <button class="nav-btn" :class="{ active: currentTab === 'templates' }" @click="currentTab = 'templates'">
-        <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
         <span>Templates</span>
       </button>
+
       <button class="nav-btn" :class="{ active: currentTab === 'settings' }" @click="currentTab = 'settings'">
-        <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         <span>Settings</span>
       </button>
     </nav>
