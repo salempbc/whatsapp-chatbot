@@ -22,7 +22,7 @@ try {
 
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=3').then((reg) => {
+    navigator.serviceWorker.register('/sw.js?v=4').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });
@@ -2117,16 +2117,25 @@ window.addEventListener("unhandledrejection", (event) => {
 
 window.addEventListener("error", (event) => {
   console.error("💥 [GLOBAL ERROR in WebApp]:", event.error);
+  // Guarantee preloader does not trap user on runtime errors
+  const p = document.getElementById('preloader');
+  if (p) p.style.display = 'none';
 });
 
-app.mount('#app');
+try {
+  app.mount('#app');
+} catch (mountErr) {
+  console.error("💥 [VUE MOUNT ERROR]:", mountErr);
+  const p = document.getElementById('preloader');
+  if (p) p.style.display = 'none';
+}
 
 // Smoothly dismiss preloader once app has mounted
 const preloader = document.getElementById('preloader');
 if (preloader) {
   preloader.style.opacity = '0';
   setTimeout(() => {
-    if (preloader.parentNode) preloader.parentNode.removeChild(preloader);
-  }, 300);
+    if (preloader && preloader.parentNode) preloader.parentNode.removeChild(preloader);
+  }, 250);
 }
 
