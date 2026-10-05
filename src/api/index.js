@@ -7,7 +7,7 @@ import Template from "../models/Template.js";
 import GreetingLog from "../models/GreetingLog.js";
 import ChurchEvent from "../models/ChurchEvent.js";
 import Task from "../models/Task.js";
-import { handleWebhook, getWebhookSecret } from "../bot/index.js";
+import { handleWebhook, getWebhookSecret, getBotInstance } from "../bot/index.js";
 import { verifyTelegramWebAppData } from "./middleware.js";
 import { exportMembersToCSV } from "../services/exportService.js";
 import { getSetting, setSetting } from "../models/Settings.js";
@@ -44,6 +44,12 @@ import {
   getChurchStatistics,
   getDataQualityReport
 } from "../services/reportService.js";
+import {
+  getAllUsers,
+  approveUser,
+  revokeUser,
+  createInviteToken
+} from "../services/userService.js";
 
 const router = express.Router();
 
@@ -605,6 +611,57 @@ router.put("/greetings/:id/text", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/* User Management (Church Leaders & Staff) */
+router.get("/users", async (req, res) => {
+  const users = await getAllUsers();
+  res.json({
+    superAdminId: process.env.ADMIN_ID || null,
+    users
+  });
+});
+
+router.post("/users/invite", async (req, res) => {
+  const { role = "admin", hoursValid = 72 } = req.body || {};
+  let botUsername = process.env.BOT_USERNAME || "";
+  if (!botUsername) {
+    const bot = getBotInstance();
+    if (bot) {
+      const me = await bot.getMe().catch(() => null);
+      if (me?.username) botUsername = me.username;
+    }
+  }
+  const invite = await createInviteToken({
+    role,
+    hoursValid,
+    botUsername,
+    createdBy: req.user?.first_name || req.user?.id || "Admin"
+  });
+  res.json(invite);
+});
+
+router.post("/users/approve", async (req, res) => {
+  const { telegramId, role = "admin", name, username } = req.body || {};
+  if (!telegramId) return res.status(400).json({ error: "Telegram ID required" });
+  const user = await approveUser({
+    telegramId,
+    role,
+    name,
+    username,
+    approvedBy: req.user?.first_name || req.user?.id || "Admin"
+  });
+  res.json({ success: true, user });
+});
+
+router.delete("/users/:telegramId", async (req, res) => {
+  const { telegramId } = req.params;
+  if (!telegramId) return res.status(400).json({ error: "Telegram ID required" });
+  if (process.env.ADMIN_ID && String(telegramId).trim() === String(process.env.ADMIN_ID).trim()) {
+    return res.status(400).json({ error: "Cannot revoke primary Super Admin" });
+  }
+  const user = await revokeUser(telegramId);
+  res.json({ success: true, user });
 });
 
 /* Actions */

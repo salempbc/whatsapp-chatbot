@@ -31,6 +31,7 @@ export const renderScreen = async (bot, chatId, messageId, screen) => {
     reply_markup: { inline_keyboard: screen.keyboard },
     parse_mode: "HTML" 
   };
+  let parseFailed = false;
 
   if (messageId) {
     try {
@@ -38,9 +39,29 @@ export const renderScreen = async (bot, chatId, messageId, screen) => {
       return;
     } catch (err) {
       if (/message is not modified/i.test(err.message)) return;
+      if (/can't parse entities/i.test(err.message)) {
+        parseFailed = true;
+        try {
+          const plainText = screen.text.replace(/<[^>]*>/g, "");
+          await bot.editMessageText(plainText, { chat_id: chatId, message_id: messageId, reply_markup: opts.reply_markup });
+          return;
+        } catch (_) {}
+      }
       // fall through to sending a fresh message
     }
   }
 
-  await bot.sendMessage(chatId, screen.text, opts);
+  const textToSend = parseFailed ? screen.text.replace(/<[^>]*>/g, "") : screen.text;
+  const sendOpts = parseFailed ? { reply_markup: opts.reply_markup } : opts;
+
+  try {
+    await bot.sendMessage(chatId, textToSend, sendOpts);
+  } catch (err) {
+    if (/can't parse entities/i.test(err.message)) {
+      const plainText = screen.text.replace(/<[^>]*>/g, "");
+      await bot.sendMessage(chatId, plainText, { reply_markup: opts.reply_markup }).catch((e) => console.error("renderScreen fallback failed:", e.message));
+    } else {
+      console.error("renderScreen sendMessage failed:", err.message);
+    }
+  }
 };

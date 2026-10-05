@@ -1025,6 +1025,82 @@
           </button>
         </div>
       </section>
+
+      <!-- Authorized Leaders & User Management Section -->
+      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Authorized Leaders & Staff</h3>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Telegram accounts with permission to manage the church bot</p>
+          </div>
+          <button @click="generateInviteLink('admin')" :disabled="generatingInvite" class="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs hover:bg-indigo-100 flex items-center gap-1 border border-indigo-200 dark:border-indigo-800">
+            <span>➕</span>
+            <span>Invite Leader</span>
+          </button>
+        </div>
+
+        <!-- Super Admin Badge -->
+        <div v-if="superAdminId" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2">
+            <span class="text-base">👑</span>
+            <div>
+              <span class="font-bold text-slate-900 dark:text-white">Primary Super Admin</span>
+              <div class="text-[10px] text-slate-400 font-mono">ID: {{ superAdminId }}</div>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-extrabold uppercase">Owner</span>
+        </div>
+
+        <!-- Generated Invite Link Box -->
+        <div v-if="activeInviteUrl" class="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 space-y-2">
+          <div class="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+            <span>🔗</span>
+            <span>Active One-Click Invite Link (Valid for 72h):</span>
+          </div>
+          <div class="p-2 rounded-lg bg-white dark:bg-slate-900 font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all select-all border border-indigo-100 dark:border-indigo-900">
+            {{ activeInviteUrl }}
+          </div>
+          <div class="flex gap-2">
+            <button @click="copyInviteLink" class="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs shadow-sm hover:bg-indigo-700 transition-colors">
+              📋 Copy Link
+            </button>
+            <button @click="shareInviteWhatsApp" class="flex-1 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-sm hover:bg-emerald-700 transition-colors">
+              📲 Share on WhatsApp
+            </button>
+          </div>
+          <p class="text-[10px] text-indigo-700 dark:text-indigo-300">💡 When the recipient opens this link in Telegram and taps Start, they are authorized immediately!</p>
+        </div>
+
+        <!-- Authorized Users Roster -->
+        <div v-if="authorizedUsers && authorizedUsers.length > 0" class="space-y-1.5 pt-1">
+          <div v-for="u in authorizedUsers" :key="u._id" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/40 flex items-center justify-between text-xs">
+            <div>
+              <div class="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+                <span>{{ u.role === 'staff' ? '👤' : '👑' }}</span>
+                <span>{{ u.name }}</span>
+                <span v-if="u.username" class="text-indigo-500 font-normal">(@{{ u.username }})</span>
+                <span :class="['px-1.5 py-0.5 rounded text-[9px] font-bold uppercase', u.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300']">
+                  {{ u.status }}
+                </span>
+              </div>
+              <div class="text-[10px] text-slate-400 mt-0.5">
+                Role: <span class="font-semibold capitalize">{{ u.role }}</span> • Added by {{ u.addedBy || 'Admin' }}
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button v-if="u.status === 'pending' && !u.telegramId.startsWith('pending_invite_')" @click="approveUserAction(u.telegramId, 'admin', u.name)" class="px-2 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[10px]">
+                Approve
+              </button>
+              <button v-if="u.status === 'active'" @click="revokeUserAction(u.telegramId, u.name)" class="px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold text-[10px] border border-rose-200 dark:border-rose-900 hover:bg-rose-100">
+                Revoke
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else class="text-center py-2 text-xs text-slate-400">
+          No additional leaders registered yet. Generate an invite link to add co-pastors or church staff.
+        </div>
+      </section>
     </main>
 
     <!-- ========================================== -->

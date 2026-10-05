@@ -13,6 +13,7 @@ import { startScheduler } from "./scheduler/dailyJob.js";
 import apiRouter from "./api/index.js";
 import { connectDB } from "./config/db.js";
 import { initLogger } from "./config/logger.js";
+import { loadAuthorizedUsersCache } from "./services/userService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,15 +60,30 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 
+/* Catch-all global Express error handler */
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return res.status(400).json({ error: "Malformed JSON payload" });
+  }
+  console.error("💥 [EXPRESS ERROR]:", err?.stack || err?.message || err);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ error: err.message || "Internal server error" });
+});
+
 /* --- 3. SERVER BOOTSTRAP --- */
 const PORT = process.env.PORT || 3000;
 let server;
 
-connectDB().then(() => {
-  initTelegram();
-  startScheduler();
-  server = app.listen(PORT, () => console.log(`🌍 Web Server & API listening on port ${PORT}`));
-});
+connectDB()
+  .then(async () => {
+    await loadAuthorizedUsersCache();
+    initTelegram();
+    startScheduler();
+    server = app.listen(PORT, () => console.log(`🌍 Web Server & API listening on port ${PORT}`));
+  })
+  .catch((err) => {
+    console.error("💥 Fatal DB connection error:", err);
+  });
 
 /* --- 4. GRACEFUL SHUTDOWN (DATA INTEGRITY) --- */
 let shuttingDown = false;
@@ -111,3 +127,13 @@ const shutdown = async (signal) => {
 // Listen for Railway / PM2 / Docker termination signals
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT",  () => shutdown("SIGINT"));
+
+// Process-level unhandled exception safety net (resilient crash guard)
+process.on("uncaughtException", (err) => {
+  console.error("💥 [UNCAUGHT EXCEPTION]:", err?.stack || err?.message || err);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("💥 [UNHANDLED REJECTION]:", reason?.stack || reason?.message || reason);
+});
+

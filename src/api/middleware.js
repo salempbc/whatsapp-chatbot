@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { isAdmin } from "../bot/guard.js";
 
 /**
  * Middleware to verify Telegram WebApp initData with strict HMAC-SHA256,
@@ -81,7 +82,7 @@ export const verifyTelegramWebAppData = (req, res, next) => {
     }
 
     const user = JSON.parse(userJson);
-    if (!user.id || String(user.id).trim() !== String(process.env.ADMIN_ID).trim()) {
+    if (!user.id || !isAdmin(user.id)) {
       return res.status(403).json({ error: "Not authorized (Admin only)" });
     }
 

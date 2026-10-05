@@ -198,7 +198,7 @@ createApp({
     const authError = ref('');
     const authVerifying = ref(false);
 
-    // API Helper
+    // API Helper with network exception handling
     const apiCall = async (url, method = 'GET', body = null) => {
       const token = authToken.value || getStoredToken();
       const opts = {
@@ -209,7 +209,12 @@ createApp({
         opts.headers['Content-Type'] = 'application/json';
         opts.body = JSON.stringify(body);
       }
-      const res = await fetch(`/api${url}`, opts);
+      let res;
+      try {
+        res = await fetch(`/api${url}`, opts);
+      } catch (netErr) {
+        throw new Error('Network connection failed. Please check your internet connection.');
+      }
       if (res.status === 401 || res.status === 403) {
         if (!tg.initData || tg.initData.length < 5) {
           authModalOpen.value = true;
@@ -260,11 +265,75 @@ createApp({
       authModalOpen.value = true;
     };
 
+    // User Management State
+    const authorizedUsers = ref([]);
+    const superAdminId = ref('');
+    const activeInviteUrl = ref('');
+    const generatingInvite = ref(false);
+
+    const loadUsers = async () => {
+      try {
+        const res = await apiCall('/users');
+        authorizedUsers.value = res.users || [];
+        superAdminId.value = res.superAdminId || '';
+      } catch (_) {}
+    };
+
+    const generateInviteLink = async (role = 'admin') => {
+      generatingInvite.value = true;
+      try {
+        const res = await apiCall('/users/invite', 'POST', { role, hoursValid: 72 });
+        activeInviteUrl.value = res.inviteUrl;
+        showToast('🔗 Invite Link generated!');
+      } catch (err) {
+        showToast('❌ ' + err.message);
+      } finally {
+        generatingInvite.value = false;
+      }
+    };
+
+    const copyInviteLink = async () => {
+      if (!activeInviteUrl.value) return;
+      try {
+        await navigator.clipboard.writeText(activeInviteUrl.value);
+        showToast('📋 Copied to clipboard!');
+      } catch (_) {
+        showToast('Link: ' + activeInviteUrl.value);
+      }
+    };
+
+    const shareInviteWhatsApp = () => {
+      if (!activeInviteUrl.value) return;
+      const text = `✝️ Greetings! You are invited to join the Salem Primitive Baptist Church (SPBC) Bot as an authorized church leader.\n\nTap this link to activate your access:\n${activeInviteUrl.value}`;
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    };
+
+    const approveUserAction = async (telegramId, role = 'admin', name = '') => {
+      try {
+        await apiCall('/users/approve', 'POST', { telegramId, role, name });
+        showToast(`✅ Approved ${name || 'user'} as ${role}`);
+        await loadUsers();
+      } catch (err) {
+        showToast('❌ ' + err.message);
+      }
+    };
+
+    const revokeUserAction = async (telegramId, name = '') => {
+      if (!confirm(`Are you sure you want to revoke bot access for ${name || 'this leader'}?`)) return;
+      try {
+        await apiCall(`/users/${telegramId}`, 'DELETE');
+        showToast('🗑 Leader access revoked');
+        await loadUsers();
+      } catch (err) {
+        showToast('❌ ' + err.message);
+      }
+    };
+
     // Load All Data
     const loadData = async () => {
       loading.value = true;
       try {
-        const [mRes, tRes, sRes, uRes, eRes, taskRes, statsRes, dqRes] = await Promise.all([
+        const [mRes, tRes, sRes, uRes, eRes, taskRes, statsRes, dqRes, usersRes] = await Promise.all([
           apiCall('/members').catch(() => []),
           apiCall('/templates').catch(() => []),
           apiCall('/settings').catch(() => ({ sendTime: '06:00', reminderTime: '20:00', customFields: [] })),
@@ -272,7 +341,8 @@ createApp({
           apiCall('/events').catch(() => []),
           apiCall('/tasks').catch(() => []),
           apiCall('/reports/stats').catch(() => null),
-          apiCall('/reports/data-quality').catch(() => null)
+          apiCall('/reports/data-quality').catch(() => null),
+          apiCall('/users').catch(() => ({ users: [], superAdminId: null }))
         ]);
         members.value = mRes;
         templates.value = tRes;
@@ -282,6 +352,8 @@ createApp({
         tasks.value = taskRes;
         churchStats.value = statsRes;
         dataQuality.value = dqRes;
+        authorizedUsers.value = usersRes.users || [];
+        superAdminId.value = usersRes.superAdminId || '';
       } catch (err) {
         showToast("⚠️ Could not load data.");
       } finally {
@@ -1254,7 +1326,29 @@ createApp({
       fastForm, retainHousehold, fastSessionMembers, fastSaving, existingFamilies, existingRoles,
       handleAgeEstimateChange, setFastPrefix, setFastRole, resetFastForm, openFastEntry, saveFastMember,
       saveSettings, triggerAction, exportCSV, openDirectory,
+      authorizedUsers, superAdminId, activeInviteUrl, generatingInvite,
+      loadUsers, generateInviteLink, copyInviteLink, shareInviteWhatsApp, approveUserAction, revokeUserAction,
       getAge, computeAge, getInitials, avatarStyle, photoUrl, getCelebrationPill
     };
   }
-}).mount('#app');
+});
+
+// Resilient Vue global error handler to prevent blank screen failures
+app.config.errorHandler = (err, instance, info) => {
+  console.error("💥 [VUE ERROR]:", err, info);
+  try {
+    if (instance?.showToast) {
+      instance.showToast("⚠️ " + (err?.message || "UI Error occurred"));
+    }
+  } catch (_) {}
+};
+
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("💥 [UNHANDLED REJECTION in WebApp]:", event.reason);
+});
+
+window.addEventListener("error", (event) => {
+  console.error("💥 [GLOBAL ERROR in WebApp]:", event.error);
+});
+
+app.mount('#app');

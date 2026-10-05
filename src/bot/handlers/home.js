@@ -1,6 +1,7 @@
 import { renderScreen } from "../ui.js";
 import { clearState } from "../session.js";
-import { adminOnly } from "../guard.js";
+import { adminOnly, isAdmin } from "../guard.js";
+import { redeemInviteToken } from "../../services/userService.js";
 
 export const HELP_TOPICS = {
   overview: {
@@ -149,8 +150,8 @@ export const homeScreen = () => {
   keyboard.push(
     [{ text: "👥 Members", callback_data: "members:list:0:active" }, { text: "📅 Events", callback_data: "events:list" }],
     [{ text: "📋 Tasks", callback_data: "tasks:list" }, { text: "📊 Analytics", callback_data: "stats:show" }],
-    [{ text: "🗓 Calendar", callback_data: "calendar:show:current" }, { text: "⚙️ Settings", callback_data: "settings:show" }],
-    [{ text: "❓ Help Wizard (/help)", callback_data: "help:topic:overview" }]
+    [{ text: "🗓 Calendar", callback_data: "calendar:show:current" }, { text: "👥 Leaders & Invites", callback_data: "users:list" }],
+    [{ text: "⚙️ Settings", callback_data: "settings:show" }, { text: "❓ Help Wizard (/help)", callback_data: "help:topic:overview" }]
   );
 
   return {
@@ -170,7 +171,68 @@ export const registerHome = (bot) => {
     await renderScreen(bot, msg.chat.id, null, homeScreen());
   });
 
-  bot.onText(/\/start/, openMenu);
+  bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
+    const payload = match[1]?.trim();
+    const userId = msg?.from?.id;
+
+    // 1. Authorized leader: open menu
+    if (isAdmin(userId)) {
+      clearState(msg.chat.id);
+      return await renderScreen(bot, msg.chat.id, null, homeScreen());
+    }
+
+    // 2. Invite token redemption: /start invite_<token>
+    if (payload && payload.startsWith("invite_")) {
+      const token = payload.replace("invite_", "").trim();
+      const name = `${msg.from.first_name || ""} ${msg.from.last_name || ""}`.trim() || msg.from.username || "Church Leader";
+      try {
+        const user = await redeemInviteToken({
+          token,
+          telegramId: userId,
+          name,
+          username: msg.from.username || ""
+        });
+
+        clearState(msg.chat.id);
+        const welcomeText = `🎉 <b>Welcome to Salem PBC!</b>\n\nவணக்கம் <b>${user.name}</b>!\nYour invitation has been accepted. You have been granted <b>${user.role === "staff" ? "Staff" : "Co-Admin"}</b> access to the church bot.\n\nTap below to open the main menu:`;
+        await bot.sendMessage(msg.chat.id, welcomeText, {
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [[{ text: "🏠 Open Main Menu", callback_data: "home:show" }]]
+          }
+        });
+
+        if (process.env.ADMIN_ID) {
+          await bot.sendMessage(
+            process.env.ADMIN_ID,
+            `🔔 <b>New Leader Joined via Invite Link:</b>\n👤 <b>${user.name}</b> (@${user.username || "N/A"})\nRole: <b>${user.role}</b>\nID: <code>${user.telegramId}</code>`,
+            { parse_mode: "HTML" }
+          ).catch(() => {});
+        }
+        return;
+      } catch (err) {
+        return await bot.sendMessage(
+          msg.chat.id,
+          `⚠️ <b>Invalid or Expired Invite Link</b>\n\n${err.message}.\nPlease ask the church administrator to send a fresh invite link.`,
+          { parse_mode: "HTML" }
+        );
+      }
+    }
+
+    // 3. Unauthorized visitor: friendly access request prompt
+    const name = `${msg.from?.first_name || ""} ${msg.from?.last_name || ""}`.trim() || msg.from?.username || "Friend";
+    const promptText = `✝️ <b>Salem Primitive Baptist Church</b>\n<i>Church Management Bot (SPBC)</i>\n\nவணக்கம் <b>${name}</b>!\nThis bot is restricted to authorized church pastors, leaders, and staff.\n\nIf you are part of church leadership, tap below to request access. The administrator will be notified to approve you with a single tap.`;
+
+    await bot.sendMessage(msg.chat.id, promptText, {
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🙋‍♂️ Request Access / அனுமதி கோரவும்", callback_data: "auth:request" }]
+        ]
+      }
+    });
+  });
+
   bot.onText(/\/menu/, openMenu);
 
   bot.onText(/\/help(?:\s+(.+))?/, adminOnly(async (msg, match) => {

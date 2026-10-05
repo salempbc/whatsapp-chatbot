@@ -12,6 +12,7 @@ import { reviewCallbacks, reviewStateHandlers } from "./handlers/review.js";
 import { eventsCallbacks, eventsStateHandlers } from "./handlers/events.js";
 import { tasksCallbacks, tasksStateHandlers } from "./handlers/tasks.js";
 import { bulletinCallbacks } from "./handlers/bulletin.js";
+import { usersCallbacks } from "./handlers/users.js";
 
 const callbackRoutes = {
   ...homeCallbacks,
@@ -25,7 +26,8 @@ const callbackRoutes = {
   ...reviewCallbacks,
   ...eventsCallbacks,
   ...tasksCallbacks,
-  ...bulletinCallbacks
+  ...bulletinCallbacks,
+  ...usersCallbacks
 };
 
 const stateRoutes = {
@@ -44,7 +46,9 @@ export const registerRouter = (bot) => {
     const chatId = q.message.chat.id;
     const messageId = q.message.message_id;
 
-    if (!isAdmin(q.from?.id)) {
+    // Allow public access request button; all other actions require admin privileges
+    const isPublicCallback = q.data.startsWith("auth:request");
+    if (!isPublicCallback && !isAdmin(q.from?.id)) {
       bot.answerCallbackQuery(q.id, { text: "❌ Unauthorized access", show_alert: true }).catch(() => {});
       return;
     }
@@ -64,9 +68,11 @@ export const registerRouter = (bot) => {
         bot.answerCallbackQuery(q.id).catch(() => {});
       }
     } catch (err) {
-      console.error(`❌ Callback error [${ns}:${action}]:`, err.message);
-      bot.answerCallbackQuery(q.id, { text: "❌ Error occurred" }).catch(() => {});
-      bot.sendMessage(chatId, "❌ Something went wrong while processing your request.");
+      if (!/message is not modified/i.test(err.message)) {
+        console.error(`❌ Callback error [${ns}:${action}]:`, err.message);
+        bot.sendMessage(chatId, "❌ Something went wrong while processing your request. Please try again or type /menu.").catch(() => {});
+      }
+      bot.answerCallbackQuery(q.id, { text: "⚠️ Error occurred" }).catch(() => {});
     }
   });
 

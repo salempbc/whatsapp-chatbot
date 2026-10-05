@@ -8,6 +8,7 @@ import { registerEvents } from "./handlers/events.js";
 import { registerTasks } from "./handlers/tasks.js";
 import { registerStats } from "./handlers/stats.js";
 import { registerBulletin } from "./handlers/bulletin.js";
+import { registerUsers } from "./handlers/users.js";
 import { registerRouter } from "./router.js";
 
 let bot;
@@ -56,6 +57,10 @@ export const initTelegram = () => {
     console.log("⚠️ No domain found, falling back to polling");
   }
 
+  // Resilient Telegram client error listeners
+  bot.on("error", (err) => console.error("❌ Telegram client error:", err.message));
+  bot.on("webhook_error", (err) => console.error("❌ Telegram webhook error:", err.message));
+
   bot.setMyCommands([
     { command: "start", description: "Open main menu" },
     { command: "menu", description: "Open main menu" },
@@ -65,6 +70,8 @@ export const initTelegram = () => {
     { command: "addevent", description: "Schedule a church program" },
     { command: "tasks", description: "Manage administrative tasks" },
     { command: "addtask", description: "Create an administrative task" },
+    { command: "users", description: "Manage authorized leaders & staff" },
+    { command: "invite", description: "Generate 1-click leader invite link" },
     { command: "stats", description: "Church demographics & analytics" },
     { command: "dataquality", description: "Run data quality inspection" },
     { command: "help", description: "Show interactive administrator guide wizard" },
@@ -85,13 +92,20 @@ export const initTelegram = () => {
   registerEvents(bot);
   registerTasks(bot);
   registerStats(bot);
+  registerUsers(bot);
   registerRouter(bot);
 
   console.log("🚀 Telegram CMS READY (SPBC 2.1 Admin Engine)");
 };
 
 export const handleWebhook = (body) => {
-  if (bot) bot.processUpdate(body);
+  if (bot && body) {
+    try {
+      bot.processUpdate(body);
+    } catch (err) {
+      console.error("❌ Error processing webhook update:", err.message);
+    }
+  }
 };
 
 /* SEND to admin only (private interaction) */
