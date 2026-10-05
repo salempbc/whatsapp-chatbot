@@ -36,9 +36,24 @@ import {
   exportEventsToICS
 } from "../services/churchCalendarService.js";
 import {
+  getTasks,
+  getTaskStats,
   createTask,
   updateTask,
-  getTasksDueTodayOrOverdue
+  deleteTask,
+  toggleTaskComplete,
+  toggleTaskPin,
+  addSubtask,
+  toggleSubtask,
+  deleteSubtask,
+  addNote,
+  deleteNote,
+  addAttachment,
+  deleteAttachment,
+  bulkActionTasks,
+  reorderTasks,
+  getTasksDueTodayOrOverdue,
+  parseQuickAddTask
 } from "../services/taskService.js";
 import {
   getChurchStatistics,
@@ -460,34 +475,146 @@ router.get("/events/export/ics", async (req, res) => {
 /* MODULE C: ADMINISTRATIVE TASK & FOLLOW-UP MANAGEMENT      */
 /* ========================================================= */
 router.get("/tasks", async (req, res) => {
-  const { status, category, priority } = req.query;
-  const filter = {};
-  if (status && status !== "all") filter.status = status;
-  if (category && category !== "all") filter.category = category;
-  if (priority && priority !== "all") filter.priority = priority;
-
-  const tasks = await Task.find(filter).sort({ dueDate: 1, priority: -1 }).lean();
+  const { status, category, priority, tag, search, sortField, sortOrder } = req.query;
+  const tasks = await getTasks({ status, category, priority, tag, search, sortField, sortOrder });
   res.json(tasks);
 });
 
-router.post("/tasks", async (req, res) => {
-  const task = await createTask(req.body);
-  res.json(task);
-});
-
-router.put("/tasks/:id", async (req, res) => {
-  const task = await updateTask(req.params.id, req.body);
-  res.json(task);
-});
-
-router.delete("/tasks/:id", async (req, res) => {
-  const task = await updateTask(req.params.id, { status: "cancelled" });
-  res.json({ success: true, task });
+router.get("/tasks/stats", async (req, res) => {
+  const stats = await getTaskStats();
+  res.json(stats);
 });
 
 router.get("/tasks/overdue", async (req, res) => {
   const tasks = await getTasksDueTodayOrOverdue();
   res.json(tasks);
+});
+
+router.post("/tasks", async (req, res) => {
+  let taskData = { ...req.body };
+  if (req.body.quickAdd || (!req.body.title && req.body.text)) {
+    const parsed = parseQuickAddTask(req.body.text || req.body.title || "");
+    taskData = {
+      ...parsed,
+      ...req.body,
+      title: parsed.title || req.body.title || "Untitled Task",
+      description: parsed.description || req.body.description || "",
+      dueDate: parsed.dueDate || req.body.dueDate || "",
+      dueTime: parsed.dueTime || req.body.dueTime || "",
+      tags: [...new Set([...(parsed.tags || []), ...(req.body.tags || [])])],
+      priority: req.body.priority || parsed.priority || "medium"
+    };
+  }
+  const task = await createTask(taskData, req.user?.name || "Admin");
+  res.json(task);
+});
+
+router.post("/tasks/bulk", async (req, res) => {
+  const result = await bulkActionTasks(req.body, req.user?.name || "Admin");
+  res.json(result);
+});
+
+router.post("/tasks/reorder", async (req, res) => {
+  await reorderTasks(req.body.orderedIds);
+  res.json({ success: true });
+});
+
+router.put("/tasks/:id", async (req, res) => {
+  const task = await updateTask(req.params.id, req.body, req.user?.name || "Admin");
+  res.json(task);
+});
+
+router.delete("/tasks/:id", async (req, res) => {
+  try {
+    const task = await deleteTask(req.params.id, req.user?.name || "Admin");
+    res.json({ success: true, task });
+  } catch (err) {
+    res.status(404).json({ error: err.message });
+  }
+});
+
+router.post("/tasks/:id/toggle", async (req, res) => {
+  try {
+    const task = await toggleTaskComplete(req.params.id, req.user?.name || "Admin");
+    res.json(task);
+  } catch (err) {
+    res.status(404).json({ error: err.message });
+  }
+});
+
+router.post("/tasks/:id/pin", async (req, res) => {
+  try {
+    const task = await toggleTaskPin(req.params.id, req.user?.name || "Admin");
+    res.json(task);
+  } catch (err) {
+    res.status(404).json({ error: err.message });
+  }
+});
+
+router.post("/tasks/:id/subtasks", async (req, res) => {
+  try {
+    const task = await addSubtask(req.params.id, req.body.text);
+    res.json(task);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/tasks/:id/subtasks/:subId/toggle", async (req, res) => {
+  try {
+    const task = await toggleSubtask(req.params.id, req.params.subId);
+    res.json(task);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete("/tasks/:id/subtasks/:subId", async (req, res) => {
+  try {
+    const task = await deleteSubtask(req.params.id, req.params.subId);
+    res.json(task);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/tasks/:id/notes", async (req, res) => {
+  try {
+    const task = await addNote(req.params.id, {
+      text: req.body.text,
+      author: req.body.author || req.user?.name || "Admin"
+    });
+    res.json(task);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete("/tasks/:id/notes/:noteId", async (req, res) => {
+  try {
+    const task = await deleteNote(req.params.id, req.params.noteId);
+    res.json(task);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/tasks/:id/attachments", async (req, res) => {
+  try {
+    const task = await addAttachment(req.params.id, req.body);
+    res.json(task);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete("/tasks/:id/attachments/:attId", async (req, res) => {
+  try {
+    const task = await deleteAttachment(req.params.id, req.params.attId);
+    res.json(task);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 /* ========================================================= */

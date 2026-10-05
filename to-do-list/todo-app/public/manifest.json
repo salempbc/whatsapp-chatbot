@@ -1,0 +1,13 @@
+{
+  "name": "TaskFlow — Smart To-Do App",
+  "short_name": "TaskFlow",
+  "description": "A modern to-do application with priorities, due dates, subtasks, notes, recurring tasks, and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

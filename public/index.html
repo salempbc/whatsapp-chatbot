@@ -721,83 +721,484 @@
     <!-- TAB: ADMINISTRATIVE TASKS & FOLLOW-UPS     -->
     <!-- ========================================== -->
     <main v-if="currentTab === 'tasks'" class="space-y-4">
+      <!-- Header -->
       <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 class="text-xl font-bold text-slate-900 dark:text-white">Church Tasks</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Pastoral visits, event prep & operations</p>
+          <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span>📋</span>
+            <span>Church Tasks & Pastoral Follow-ups</span>
+          </h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">TaskFlow: Subtasks, notes, attachments, priorities & reminders</p>
         </div>
-        <button @click="openTaskForm()" class="btn-brand px-3.5 py-2 text-xs font-bold shadow-sm flex items-center gap-1">
+        <button @click="openTaskForm()" class="btn-brand px-3.5 py-2 text-xs font-bold shadow-sm flex items-center gap-1.5">
           <span>➕</span>
           <span>New Task</span>
         </button>
       </div>
 
-      <!-- Overdue Banner -->
-      <div v-if="overdueTasksCount > 0" class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2.5 text-rose-600 dark:text-rose-400 text-xs font-semibold">
-        <span class="text-base">⚠️</span>
-        <div>
-          <span class="font-bold">{{ overdueTasksCount }} overdue task(s)</span> requiring pastoral or administrative attention.
+      <!-- STATS CARDS -->
+      <div class="space-y-2">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <!-- Total Tasks -->
+          <div class="p-3.5 rounded-2xl border border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/10 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <span>Total Tasks</span>
+              <span class="text-blue-500 font-bold">📋</span>
+            </div>
+            <div class="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">{{ taskStats.total || 0 }}</div>
+          </div>
+          <!-- Active Tasks -->
+          <div class="p-3.5 rounded-2xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <span>Active</span>
+              <span class="text-amber-500 font-bold">⏳</span>
+            </div>
+            <div class="mt-2 text-2xl font-bold text-amber-600 dark:text-amber-400">{{ taskStats.active || 0 }}</div>
+          </div>
+          <!-- Completed Tasks -->
+          <div class="p-3.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <span>Completed</span>
+              <span class="text-emerald-500 font-bold">✅</span>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1.5">
+              <span class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ taskStats.completed || 0 }}</span>
+              <span class="text-xs text-slate-400 font-medium">/ {{ taskStats.total || 0 }}</span>
+            </div>
+          </div>
+          <!-- Overdue Tasks -->
+          <div class="p-3.5 rounded-2xl border border-rose-500/20 bg-rose-500/5 dark:bg-rose-500/10 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <span>Overdue</span>
+              <span class="text-rose-500 font-bold">⚠️</span>
+            </div>
+            <div class="mt-2 text-2xl font-bold text-rose-600 dark:text-rose-400">{{ taskStats.overdue || 0 }}</div>
+          </div>
+        </div>
+
+        <!-- Estimated Time summary -->
+        <div v-if="taskStats.totalEstimatedMins > 0" class="px-1 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+          <span>⏱️ Estimated Time:</span>
+          <span class="font-bold text-slate-800 dark:text-slate-200">{{ formatEstimate(taskStats.totalEstimatedMins) }}</span>
+          <span>·</span>
+          <span class="text-emerald-600 dark:text-emerald-400 font-bold">{{ formatEstimate(taskStats.completedEstimatedMins) }} completed</span>
         </div>
       </div>
 
-      <!-- Task Filter Pills -->
-      <div class="flex items-center gap-1.5 text-xs font-semibold">
-        <button @click="taskFilter = 'pending'" :class="['px-3 py-1.5 rounded-xl transition-all', taskFilter === 'pending' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">Pending</button>
-        <button @click="taskFilter = 'all'" :class="['px-3 py-1.5 rounded-xl transition-all', taskFilter === 'all' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">All ({{ tasks.length }})</button>
-        <button @click="taskFilter = 'completed'" :class="['px-3 py-1.5 rounded-xl transition-all', taskFilter === 'completed' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">Completed</button>
-        <button @click="taskFilter = 'overdue'" :class="['px-3 py-1.5 rounded-xl transition-all', taskFilter === 'overdue' ? 'bg-rose-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">Overdue</button>
+      <!-- PROGRESS BAR -->
+      <div v-if="taskStats.total > 0" class="p-3 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-1.5 shadow-sm">
+        <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
+          <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-2.5 rounded-full transition-all duration-300" :style="{ width: progressPercentage + '%' }"></div>
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+          <span v-if="taskStats.total > 0 && taskStats.completed === taskStats.total" class="text-emerald-500 font-bold">
+            ✓ All tasks complete! Outstanding work.
+          </span>
+          <span v-else>
+            <span class="font-bold text-slate-800 dark:text-slate-200">{{ progressPercentage }}% complete</span>
+            <span> · </span>
+            <span>{{ taskStats.completed }}/{{ taskStats.total }} tasks done</span>
+          </span>
+          <span v-if="taskStats.overdue > 0" class="text-rose-500 font-bold flex items-center gap-1">
+            <span>⚠️</span>
+            <span>{{ taskStats.overdue }} overdue</span>
+          </span>
+        </div>
       </div>
 
-      <!-- Task List -->
-      <div v-if="filteredTasks.length === 0" class="text-center py-12 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800">
-        <div class="text-3xl mb-2">📋</div>
-        <p class="text-sm font-bold text-slate-700 dark:text-slate-300">No Tasks in this View</p>
-        <p class="text-xs text-slate-500 mt-1">Assign follow-ups, visitation notes, or worship preparation checklist.</p>
-        <button @click="openTaskForm()" class="btn-brand mt-3 px-4 py-2 text-xs font-bold">➕ Create First Task</button>
+      <!-- SMART QUICK ADD (NLP) -->
+      <div class="p-3.5 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-2.5">
+        <div class="flex items-center gap-2">
+          <span class="text-base text-indigo-500">⚡</span>
+          <input
+            type="text"
+            v-model="quickAddText"
+            @keyup.enter="executeQuickAdd"
+            placeholder="Quick add: &quot;visit Brother Thomas tomorrow at 4pm #visitation - bring communion&quot;"
+            class="flex-1 text-xs sm:text-sm bg-transparent border-none outline-none text-slate-900 dark:text-white placeholder:text-slate-400"
+          />
+          <button
+            @click="executeQuickAdd"
+            :disabled="quickAddSubmitting || !quickAddText.trim()"
+            class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all flex-shrink-0"
+          >
+            <span>➕</span>
+            <span>Add</span>
+          </button>
+        </div>
+
+        <!-- Priority Pills & Syntax Hint -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80 text-[11px]">
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-400 font-medium">Priority:</span>
+            <button
+              v-for="p in ['low', 'medium', 'high', 'urgent']"
+              :key="p"
+              @click="quickAddPriority = p"
+              :class="['px-2 py-0.5 rounded-md font-bold uppercase text-[10px] transition-all', quickAddPriority === p ? (p === 'urgent' ? 'bg-rose-500 text-white' : p === 'high' ? 'bg-amber-500 text-white' : p === 'medium' ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-white') : 'bg-slate-100 dark:bg-slate-800 text-slate-500']"
+            >
+              {{ p }}
+            </button>
+          </div>
+          <span class="text-slate-400 text-[10px]">
+            Syntax: <code class="text-indigo-600 dark:text-indigo-400">#tag</code>, <code class="text-indigo-600 dark:text-indigo-400">today</code>, <code class="text-indigo-600 dark:text-indigo-400">at 3pm</code>, <code class="text-indigo-600 dark:text-indigo-400">- notes</code>
+          </span>
+        </div>
       </div>
 
-      <div v-else class="space-y-2.5">
-        <div v-for="t in filteredTasks" :key="t._id" class="p-3.5 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm flex items-start gap-3 transition-colors">
-          <input type="checkbox" :checked="t.status === 'completed'" @change="toggleTaskComplete(t)" class="mt-1 w-5 h-5 rounded-lg text-indigo-600 border-slate-300 dark:border-slate-700 focus:ring-indigo-500 cursor-pointer" />
-          
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <span :class="['font-bold text-sm', t.status === 'completed' ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white']">
-                {{ t.title }}
-              </span>
-              <span :class="['px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider', t.priority === 'urgent' ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400' : t.priority === 'high' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500']">
-                {{ t.priority }}
-              </span>
+      <!-- FILTER & SEARCH BAR -->
+      <div class="space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <!-- Status Pills -->
+          <div class="flex items-center gap-1 text-xs font-semibold">
+            <button @click="taskFilter = 'all'" :class="['px-2.5 py-1.5 rounded-xl transition-all', taskFilter === 'all' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">
+              All ({{ tasks.length }})
+            </button>
+            <button @click="taskFilter = 'active'" :class="['px-2.5 py-1.5 rounded-xl transition-all', taskFilter === 'active' || taskFilter === 'pending' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">
+              Active ({{ taskStats.active || 0 }})
+            </button>
+            <button @click="taskFilter = 'completed'" :class="['px-2.5 py-1.5 rounded-xl transition-all', taskFilter === 'completed' ? 'bg-emerald-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">
+              Completed ({{ taskStats.completed || 0 }})
+            </button>
+            <button @click="taskFilter = 'overdue'" :class="['px-2.5 py-1.5 rounded-xl transition-all', taskFilter === 'overdue' ? 'bg-rose-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">
+              Overdue ({{ taskStats.overdue || 0 }})
+            </button>
+          </div>
+
+          <!-- Sort and Priority Selects -->
+          <div class="flex items-center gap-1.5 text-xs">
+            <select v-model="taskPriorityFilter" class="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold focus:outline-none">
+              <option value="all">All Priorities</option>
+              <option value="urgent">🔴 Urgent</option>
+              <option value="high">🟠 High</option>
+              <option value="medium">🟡 Medium</option>
+              <option value="low">🟢 Low</option>
+            </select>
+
+            <select v-model="taskSortField" class="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold focus:outline-none">
+              <option value="manual">Sort: Manual</option>
+              <option value="dueDate">Sort: Due Date</option>
+              <option value="priority">Sort: Priority</option>
+              <option value="createdAt">Sort: Newest</option>
+              <option value="title">Sort: Title A-Z</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Search & Tag Filter Row -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative flex-1 min-w-[180px]">
+            <input
+              type="text"
+              v-model="taskSearch"
+              placeholder="🔍 Search tasks, descriptions, assignees..."
+              class="w-full pl-3 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
+            />
+            <button v-if="taskSearch" @click="taskSearch = ''" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs">✕</button>
+          </div>
+
+          <!-- Tag Pills -->
+          <div v-if="allTags.length > 0" class="flex flex-wrap items-center gap-1 text-xs">
+            <button
+              @click="taskTagFilter = 'all'"
+              :class="['px-2 py-1 rounded-lg text-[11px] font-semibold transition-all', taskTagFilter === 'all' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-500']"
+            >
+              All Tags
+            </button>
+            <button
+              v-for="tag in allTags"
+              :key="tag"
+              @click="taskTagFilter = tag"
+              :class="['px-2 py-1 rounded-lg text-[11px] font-semibold transition-all', taskTagFilter === tag ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600']"
+            >
+              #{{ tag }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BULK ACTIONS TOOLBAR -->
+      <div v-if="selectedTaskIds.length > 0" class="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-indigo-700 dark:text-indigo-300">
+            ✓ {{ selectedTaskIds.length }} task(s) selected
+          </span>
+          <button @click="selectAllFilteredTasks" class="text-indigo-600 dark:text-indigo-400 underline font-semibold">
+            {{ selectedTaskIds.length === filteredTasks.length ? 'Deselect All' : 'Select All (' + filteredTasks.length + ')' }}
+          </button>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <button @click="executeTaskBulkAction('complete')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm">
+            <span>✅</span>
+            <span>Mark Complete</span>
+          </button>
+          <button @click="executeTaskBulkAction('priority', 'urgent')" class="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm">
+            <span>🔴</span>
+            <span>Set Urgent</span>
+          </button>
+          <button @click="executeTaskBulkAction('delete')" class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 font-bold text-xs">
+            <span>🗑</span>
+            <span>Delete</span>
+          </button>
+          <button @click="clearSelectedTasks" class="px-2 py-1 text-slate-400 hover:text-slate-600 font-semibold">
+            ✕ Cancel
+          </button>
+        </div>
+      </div>
+
+      <!-- TASK LIST -->
+      <div v-if="filteredTasks.length === 0" class="text-center py-12 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+        <div class="text-4xl">📋</div>
+        <p class="text-base font-bold text-slate-700 dark:text-slate-300">No Tasks Found</p>
+        <p class="text-xs text-slate-500 max-w-sm mx-auto">
+          {{ taskSearch ? 'No tasks match your search filter.' : 'All church administration and pastoral follow-ups are up to date.' }}
+        </p>
+        <button @click="openTaskForm()" class="btn-brand mt-2 px-4 py-2 text-xs font-bold inline-flex items-center gap-1.5">
+          <span>➕</span>
+          <span>Create Task</span>
+        </button>
+      </div>
+
+      <!-- TASK CARDS -->
+      <div v-else class="space-y-3">
+        <div
+          v-for="t in filteredTasks"
+          :key="t._id"
+          class="p-4 rounded-3xl bg-white dark:bg-[#151c28] border transition-all shadow-sm space-y-3"
+          :class="[
+            t.pinned ? 'border-amber-400/60 dark:border-amber-500/40 bg-amber-500/[0.02]' : 'border-slate-200 dark:border-slate-800',
+            isTaskSelected(t._id) ? 'ring-2 ring-indigo-500' : ''
+          ]"
+        >
+          <!-- Task Top Row -->
+          <div class="flex items-start gap-3">
+            <!-- Multi-Select Checkbox -->
+            <input
+              type="checkbox"
+              :checked="isTaskSelected(t._id)"
+              @change="toggleSelectTask(t._id)"
+              class="mt-1 w-4 h-4 rounded text-indigo-600 border-slate-300 dark:border-slate-700 focus:ring-indigo-500 cursor-pointer"
+              title="Select for bulk action"
+            />
+
+            <!-- Complete Toggle Checkbox -->
+            <input
+              type="checkbox"
+              :checked="t.status === 'completed' || t.completed === true"
+              @change="toggleTaskComplete(t)"
+              class="mt-0.5 w-5 h-5 rounded-lg text-emerald-600 border-slate-300 dark:border-slate-700 focus:ring-emerald-500 cursor-pointer"
+              title="Mark complete"
+            />
+
+            <!-- Title & Metadata -->
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <!-- Pinned Icon Badge -->
+                <button
+                  @click="toggleTaskPinAction(t)"
+                  :class="['px-1.5 py-0.5 rounded text-[11px] font-bold transition-all', t.pinned ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' : 'text-slate-400 hover:text-amber-500']"
+                  :title="t.pinned ? 'Pinned to top (Click to unpin)' : 'Click to pin to top'"
+                >
+                  📌
+                </button>
+
+                <!-- Title -->
+                <span :class="['font-bold text-sm sm:text-base leading-snug', (t.status === 'completed' || t.completed) ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white']">
+                  {{ t.title }}
+                </span>
+
+                <!-- Priority Badge -->
+                <span :class="['px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider', t.priority === 'urgent' ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400' : t.priority === 'high' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : t.priority === 'low' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400']">
+                  {{ t.priority }}
+                </span>
+
+                <!-- Recurring Badge -->
+                <span v-if="t.recurring && t.recurring !== 'none'" class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50">
+                  🔁 {{ t.recurring }}
+                </span>
+
+                <!-- Estimated Time Badge -->
+                <span v-if="t.estimatedTime > 0" class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  ⏱️ {{ formatEstimate(t.estimatedTime) }}
+                </span>
+              </div>
+
+              <!-- Description -->
+              <p v-if="t.description" class="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed whitespace-pre-line">{{ t.description }}</p>
+
+              <!-- Attributes Pill Row -->
+              <div class="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                <!-- Category -->
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">
+                  {{ (t.category || 'General').replace(/_/g, ' ') }}
+                </span>
+
+                <!-- Assignee -->
+                <span v-if="t.assignee" class="flex items-center gap-1 font-medium">
+                  <span>👤</span>
+                  <span>{{ t.assignee }}</span>
+                </span>
+
+                <!-- Relative Due Date -->
+                <span v-if="t.dueDate" :class="['flex items-center gap-1 font-semibold', (new Date(t.dueDate) < new Date() && t.status !== 'completed' && !t.completed) ? 'text-rose-500' : 'text-slate-600 dark:text-slate-300']">
+                  <span>⏰</span>
+                  <span>{{ formatRelativeDue(t.dueDate, t.dueTime) }}</span>
+                </span>
+
+                <!-- Tags -->
+                <span v-for="tg in (t.tags || [])" :key="tg" class="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-medium text-[10px]">
+                  #{{ tg }}
+                </span>
+              </div>
             </div>
 
-            <p v-if="t.description" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ t.description }}</p>
-
-            <div class="flex flex-wrap items-center gap-2.5 mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-              <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
-                {{ (t.category || 'General').replace(/_/g, ' ') }}
-              </span>
-              <span v-if="t.assignee" class="flex items-center gap-1">
-                <span>👤</span>
-                <span>{{ t.assignee }}</span>
-              </span>
-              <span v-if="t.dueDate" :class="['flex items-center gap-1 font-semibold', new Date(t.dueDate) < new Date() && t.status !== 'completed' ? 'text-rose-500' : '']">
-                <span>⏰</span>
-                <span>Due: {{ new Date(t.dueDate).toLocaleDateString() }}</span>
-              </span>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/60">
-              <span class="text-[10px] font-bold text-slate-400">Move:</span>
-              <button @click="updateTaskStatus(t, 'todo')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'todo' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">To-Do</button>
-              <button @click="updateTaskStatus(t, 'in_progress')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'in_progress' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">In-Progress</button>
-              <button @click="updateTaskStatus(t, 'waiting')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'waiting' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">Waiting</button>
-              <button @click="updateTaskStatus(t, 'completed')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'completed' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">Done</button>
+            <!-- Card Action Buttons -->
+            <div class="flex items-center gap-1 flex-shrink-0">
+              <button @click="openTaskForm(t)" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs" title="Edit Task">✏️</button>
+              <button @click="deleteTask(t._id)" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs" title="Delete Task">🗑</button>
             </div>
           </div>
 
-          <div class="flex items-center gap-1 flex-shrink-0">
-            <button @click="openTaskForm(t)" class="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs">✏️</button>
-            <button @click="deleteTask(t._id)" class="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs">🗑</button>
+          <!-- EXPANDABLE ACCORDIONS: SUBTASKS, NOTES, ATTACHMENTS -->
+          <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 text-xs font-semibold">
+            <!-- Subtasks Toggle -->
+            <button
+              @click="toggleSubtasksExpanded(t._id)"
+              class="px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors"
+            >
+              <span>☑️</span>
+              <span>Subtasks ({{ (t.subtasks || []).filter(s => s.done).length }}/{{ (t.subtasks || []).length }})</span>
+              <span>{{ expandedSubtasks[t._id] ? '▲' : '▼' }}</span>
+            </button>
+
+            <!-- Notes Toggle -->
+            <button
+              @click="toggleNotesExpanded(t._id)"
+              class="px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors"
+            >
+              <span>💬</span>
+              <span>Notes ({{ (t.notes || []).length }})</span>
+              <span>{{ expandedNotes[t._id] ? '▲' : '▼' }}</span>
+            </button>
+
+            <!-- Attachments Toggle -->
+            <button
+              @click="toggleAttachmentsExpanded(t._id)"
+              class="px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors"
+            >
+              <span>📎</span>
+              <span>Files ({{ (t.attachments || []).length }})</span>
+              <span>{{ expandedAttachments[t._id] ? '▲' : '▼' }}</span>
+            </button>
+
+            <!-- Quick Status Switcher -->
+            <div class="ml-auto flex items-center gap-1">
+              <span class="text-[10px] font-bold text-slate-400">Status:</span>
+              <button @click="updateTaskStatus(t, 'todo')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'todo' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">To-Do</button>
+              <button @click="updateTaskStatus(t, 'in_progress')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'in_progress' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">In-Prog</button>
+              <button @click="updateTaskStatus(t, 'waiting')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'waiting' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">Wait</button>
+              <button @click="updateTaskStatus(t, 'completed')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'completed' || t.completed ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">Done</button>
+            </div>
+          </div>
+
+          <!-- EXPANDED SUBTASKS ACCORDION BODY -->
+          <div v-if="expandedSubtasks[t._id]" class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Subtasks Checklist</span>
+              <span class="text-[11px] text-slate-500">{{ (t.subtasks || []).filter(s => s.done).length }} of {{ (t.subtasks || []).length }} done</span>
+            </div>
+
+            <!-- Mini Progress for Subtasks -->
+            <div v-if="t.subtasks && t.subtasks.length > 0" class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+              <div class="bg-indigo-600 h-1.5 rounded-full" :style="{ width: Math.round((t.subtasks.filter(s => s.done).length / t.subtasks.length) * 100) + '%' }"></div>
+            </div>
+
+            <!-- Subtask list -->
+            <div class="space-y-1.5">
+              <div v-for="sub in (t.subtasks || [])" :key="sub._id" class="flex items-center justify-between gap-2 p-1.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs">
+                <label class="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                  <input type="checkbox" :checked="sub.done" @change="toggleSubtaskAction(t, sub)" class="rounded text-indigo-600 border-slate-300 dark:border-slate-600 focus:ring-indigo-500 cursor-pointer" />
+                  <span :class="['truncate', sub.done ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200']">{{ sub.text }}</span>
+                </label>
+                <button @click="deleteSubtaskAction(t, sub)" class="text-slate-400 hover:text-rose-500 text-xs px-1">✕</button>
+              </div>
+            </div>
+
+            <!-- Add Subtask Input -->
+            <div class="flex items-center gap-2 pt-1">
+              <input
+                type="text"
+                v-model="taskSubtaskInputs[t._id]"
+                @keyup.enter="addSubtaskAction(t)"
+                placeholder="Add subtask step (Press Enter)..."
+                class="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
+              />
+              <button @click="addSubtaskAction(t)" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm">
+                Add
+              </button>
+            </div>
+          </div>
+
+          <!-- EXPANDED NOTES ACCORDION BODY -->
+          <div v-if="expandedNotes[t._id]" class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-slate-700 dark:text-slate-300">Notes & Pastoral Updates Thread</div>
+
+            <div v-if="!t.notes || t.notes.length === 0" class="text-xs text-slate-400 italic py-1">
+              No notes yet. Add progress updates, prayer points, or remarks.
+            </div>
+
+            <!-- Notes List -->
+            <div class="space-y-2">
+              <div v-for="n in (t.notes || [])" :key="n._id" class="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs space-y-1">
+                <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+                  <span>👤 {{ n.author || 'Admin' }} · {{ new Date(n.createdAt || Date.now()).toLocaleDateString() }}</span>
+                  <button @click="deleteNoteAction(t, n)" class="text-slate-400 hover:text-rose-500 text-xs">✕</button>
+                </div>
+                <p class="text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed">{{ n.text }}</p>
+              </div>
+            </div>
+
+            <!-- Add Note Input -->
+            <div class="flex items-center gap-2 pt-1">
+              <input
+                type="text"
+                v-model="taskNoteInputs[t._id]"
+                @keyup.enter="addNoteAction(t)"
+                placeholder="Write a pastoral note or update..."
+                class="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
+              />
+              <button @click="addNoteAction(t)" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm">
+                Post Note
+              </button>
+            </div>
+          </div>
+
+          <!-- EXPANDED ATTACHMENTS ACCORDION BODY -->
+          <div v-if="expandedAttachments[t._id]" class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 space-y-2">
+            <div class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+              <span>Attached Documents & Photos</span>
+              <label class="px-2.5 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] cursor-pointer shadow-sm">
+                <span>📎 Upload File</span>
+                <input type="file" @change="handleTaskAttachmentUpload(t, $event)" class="hidden" />
+              </label>
+            </div>
+
+            <div v-if="!t.attachments || t.attachments.length === 0" class="text-xs text-slate-400 italic py-1">
+              No files attached. You can attach PDFs, images, or documents up to 5MB.
+            </div>
+
+            <!-- Attachments list -->
+            <div class="space-y-1.5">
+              <div v-for="att in (t.attachments || [])" :key="att._id" class="flex items-center justify-between gap-2 p-2 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs">
+                <a :href="att.data" :download="att.filename" class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 hover:underline truncate">
+                  <span>📄</span>
+                  <span class="truncate font-medium">{{ att.filename }}</span>
+                  <span class="text-[10px] text-slate-400 font-normal">({{ Math.round(att.size / 1024) }} KB)</span>
+                </a>
+                <button @click="deleteTaskAttachmentAction(t, att)" class="text-slate-400 hover:text-rose-500 text-xs px-1">✕</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1408,7 +1809,7 @@
     <!-- ========================================== -->
     <transition name="fade">
       <div v-if="taskModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="w-full max-w-md p-5 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto" @click.stop>
+        <div class="w-full max-w-lg p-5 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto" @click.stop>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
               <span class="text-xl">📋</span>
@@ -1417,16 +1818,24 @@
             <button @click="taskModalOpen = false" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
           </div>
 
-          <div class="space-y-3">
+          <div class="space-y-3.5 text-xs">
+            <!-- Title -->
             <div>
-              <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Task Title *</label>
+              <label class="font-bold text-slate-700 dark:text-slate-300">Task Title *</label>
               <input type="text" v-model="taskForm.title" placeholder="e.g. Hospital visitation for Elder Thomas" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
+            <!-- Description -->
+            <div>
+              <label class="font-bold text-slate-700 dark:text-slate-300">Description / Details</label>
+              <textarea v-model="taskForm.description" rows="2" placeholder="Full details, pastoral prayer items, agenda..." class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            </div>
+
+            <!-- Category & Priority -->
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Category</label>
-                <select v-model="taskForm.category" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none">
+                <label class="font-bold text-slate-700 dark:text-slate-300">Category</label>
+                <select v-model="taskForm.category" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none">
                   <option value="pastoral_care">Pastoral Care</option>
                   <option value="event_prep">Event Prep</option>
                   <option value="admin">Administration</option>
@@ -1436,38 +1845,119 @@
                 </select>
               </div>
               <div>
-                <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Priority</label>
-                <select v-model="taskForm.priority" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none">
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
+                <label class="font-bold text-slate-700 dark:text-slate-300">Priority</label>
+                <select v-model="taskForm.priority" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none">
+                  <option value="low">🟢 Low</option>
+                  <option value="medium">🟡 Medium</option>
+                  <option value="high">🟠 High</option>
+                  <option value="urgent">🔴 Urgent</option>
                 </select>
               </div>
             </div>
 
+            <!-- Due Date & Due Time -->
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Due Date</label>
-                <input type="date" v-model="taskForm.dueDate" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none" />
+                <label class="font-bold text-slate-700 dark:text-slate-300">Due Date</label>
+                <input type="date" v-model="taskForm.dueDate" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none" />
               </div>
               <div>
-                <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Assignee</label>
-                <input type="text" v-model="taskForm.assignee" placeholder="e.g. Pastor / Deacon" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none" />
+                <label class="font-bold text-slate-700 dark:text-slate-300">Due Time</label>
+                <input type="time" v-model="taskForm.dueTime" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none" />
               </div>
             </div>
 
-            <div>
-              <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Status</label>
-              <select v-model="taskForm.status" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none">
-                <option value="todo">To Do</option>
-                <option value="in_progress">In Progress</option>
-                <option value="waiting">Waiting</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
+            <!-- Assignee & Estimated Time -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="font-bold text-slate-700 dark:text-slate-300">Assignee</label>
+                <input type="text" v-model="taskForm.assignee" placeholder="e.g. Pastor / Deacon" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none" />
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 dark:text-slate-300">Estimated Time (mins)</label>
+                <input type="number" v-model="taskForm.estimatedTime" placeholder="e.g. 60 (1 hour)" min="0" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none" />
+              </div>
             </div>
 
+            <!-- Status & Recurring -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="font-bold text-slate-700 dark:text-slate-300">Status</label>
+                <select v-model="taskForm.status" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none">
+                  <option value="todo">To Do</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="waiting">Waiting</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 dark:text-slate-300">Recurring</label>
+                <select v-model="taskForm.recurring" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none">
+                  <option value="none">None</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Pin To Top Checkbox -->
+            <label class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 cursor-pointer">
+              <input type="checkbox" v-model="taskForm.pinned" class="w-4 h-4 rounded text-amber-600 border-slate-300 dark:border-slate-600 focus:ring-amber-500 cursor-pointer" />
+              <span class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <span>📌</span>
+                <span>Pin this task to top of dashboard</span>
+              </span>
+            </label>
+
+            <!-- Tags Manager -->
+            <div>
+              <label class="font-bold text-slate-700 dark:text-slate-300">Tags</label>
+              <div class="flex items-center gap-2 mt-1">
+                <input
+                  type="text"
+                  v-model="taskForm.tagInput"
+                  @keyup.enter.prevent="addTagToForm"
+                  placeholder="Type tag and press Enter (e.g. youth, visitation)..."
+                  class="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none"
+                />
+                <button type="button" @click="addTagToForm" class="px-2.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-300">
+                  + Add
+                </button>
+              </div>
+              <div v-if="taskForm.tags && taskForm.tags.length > 0" class="flex flex-wrap items-center gap-1.5 mt-2">
+                <span v-for="tag in taskForm.tags" :key="tag" class="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 text-[11px] font-semibold flex items-center gap-1">
+                  <span>#{{ tag }}</span>
+                  <button type="button" @click="removeTagFromForm(tag)" class="text-indigo-400 hover:text-indigo-600 font-bold ml-0.5">✕</button>
+                </span>
+              </div>
+            </div>
+
+            <!-- Subtasks Manager -->
+            <div>
+              <label class="font-bold text-slate-700 dark:text-slate-300">Checklist Subtasks</label>
+              <div class="flex items-center gap-2 mt-1">
+                <input
+                  type="text"
+                  v-model="taskForm.subtaskInput"
+                  @keyup.enter.prevent="addSubtaskToForm"
+                  placeholder="Add step and press Enter..."
+                  class="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none"
+                />
+                <button type="button" @click="addSubtaskToForm" class="px-2.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-300">
+                  + Add
+                </button>
+              </div>
+              <div v-if="taskForm.subtasks && taskForm.subtasks.length > 0" class="space-y-1 mt-2">
+                <div v-for="(sub, idx) in taskForm.subtasks" :key="idx" class="flex items-center justify-between gap-2 p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-xs">
+                  <span class="truncate text-slate-800 dark:text-slate-200">▫️ {{ sub.text }}</span>
+                  <button type="button" @click="removeSubtaskFromForm(idx)" class="text-slate-400 hover:text-rose-500 font-bold px-1">✕</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Save & Delete Buttons -->
             <div class="flex gap-2 pt-2">
               <button @click="saveTask" :disabled="saving" class="btn-brand flex-1 py-3 text-xs font-bold shadow-md">
                 {{ saving ? 'Saving...' : '💾 Save Task' }}

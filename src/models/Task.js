@@ -1,31 +1,47 @@
 import mongoose from "mongoose";
 
+const subtaskSchema = new mongoose.Schema(
+  {
+    text: { type: String, required: true, trim: true, maxlength: 300 },
+    done: { type: Boolean, default: false }
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+
+const noteSchema = new mongoose.Schema(
+  {
+    text: { type: String, required: true, trim: true, maxlength: 2000 },
+    author: { type: String, default: "Admin" }
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+
+const attachmentSchema = new mongoose.Schema(
+  {
+    filename: { type: String, required: true, maxlength: 255 },
+    mimeType: { type: String, required: true },
+    size: { type: Number, required: true },
+    data: { type: String, required: true } // Base64
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+
 const taskSchema = new mongoose.Schema(
   {
     title: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      maxlength: 200
     },
     description: {
       type: String,
       default: "",
-      trim: true
+      trim: true,
+      maxlength: 1000
     },
     category: {
       type: String,
-      enum: [
-        "general",
-        "pastoral",
-        "pastoral_care",
-        "event_prep",
-        "follow_up",
-        "volunteer",
-        "maintenance",
-        "facility",
-        "administrative",
-        "admin"
-      ],
       default: "general",
       index: true
     },
@@ -35,6 +51,11 @@ const taskSchema = new mongoose.Schema(
       default: "todo",
       index: true
     },
+    completed: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
     priority: {
       type: String,
       enum: ["low", "medium", "high", "urgent"],
@@ -42,13 +63,47 @@ const taskSchema = new mongoose.Schema(
       index: true
     },
     dueDate: {
-      type: String, // YYYY-MM-DD
+      type: String, // YYYY-MM-DD or ISO string
       default: "",
       index: true
     },
     dueTime: {
       type: String, // HH:MM
       default: ""
+    },
+    pinned: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    recurring: {
+      type: String,
+      enum: ["none", "daily", "weekly", "monthly"],
+      default: "none"
+    },
+    estimatedTime: {
+      type: Number,
+      default: null // In minutes
+    },
+    tags: {
+      type: [String],
+      default: []
+    },
+    order: {
+      type: Number,
+      default: 0
+    },
+    subtasks: {
+      type: [subtaskSchema],
+      default: []
+    },
+    notes: {
+      type: [noteSchema],
+      default: []
+    },
+    attachments: {
+      type: [attachmentSchema],
+      default: []
     },
     assignee: {
       type: String,
@@ -100,6 +155,7 @@ const taskSchema = new mongoose.Schema(
 
 taskSchema.index({ status: 1, dueDate: 1 });
 taskSchema.index({ category: 1, priority: 1 });
+taskSchema.index({ pinned: 1, order: 1 });
 
 const Task = mongoose.models.Task || mongoose.model("Task", taskSchema);
 

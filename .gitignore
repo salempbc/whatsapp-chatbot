@@ -4,3 +4,10 @@ node_modules
 !.env.example
 session
 .wwebjs_cache
+.next
+to-do-list/**/node_modules
+to-do-list/**/.next
+to-do-list/**/.env.local
+todo-app/**/node_modules
+todo-app/**/.next
+todo-app/**/.env.local

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/app.js",
     "test": "node --test tests/*.test.js",
-    "check": "node --check src/app.js && node tools/scan-encoding.cjs"
+    "check": "node --check src/app.js && node tools/scan-encoding.cjs && node tools/verify-vue-keys.cjs"
   },
   "dependencies": {
     "compression": "^1.7.5",

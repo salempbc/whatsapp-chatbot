@@ -548,7 +548,7 @@ const app = createApp({
     const loadData = async () => {
       loading.value = true;
       try {
-        const [mRes, tRes, sRes, uRes, eRes, taskRes, statsRes, dqRes, usersRes] = await Promise.all([
+        const [mRes, tRes, sRes, uRes, eRes, taskRes, statsRes, dqRes, usersRes, taskStatsRes] = await Promise.all([
           apiCall('/members').catch(() => []),
           apiCall('/templates').catch(() => []),
           apiCall('/settings').catch(() => ({ sendTime: '06:00', reminderTime: '20:00', customFields: [] })),
@@ -557,7 +557,8 @@ const app = createApp({
           apiCall('/tasks').catch(() => []),
           apiCall('/reports/stats').catch(() => null),
           apiCall('/reports/data-quality').catch(() => null),
-          apiCall('/users').catch(() => ({ users: [], superAdminId: null }))
+          apiCall('/users').catch(() => ({ users: [], superAdminId: null })),
+          apiCall('/tasks/stats').catch(() => null)
         ]);
         members.value = mRes;
         templates.value = tRes;
@@ -570,6 +571,7 @@ const app = createApp({
         authorizedUsers.value = usersRes.users || [];
         superAdminId.value = usersRes.superAdminId || '';
         currentUser.value = usersRes.currentUser || null;
+        if (taskStatsRes) taskStats.value = taskStatsRes;
       } catch (err) {
         showToast("⚠️ Could not load data.");
       } finally {
@@ -1243,28 +1245,114 @@ const app = createApp({
       });
     };
 
-    // Task Management
+    // ==========================================
+    // TASKFLOW & TASK MANAGEMENT
+    // ==========================================
+    const defaultTaskStats = () => ({
+      total: 0,
+      active: 0,
+      completed: 0,
+      overdue: 0,
+      totalEstimatedMins: 0,
+      completedEstimatedMins: 0
+    });
+    const taskStats = ref(defaultTaskStats());
+
     const defaultTaskForm = () => ({
       title: '',
+      description: '',
       category: 'general',
       priority: 'medium',
       status: 'todo',
       dueDate: '',
-      assignee: 'Admin'
+      dueTime: '',
+      assignee: 'Admin',
+      pinned: false,
+      recurring: 'none',
+      estimatedTime: '',
+      tags: [],
+      subtasks: [],
+      tagInput: '',
+      subtaskInput: ''
     });
+
     const taskForm = ref(defaultTaskForm());
     const taskFilter = ref('all'); // 'all', 'pending', 'completed', 'overdue'
+    const taskPriorityFilter = ref('all'); // 'all', 'low', 'medium', 'high', 'urgent'
+    const taskTagFilter = ref('all');
+    const taskSearch = ref('');
+    const taskSortField = ref('manual'); // 'manual', 'dueDate', 'priority', 'title', 'createdAt'
+    const taskSortOrder = ref('asc');
+
+    // Quick Add State
+    const quickAddText = ref('');
+    const quickAddPriority = ref('medium');
+    const quickAddSubmitting = ref(false);
+
+    // Multi-Select State
+    const selectedTaskIds = ref([]);
+
+    // Expandable details state per task
+    const expandedSubtasks = ref({});
+    const expandedNotes = ref({});
+    const expandedAttachments = ref({});
+    const taskSubtaskInputs = ref({});
+    const taskNoteInputs = ref({});
+
+    const loadTasks = async () => {
+      try {
+        const [taskList, stats] = await Promise.all([
+          apiCall('/tasks').catch(() => []),
+          apiCall('/tasks/stats').catch(() => defaultTaskStats())
+        ]);
+        tasks.value = taskList;
+        if (stats) taskStats.value = stats;
+      } catch (err) {
+        console.error("Failed to load tasks", err);
+      }
+    };
+
+    const executeQuickAdd = async () => {
+      if (!quickAddText.value || !quickAddText.value.trim()) {
+        return showToast("⚠️ Please enter a task title or command");
+      }
+      quickAddSubmitting.value = true;
+      try {
+        await apiCall('/tasks', 'POST', {
+          quickAdd: true,
+          text: quickAddText.value.trim(),
+          priority: quickAddPriority.value
+        });
+        quickAddText.value = '';
+        await loadTasks();
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        showToast("✨ Task added!");
+      } catch (err) {
+        showToast("❌ " + err.message);
+      } finally {
+        quickAddSubmitting.value = false;
+      }
+    };
 
     const openTaskForm = (item = null) => {
       if (item) {
         taskForm.value = {
           _id: item._id,
           title: item.title || '',
+          description: item.description || '',
           category: item.category || 'general',
           priority: item.priority || 'medium',
-          status: item.status || 'todo',
-          dueDate: item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 10) : '',
-          assignee: item.assignee || 'Admin'
+          status: item.status || (item.completed ? 'completed' : 'todo'),
+          dueDate: item.dueDate ? (typeof item.dueDate === 'string' ? item.dueDate.slice(0, 10) : new Date(item.dueDate).toISOString().slice(0, 10)) : '',
+          dueTime: item.dueTime || '',
+          assignee: item.assignee || 'Admin',
+          pinned: !!item.pinned,
+          recurring: item.recurring || 'none',
+          estimatedTime: item.estimatedTime != null ? String(item.estimatedTime) : '',
+          tags: Array.isArray(item.tags) ? [...item.tags] : [],
+          subtasks: Array.isArray(item.subtasks) ? JSON.parse(JSON.stringify(item.subtasks)) : [],
+          tagInput: '',
+          subtaskInput: ''
         };
       } else {
         taskForm.value = defaultTaskForm();
@@ -1272,15 +1360,57 @@ const app = createApp({
       taskModalOpen.value = true;
     };
 
+    const addTagToForm = () => {
+      const val = (taskForm.value.tagInput || '').trim().toLowerCase();
+      if (val && !taskForm.value.tags.includes(val)) {
+        taskForm.value.tags.push(val);
+        taskForm.value.tagInput = '';
+      }
+    };
+
+    const removeTagFromForm = (tag) => {
+      taskForm.value.tags = taskForm.value.tags.filter(t => t !== tag);
+    };
+
+    const addSubtaskToForm = () => {
+      const val = (taskForm.value.subtaskInput || '').trim();
+      if (val) {
+        taskForm.value.subtasks.push({ text: val, done: false });
+        taskForm.value.subtaskInput = '';
+      }
+    };
+
+    const removeSubtaskFromForm = (idx) => {
+      taskForm.value.subtasks.splice(idx, 1);
+    };
+
     const saveTask = async () => {
-      if (!taskForm.value.title) return tg.showAlert("Task title is required!");
+      if (!taskForm.value.title || !taskForm.value.title.trim()) {
+        return tg.showAlert("Task title is required!");
+      }
       saving.value = true;
       try {
-        await apiCall(taskForm.value._id ? `/tasks/${taskForm.value._id}` : '/tasks', taskForm.value._id ? 'PUT' : 'POST', taskForm.value);
-        await loadData();
+        const payload = {
+          title: taskForm.value.title.trim(),
+          description: taskForm.value.description || '',
+          category: taskForm.value.category || 'general',
+          priority: taskForm.value.priority || 'medium',
+          status: taskForm.value.status || 'todo',
+          dueDate: taskForm.value.dueDate || '',
+          dueTime: taskForm.value.dueTime || '',
+          assignee: taskForm.value.assignee || 'Admin',
+          pinned: !!taskForm.value.pinned,
+          recurring: taskForm.value.recurring || 'none',
+          estimatedTime: taskForm.value.estimatedTime ? parseInt(taskForm.value.estimatedTime, 10) : 0,
+          tags: taskForm.value.tags || [],
+          subtasks: taskForm.value.subtasks || []
+        };
+        await apiCall(taskForm.value._id ? `/tasks/${taskForm.value._id}` : '/tasks', taskForm.value._id ? 'PUT' : 'POST', payload);
+        await loadTasks();
         taskModalOpen.value = false;
         taskForm.value = defaultTaskForm();
-        showToast("Task saved");
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        showToast("Task saved successfully");
       } catch (e) {
         tg.showAlert(e.message);
       } finally {
@@ -1289,11 +1419,23 @@ const app = createApp({
     };
 
     const toggleTaskComplete = async (t) => {
-      const newStatus = t.status === 'completed' ? 'todo' : 'completed';
       try {
-        await apiCall(`/tasks/${t._id}`, 'PUT', { status: newStatus });
-        await loadData();
-        showToast(newStatus === 'completed' ? "Task marked completed!" : "Task reopened");
+        await apiCall(`/tasks/${t._id}/toggle`, 'POST');
+        await loadTasks();
+        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+        showToast(t.status === 'completed' || t.completed ? "Task reopened" : "Task marked completed!");
+      } catch (e) {
+        tg.showAlert(e.message);
+      }
+    };
+
+    const toggleTaskPinAction = async (t) => {
+      try {
+        t.pinned = !t.pinned;
+        await apiCall(`/tasks/${t._id}/pin`, 'POST');
+        await loadTasks();
+        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        showToast(t.pinned ? "📌 Pinned to top" : "Unpinned");
       } catch (e) {
         tg.showAlert(e.message);
       }
@@ -1304,7 +1446,7 @@ const app = createApp({
         if (!ok) return;
         try {
           await apiCall(`/tasks/${id}`, 'DELETE');
-          await loadData();
+          await loadTasks();
           showToast("Task deleted");
         } catch (e) {
           tg.showAlert(e.message);
@@ -1312,35 +1454,276 @@ const app = createApp({
       });
     };
 
-    const overdueTasksCount = computed(() => {
-      const now = new Date();
-      return tasks.value.filter(t => t.status !== 'completed' && t.status !== 'cancelled' && t.dueDate && new Date(t.dueDate) < now).length;
-    });
-
-    const filteredTasks = computed(() => {
-      let list = [...tasks.value];
-      const now = new Date();
-
-      if (taskFilter.value === 'pending') {
-        list = list.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
-      } else if (taskFilter.value === 'completed') {
-        list = list.filter(t => t.status === 'completed');
-      } else if (taskFilter.value === 'overdue') {
-        list = list.filter(t => t.status !== 'completed' && t.status !== 'cancelled' && t.dueDate && new Date(t.dueDate) < now);
-      }
-      return list;
-    });
-
     const updateTaskStatus = async (task, newStatus) => {
       try {
         await apiCall(`/tasks/${task._id}`, 'PUT', { status: newStatus });
         task.status = newStatus;
+        await loadTasks();
         if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         showToast(`Moved to ${newStatus}`);
       } catch (e) {
         tg.showAlert(e.message);
       }
     };
+
+    // Subtask actions
+    const toggleSubtasksExpanded = (taskId) => {
+      expandedSubtasks.value[taskId] = !expandedSubtasks.value[taskId];
+    };
+
+    const addSubtaskAction = async (task) => {
+      const text = (taskSubtaskInputs.value[task._id] || '').trim();
+      if (!text) return;
+      try {
+        const updated = await apiCall(`/tasks/${task._id}/subtasks`, 'POST', { text });
+        task.subtasks = updated.subtasks;
+        taskSubtaskInputs.value[task._id] = '';
+        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      } catch (err) {
+        showToast("❌ " + err.message);
+      }
+    };
+
+    const toggleSubtaskAction = async (task, sub) => {
+      try {
+        sub.done = !sub.done;
+        await apiCall(`/tasks/${task._id}/subtasks/${sub._id}/toggle`, 'POST');
+        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      } catch (err) {
+        sub.done = !sub.done;
+        showToast("❌ " + err.message);
+      }
+    };
+
+    const deleteSubtaskAction = async (task, sub) => {
+      try {
+        await apiCall(`/tasks/${task._id}/subtasks/${sub._id}`, 'DELETE');
+        task.subtasks = task.subtasks.filter(s => s._id !== sub._id);
+      } catch (err) {
+        showToast("❌ " + err.message);
+      }
+    };
+
+    // Notes thread actions
+    const toggleNotesExpanded = (taskId) => {
+      expandedNotes.value[taskId] = !expandedNotes.value[taskId];
+    };
+
+    const addNoteAction = async (task) => {
+      const text = (taskNoteInputs.value[task._id] || '').trim();
+      if (!text) return;
+      try {
+        const author = currentUser.value?.name || 'Admin';
+        const updated = await apiCall(`/tasks/${task._id}/notes`, 'POST', { text, author });
+        task.notes = updated.notes;
+        taskNoteInputs.value[task._id] = '';
+        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      } catch (err) {
+        showToast("❌ " + err.message);
+      }
+    };
+
+    const deleteNoteAction = async (task, note) => {
+      try {
+        await apiCall(`/tasks/${task._id}/notes/${note._id}`, 'DELETE');
+        task.notes = task.notes.filter(n => n._id !== note._id);
+      } catch (err) {
+        showToast("❌ " + err.message);
+      }
+    };
+
+    // Attachments actions
+    const toggleAttachmentsExpanded = (taskId) => {
+      expandedAttachments.value[taskId] = !expandedAttachments.value[taskId];
+    };
+
+    const handleTaskAttachmentUpload = async (task, event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        return tg.showAlert("File is too large! Maximum attachment size is 5MB.");
+      }
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const dataUrl = e.target.result;
+          const updated = await apiCall(`/tasks/${task._id}/attachments`, 'POST', {
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            size: file.size,
+            data: dataUrl
+          });
+          task.attachments = updated.attachments;
+          if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+          showToast(`📎 Attached ${file.name}`);
+        } catch (err) {
+          showToast("❌ " + err.message);
+        }
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    };
+
+    const deleteTaskAttachmentAction = async (task, att) => {
+      try {
+        await apiCall(`/tasks/${task._id}/attachments/${att._id}`, 'DELETE');
+        task.attachments = task.attachments.filter(a => a._id !== att._id);
+        showToast("Attachment removed");
+      } catch (err) {
+        showToast("❌ " + err.message);
+      }
+    };
+
+    // Multi-Select & Bulk Actions
+    const isTaskSelected = (id) => selectedTaskIds.value.includes(id);
+
+    const toggleSelectTask = (id) => {
+      const idx = selectedTaskIds.value.indexOf(id);
+      if (idx > -1) {
+        selectedTaskIds.value.splice(idx, 1);
+      } else {
+        selectedTaskIds.value.push(id);
+      }
+    };
+
+    const selectAllFilteredTasks = () => {
+      if (selectedTaskIds.value.length === filteredTasks.value.length) {
+        selectedTaskIds.value = [];
+      } else {
+        selectedTaskIds.value = filteredTasks.value.map(t => t._id);
+      }
+    };
+
+    const clearSelectedTasks = () => {
+      selectedTaskIds.value = [];
+    };
+
+    const executeTaskBulkAction = async (action, value = null) => {
+      if (!selectedTaskIds.value.length) return;
+      try {
+        await apiCall('/tasks/bulk', 'POST', {
+          ids: selectedTaskIds.value,
+          action,
+          value
+        });
+        selectedTaskIds.value = [];
+        await loadTasks();
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        showToast(`Bulk ${action} completed`);
+      } catch (err) {
+        showToast("❌ " + err.message);
+      }
+    };
+
+    // Helpers
+    const formatEstimate = (mins) => {
+      if (!mins || mins <= 0) return '';
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      if (h === 0) return `${m}m`;
+      if (m === 0) return `${h}h`;
+      return `${h}h ${m}m`;
+    };
+
+    const formatRelativeDue = (dueDate, dueTime) => {
+      if (!dueDate) return '';
+      const todayStr = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })).toISOString().slice(0, 10);
+      const d = dueDate.slice(0, 10);
+      const diffMs = new Date(d) - new Date(todayStr);
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      const timePart = dueTime ? ` at ${dueTime}` : '';
+      if (diffDays === 0) return `Today${timePart}`;
+      if (diffDays === 1) return `Tomorrow${timePart}`;
+      if (diffDays === -1) return `Yesterday${timePart}`;
+      if (diffDays < -1) return `${Math.abs(diffDays)}d overdue`;
+      return `In ${diffDays}d${timePart}`;
+    };
+
+    const allTags = computed(() => {
+      const tagSet = new Set();
+      tasks.value.forEach(t => {
+        if (Array.isArray(t.tags)) {
+          t.tags.forEach(tag => tagSet.add(tag));
+        }
+      });
+      return Array.from(tagSet);
+    });
+
+    const progressPercentage = computed(() => {
+      if (!taskStats.value.total) return 0;
+      return Math.round((taskStats.value.completed / taskStats.value.total) * 100);
+    });
+
+    const overdueTasksCount = computed(() => {
+      const todayStr = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })).toISOString().slice(0, 10);
+      return tasks.value.filter(t => t.status !== 'completed' && t.status !== 'cancelled' && t.dueDate && t.dueDate.slice(0, 10) < todayStr).length;
+    });
+
+    const priorityWeights = { urgent: 4, high: 3, medium: 2, low: 1 };
+
+    const filteredTasks = computed(() => {
+      let list = [...tasks.value];
+      const todayStr = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })).toISOString().slice(0, 10);
+
+      // Search filter
+      if (taskSearch.value && taskSearch.value.trim()) {
+        const q = taskSearch.value.trim().toLowerCase();
+        list = list.filter(t => {
+          const matchTitle = (t.title || '').toLowerCase().includes(q);
+          const matchDesc = (t.description || '').toLowerCase().includes(q);
+          const matchAssignee = (t.assignee || '').toLowerCase().includes(q);
+          const matchTags = Array.isArray(t.tags) && t.tags.some(tag => tag.toLowerCase().includes(q));
+          return matchTitle || matchDesc || matchAssignee || matchTags;
+        });
+      }
+
+      // Status filter
+      if (taskFilter.value === 'pending' || taskFilter.value === 'active') {
+        list = list.filter(t => t.status !== 'completed' && t.status !== 'cancelled' && !t.completed);
+      } else if (taskFilter.value === 'completed') {
+        list = list.filter(t => t.status === 'completed' || t.completed === true);
+      } else if (taskFilter.value === 'overdue') {
+        list = list.filter(t => t.status !== 'completed' && t.status !== 'cancelled' && !t.completed && t.dueDate && t.dueDate.slice(0, 10) < todayStr);
+      }
+
+      // Priority filter
+      if (taskPriorityFilter.value && taskPriorityFilter.value !== 'all') {
+        list = list.filter(t => t.priority === taskPriorityFilter.value);
+      }
+
+      // Tag filter
+      if (taskTagFilter.value && taskTagFilter.value !== 'all') {
+        list = list.filter(t => Array.isArray(t.tags) && t.tags.includes(taskTagFilter.value));
+      }
+
+      // Sort: pinned float to top always!
+      list.sort((a, b) => {
+        const aPinned = !!a.pinned;
+        const bPinned = !!b.pinned;
+        if (aPinned !== bPinned) {
+          return aPinned ? -1 : 1;
+        }
+
+        if (taskSortField.value === 'dueDate') {
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return a.dueDate.localeCompare(b.dueDate);
+        } else if (taskSortField.value === 'priority') {
+          const wa = priorityWeights[a.priority] || 0;
+          const wb = priorityWeights[b.priority] || 0;
+          return wb - wa;
+        } else if (taskSortField.value === 'title') {
+          return (a.title || '').localeCompare(b.title || '');
+        } else if (taskSortField.value === 'createdAt') {
+          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        } else {
+          // Manual ordering
+          return (a.order ?? 0) - (b.order ?? 0);
+        }
+      });
+
+      return list;
+    });
 
     const deleteTemplate = async () => {
       tg.showConfirm("Delete this template?", async (ok) => {
@@ -1575,6 +1958,14 @@ const app = createApp({
       openTemplateForm, saveTemplate, deleteTemplate, insertVariable,
       openEventForm, saveEvent, deleteEvent, exportICS,
       openTaskForm, saveTask, deleteTask, toggleTaskComplete, updateTaskStatus,
+      taskStats, taskSearch, taskPriorityFilter, taskTagFilter, taskSortField, taskSortOrder,
+      quickAddText, quickAddPriority, quickAddSubmitting, executeQuickAdd,
+      selectedTaskIds, isTaskSelected, toggleSelectTask, selectAllFilteredTasks, clearSelectedTasks, executeTaskBulkAction,
+      expandedSubtasks, toggleSubtasksExpanded, taskSubtaskInputs, addSubtaskAction, toggleSubtaskAction, deleteSubtaskAction,
+      expandedNotes, toggleNotesExpanded, taskNoteInputs, addNoteAction, deleteNoteAction,
+      expandedAttachments, toggleAttachmentsExpanded, handleTaskAttachmentUpload, deleteTaskAttachmentAction,
+      toggleTaskPinAction, loadTasks, addTagToForm, removeTagFromForm, addSubtaskToForm, removeSubtaskFromForm,
+      formatEstimate, formatRelativeDue, allTags, progressPercentage,
       openWishModal, copyWishToClipboard, openWhatsAppWish,
       openImportModal, parseCSVFile, executeBulkImport,
       handlePhotoFileInput, calendarMonth, calendarMonthDays, shiftCalendarMonth, mergeMemberAction,
