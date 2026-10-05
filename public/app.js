@@ -844,6 +844,27 @@ const app = createApp({
       showToast(`Added ${varName}`);
     };
 
+    const saveTemplate = async () => {
+      if (!tplForm.value.content || !tplForm.value.content.trim()) {
+        return tg.showAlert("Template content cannot be empty!");
+      }
+      saving.value = true;
+      try {
+        if (tplForm.value._id) {
+          await apiCall(`/templates/${tplForm.value._id}`, 'PUT', tplForm.value);
+        } else {
+          await apiCall('/templates', 'POST', tplForm.value);
+        }
+        await loadData();
+        currentTab.value = 'templates';
+        showToast("Template saved successfully");
+      } catch (e) {
+        tg.showAlert(e.message);
+      } finally {
+        saving.value = false;
+      }
+    };
+
     const archiveMember = async (id) => {
       tg.showConfirm("Archive this member? They will be removed from active rosters and greetings.", async (ok) => {
         if (!ok) return;
@@ -934,6 +955,23 @@ const app = createApp({
       window.open(`/api/events/export/ics?auth=${encodeURIComponent(tg.initData)}`, '_blank');
       showToast("📅 Calendar (.ics) export initiated");
     };
+
+    const filteredChurchEvents = computed(() => {
+      let list = [...churchEvents.value];
+      const today = new Date().toISOString().slice(0, 10);
+      if (eventFilter.value === 'upcoming') {
+        list = list.filter(e => {
+          const d = e.startDate ? (typeof e.startDate === 'string' ? e.startDate.slice(0, 10) : new Date(e.startDate).toISOString().slice(0, 10)) : '';
+          return d >= today;
+        });
+      } else if (eventFilter.value === 'past') {
+        list = list.filter(e => {
+          const d = e.startDate ? (typeof e.startDate === 'string' ? e.startDate.slice(0, 10) : new Date(e.startDate).toISOString().slice(0, 10)) : '';
+          return d < today;
+        });
+      }
+      return list;
+    });
 
     // Calendar Month Grid View
     const calendarMonth = ref(new Date());
@@ -1309,6 +1347,7 @@ const app = createApp({
     };
 
     return {
+      loadData,
       isDark, toggleTheme,
       authToken, authModalOpen, authPasscode, authError, authVerifying, verifyAndSavePasscode, logoutStandalone,
       currentTab, memberView, members, templates, upcomingEvents, churchEvents, tasks, churchStats, dataQuality, settings,
