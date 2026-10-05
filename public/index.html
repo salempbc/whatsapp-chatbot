@@ -2734,17 +2734,17 @@
             🔐
           </div>
           <div>
-            <h3 class="font-bold text-slate-900 dark:text-white text-lg">Admin Authentication</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Enter your Admin Passcode or Secret Key to access the church portal.</p>
+            <h3 class="font-bold text-slate-900 dark:text-white text-lg">Admin Login</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">You're accessing the Salem PBC portal outside of Telegram. Enter your Admin Passcode to continue.</p>
           </div>
 
           <div class="space-y-2 text-left">
-            <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Admin Secret / Passcode</label>
+            <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Admin Passcode</label>
             <input
               type="password"
               v-model="authPasscode"
               @keyup.enter="verifyAndSavePasscode"
-              placeholder="Enter passcode..."
+              placeholder="Enter your passcode..."
               class="w-full px-3.5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-center font-mono tracking-widest"
               autocomplete="current-password"
             />
@@ -2760,11 +2760,19 @@
             class="btn-brand w-full py-3.5 text-sm font-bold shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <span v-if="authVerifying" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            <span>{{ authVerifying ? 'Verifying...' : 'Unlock Portal' }}</span>
+            <span>{{ authVerifying ? 'Verifying...' : '🔓 Unlock Portal' }}</span>
+          </button>
+
+          <!-- Quick-access button: opens /admin which auto-redirects with token -->
+          <button
+            @click="window.location.href = '/admin'"
+            class="w-full py-2.5 text-sm font-semibold rounded-xl border border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+          >
+            🔗 Use Admin Quick-Login Link
           </button>
 
           <p class="text-[11px] text-slate-400 leading-tight">
-            💡 When accessed inside Telegram, access unlocks automatically. In a standalone browser, enter your Telegram Admin ID (e.g. 7018241155) or Admin Secret.
+            💡 <strong>Tip:</strong> Bookmark <code class="bg-slate-100 dark:bg-slate-800 px-1 rounded">/admin</code> for instant access next time — no passcode needed. When opened inside Telegram, login is automatic.
           </p>
         </div>
       </div>
@@ -2806,6 +2814,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.3.1"></script>
+  <script src="/app.js?v=2.3.2"></script>
 </body>
 </html>

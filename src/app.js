@@ -52,6 +52,19 @@ const apiLimiter = rateLimit({
 });
 
 /* --- 2. ROUTES --- */
+
+/* Convenience admin shortcut — bookmark /admin to skip the auth modal in standalone browser.
+   Redirects to the CMS SPA with the ADMIN_ID pre-filled as auth token via query param.
+   Never expose ADMIN_SECRET via URL; ADMIN_ID is already shown in .env and used as passcode. */
+app.get("/admin", (req, res) => {
+  const adminId = process.env.ADMIN_ID || "";
+  if (!adminId) {
+    return res.status(503).send("ADMIN_ID not configured in server environment.");
+  }
+  // Redirect to the SPA root with auth token pre-set — the frontend reads ?auth= and stores it
+  return res.redirect(`/?auth=${encodeURIComponent(adminId)}`);
+});
+
 app.use(express.static(path.join(__dirname, "../public")));
 
 // Apply rate limiter specifically to /api
