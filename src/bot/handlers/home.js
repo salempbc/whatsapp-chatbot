@@ -58,6 +58,11 @@ export const registerHome = (bot) => {
     await bot.sendMessage(msg.chat.id, HELP_TEXT, { parse_mode: "HTML" });
   }));
 
+  bot.onText(/\/backup/, adminOnly(async (msg) => {
+    const { exportCallbacks } = await import("./export.js");
+    await exportCallbacks["export:backup"]({ bot, chatId: msg.chat.id, messageId: null });
+  }));
+
   bot.onText(/^\/ping$/, adminOnly(async (msg) => {
     await bot.sendMessage(msg.chat.id, "pong");
   }));

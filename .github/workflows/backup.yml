@@ -1,0 +1,42 @@
+name: Weekly Database Backup to Private Artifacts
+
+on:
+  schedule:
+    # Run every Sunday at 00:00 UTC (05:30 IST)
+    - cron: '0 0 * * 0'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions UI
+
+jobs:
+  backup:
+    name: Backup MongoDB to Encrypted Artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install MongoDB Database Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mongodb-database-tools
+
+      - name: Create Gzipped Database Dump
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+        run: |
+          if [ -z "$MONGO_URI" ]; then
+            echo "❌ MONGO_URI secret is not configured in GitHub repository settings."
+            exit 1
+          fi
+          BACKUP_DATE=$(date +'%Y-%m-%d_%H%M%S')
+          echo "BACKUP_DATE=$BACKUP_DATE" >> $GITHUB_ENV
+          mkdir -p backups
+          mongodump --uri="$MONGO_URI" --archive="backups/spbc_backup_${BACKUP_DATE}.archive.gz" --gzip
+          echo "✅ Backup archive created successfully."
+
+      - name: Upload Backup Artifact (30-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: spbc-database-backup-${{ env.BACKUP_DATE }}
+          path: backups/*.archive.gz
+          retention-days: 30

@@ -20,6 +20,12 @@ try {
   tg.ready();
 } catch (e) {}
 
+if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 createApp({
   setup() {
     // Theme Management (Supports Telegram Dark/Light + System + Manual Toggle)
@@ -60,20 +66,53 @@ createApp({
     // Navigation State
     const currentTab = ref('members'); // 'members', 'upcoming', 'templates', 'settings', 'memberForm', 'templateForm'
     const memberView = ref('cards'); // 'cards' | 'families'
-    
-    // Telegram BackButton integration
-    watch(currentTab, (newTab) => {
-      if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-      if (['memberForm', 'templateForm'].includes(newTab)) {
+
+    // Modal and Form States (declared early for BackButton tracking)
+    const eventModalOpen = ref(false);
+    const taskModalOpen = ref(false);
+    const wishModal = ref({
+      open: false,
+      loading: false,
+      sending: false,
+      member: null,
+      type: 'birthday',
+      text: '',
+      photo: null
+    });
+    const importModal = ref({
+      open: false,
+      parsing: false,
+      importing: false,
+      parsedMembers: [],
+      error: ''
+    });
+
+    // Unified BackButton management across all tabs, forms, and modals
+    const updateBackButtonState = () => {
+      const isSubForm = ['memberForm', 'templateForm'].includes(currentTab.value);
+      const isModalActive = eventModalOpen.value || taskModalOpen.value || wishModal.value.open || importModal.value.open;
+      if (isSubForm || isModalActive) {
         tg.BackButton.show();
       } else {
         tg.BackButton.hide();
       }
+    };
+
+    watch([currentTab, eventModalOpen, taskModalOpen, () => wishModal.value.open, () => importModal.value.open], () => {
+      if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      updateBackButtonState();
     });
 
     tg.onEvent('backButtonClicked', () => {
-      if (currentTab.value === 'memberForm') currentTab.value = 'members';
-      else if (currentTab.value === 'templateForm') currentTab.value = 'templates';
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      // 1. Modals have top priority to close first
+      if (wishModal.value.open) { wishModal.value.open = false; return; }
+      if (importModal.value.open) { importModal.value.open = false; return; }
+      if (eventModalOpen.value) { eventModalOpen.value = false; return; }
+      if (taskModalOpen.value) { taskModalOpen.value = false; return; }
+      // 2. Sub-forms return to their parent list tab
+      if (currentTab.value === 'memberForm') { currentTab.value = 'members'; return; }
+      if (currentTab.value === 'templateForm') { currentTab.value = 'templates'; return; }
     });
 
     // Core Data Collections
@@ -138,26 +177,6 @@ createApp({
 
     const defaultTplForm = () => ({ type: 'birthday', category: 'formal', content: '' });
     const tplForm = ref(defaultTplForm());
-
-    // Live AI Wish Preview & Sender Modal
-    const wishModal = ref({
-      open: false,
-      loading: false,
-      sending: false,
-      member: null,
-      type: 'birthday',
-      text: '',
-      photo: null
-    });
-
-    // Bulk CSV Import Modal
-    const importModal = ref({
-      open: false,
-      parsing: false,
-      importing: false,
-      parsedMembers: [],
-      error: ''
-    });
 
     // API Helper
     const apiCall = async (url, method = 'GET', body = null) => {
@@ -393,7 +412,6 @@ createApp({
       status: 'scheduled'
     });
     const eventForm = ref(defaultEventForm());
-    const eventModalOpen = ref(false);
     const eventFilter = ref('all'); // 'all', 'upcoming', 'past'
 
     const openEventForm = (item = null) => {
@@ -473,7 +491,6 @@ createApp({
       assignee: 'Admin'
     });
     const taskForm = ref(defaultTaskForm());
-    const taskModalOpen = ref(false);
     const taskFilter = ref('all'); // 'all', 'pending', 'completed', 'overdue'
 
     const openTaskForm = (item = null) => {
@@ -594,6 +611,7 @@ createApp({
 
     const copyWishToClipboard = async () => {
       if (!wishModal.value.text) return;
+      if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(wishModal.value.text);
@@ -603,6 +621,18 @@ createApp({
         }
       } catch (err) {
         showToast("📋 Select and copy the text box above.");
+      }
+    };
+
+    const openWhatsAppWish = () => {
+      if (!wishModal.value.text) return;
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+      const encoded = encodeURIComponent(wishModal.value.text);
+      const url = `https://api.whatsapp.com/send?text=${encoded}`;
+      if (tg.openTelegramLink && tg.openLink) {
+        tg.openLink(url);
+      } else {
+        window.open(url, '_blank');
       }
     };
 
@@ -765,7 +795,7 @@ createApp({
       openTemplateForm, saveTemplate, deleteTemplate, insertVariable,
       openEventForm, saveEvent, deleteEvent, exportICS,
       openTaskForm, saveTask, deleteTask, toggleTaskComplete,
-      openWishModal, copyWishToClipboard,
+      openWishModal, copyWishToClipboard, openWhatsAppWish,
       openImportModal, parseCSVFile, executeBulkImport,
       saveSettings, triggerAction, exportCSV, openDirectory,
       getAge, getInitials, avatarStyle, photoUrl, getCelebrationPill

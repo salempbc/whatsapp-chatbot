@@ -1,14 +1,16 @@
 import fs from "fs";
 import Member from "../../models/Member.js";
 import { exportMembersToCSV } from "../../services/exportService.js";
+import { createDatabaseDump } from "../../services/backupService.js";
 import { renderScreen } from "../ui.js";
 
 const exportOptionsScreen = () => ({
-  text: "<b>📤 Database Export</b>\n<i>Download the member roster as a CSV file.</i>\n\n<blockquote>Choose a filter to generate your report:</blockquote>",
+  text: "<b>📤 Database Export & Backup</b>\n<i>Download member rosters as CSV or generate a complete database backup.</i>\n\n<blockquote>Choose an export format or backup option:</blockquote>",
   keyboard: [
-    [{ text: "✅ Active members only", callback_data: "export:run:active" }],
-    [{ text: "👥 All members",         callback_data: "export:run:all"    }],
-    [{ text: "💍 Married couples only", callback_data: "export:run:married"}],
+    [{ text: "✅ Active members only (CSV)", callback_data: "export:run:active" }],
+    [{ text: "👥 All members (CSV)",         callback_data: "export:run:all"    }],
+    [{ text: "💍 Married couples only (CSV)", callback_data: "export:run:married"}],
+    [{ text: "📦 Full Database Backup (.json.gz)", callback_data: "export:backup" }],
     [{ text: "🏠 Home",                callback_data: "home:show"         }]
   ]
 });
@@ -50,5 +52,40 @@ export const exportCallbacks = {
     });
 
     fs.unlink(filePath, () => {});
+  },
+
+  "export:backup": async ({ bot, chatId, messageId }) => {
+    await renderScreen(bot, chatId, messageId, {
+      text: "<b>⏳ Generating Full Database Backup...</b>\n<i>Exporting all collections and compressing to .json.gz archive...</i>",
+      keyboard: []
+    });
+
+    try {
+      const dump = await createDatabaseDump();
+      await bot.sendDocument(chatId, dump.filePath, {
+        caption: `📦 <b>SPBC Database Backup</b>\n\n` +
+                 `• <b>Collections:</b> ${dump.collectionsCount}\n` +
+                 `• <b>Total Records:</b> ${dump.totalRecords}\n` +
+                 `• <b>Size:</b> ${(dump.sizeBytes / 1024).toFixed(1)} KB\n` +
+                 `• <b>Format:</b> Compressed JSON (.json.gz)\n\n` +
+                 `<i>Keep this file secure. To restore, unpack and import using MongoDB tools.</i>`,
+        parse_mode: "HTML"
+      });
+
+      await renderScreen(bot, chatId, messageId, {
+        text: `<b>✅ Database Backup Complete!</b>\n<i>Archive sent directly to your chat (${(dump.sizeBytes / 1024).toFixed(1)} KB).</i>`,
+        keyboard: [
+          [{ text: "📤 Export Menu", callback_data: "export:run" }],
+          [{ text: "🏠 Return to Dashboard", callback_data: "home:show" }]
+        ]
+      });
+
+      fs.unlink(dump.filePath, () => {});
+    } catch (err) {
+      await renderScreen(bot, chatId, messageId, {
+        text: `❌ <b>Backup failed:</b> ${err.message}`,
+        keyboard: [[{ text: "🔙 Back", callback_data: "export:run" }]]
+      });
+    }
   }
 };

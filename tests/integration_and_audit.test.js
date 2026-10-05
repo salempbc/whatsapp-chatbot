@@ -43,7 +43,7 @@ test("Integration: Telegram command guard denies unauthorized invocation across 
   const originalAdmin = process.env.ADMIN_ID;
   process.env.ADMIN_ID = "100200300";
 
-  const guardedCommands = ["/start", "/menu", "/review", "/events", "/addevent", "/tasks", "/addtask", "/stats", "/dataquality", "/ping", "/cancel"];
+  const guardedCommands = ["/start", "/menu", "/review", "/events", "/addevent", "/tasks", "/addtask", "/stats", "/dataquality", "/ping", "/cancel", "/backup"];
 
   for (const cmd of guardedCommands) {
     const isAllowedForGuest = isAdmin("999999999");

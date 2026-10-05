@@ -11,6 +11,8 @@ export const taskListScreen = async () => {
 
   let text = `<b>📋 Church Administrative Tasks & Follow-ups</b>\n\n`;
 
+  const keyboard = [];
+
   if (!tasks.length) {
     text += `<blockquote><i>No pending tasks! All caught up.</i></blockquote>`;
   } else {
@@ -19,14 +21,17 @@ export const taskListScreen = async () => {
       const dueStr = t.dueDate ? ` | Due: ${t.dueDate}` : "";
       text += `▫️ <b>${escapeHtml(t.title)}</b> [${priorityBadge}${dueStr}]\n`;
       text += `<i>Status: ${t.status} | Assignee: ${escapeHtml(t.assignee || "Admin")}</i>\n\n`;
+      
+      const shortTitle = t.title.length > 25 ? t.title.slice(0, 22) + "..." : t.title;
+      keyboard.push([{ text: `✅ Done: "${shortTitle}"`, callback_data: `tasks:done:${t._id}` }]);
     }
   }
 
-  const keyboard = [
+  keyboard.push(
     [{ text: "➕ Add Task", callback_data: "tasks:add:start" }],
     [{ text: "⚠️ Overdue & Due Today", callback_data: "tasks:overdue" }],
     [{ text: "🏠 Return to Dashboard", callback_data: "home:show" }]
-  ];
+  );
 
   return { text, keyboard };
 };
@@ -50,23 +55,36 @@ export const tasksCallbacks = {
     const screen = await taskListScreen();
     await renderScreen(bot, chatId, messageId, screen);
   },
+  "tasks:done": async ({ bot, chatId, messageId, args }) => {
+    const taskId = args[0];
+    if (taskId) {
+      await updateTask(taskId, { status: "completed" });
+    }
+    const screen = await taskListScreen();
+    await renderScreen(bot, chatId, messageId, screen);
+    return "✅ Task marked completed!";
+  },
   "tasks:overdue": async ({ bot, chatId, messageId }) => {
     const overdue = await getTasksDueTodayOrOverdue();
     let text = `<b>⚠️ Tasks Due Today or Overdue</b>\n\n`;
+    const keyboard = [];
+
     if (!overdue.length) {
       text += `<blockquote><i>No overdue tasks! Everything is on schedule.</i></blockquote>`;
     } else {
       for (const t of overdue) {
         text += `🚨 <b>${escapeHtml(t.title)}</b> (Due: ${t.dueDate || "Today"})\n`;
+        const shortTitle = t.title.length > 25 ? t.title.slice(0, 22) + "..." : t.title;
+        keyboard.push([{ text: `✅ Done: "${shortTitle}"`, callback_data: `tasks:done:${t._id}` }]);
       }
     }
-    await renderScreen(bot, chatId, messageId, {
-      text,
-      keyboard: [
-        [{ text: "📋 All Pending Tasks", callback_data: "tasks:list" }],
-        [{ text: "🏠 Return to Dashboard", callback_data: "home:show" }]
-      ]
-    });
+
+    keyboard.push(
+      [{ text: "📋 All Pending Tasks", callback_data: "tasks:list" }],
+      [{ text: "🏠 Return to Dashboard", callback_data: "home:show" }]
+    );
+
+    await renderScreen(bot, chatId, messageId, { text, keyboard });
   },
   "tasks:add:start": async ({ bot, chatId }) => {
     setState(chatId, { type: "tasks.addTitle", draft: {} });

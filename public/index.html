@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="/manifest.json">
   <title>Salem PBC - Church Operating System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -780,13 +782,18 @@
               <textarea v-model="wishModal.text" rows="7" class="w-full text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-sans bg-transparent resize-none focus:outline-none"></textarea>
             </div>
 
-            <div class="flex gap-2">
-              <button @click="openWishModal(wishModal.member, wishModal.type)" class="px-3.5 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-200 dark:border-slate-700">
-                🔄 Re-roll AI
+            <div class="flex flex-col gap-2">
+              <button @click="openWhatsAppWish" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all">
+                <span>📲 Open in WhatsApp</span>
               </button>
-              <button @click="copyWishToClipboard" class="btn-brand flex-1 py-3 text-xs font-bold shadow-md flex items-center justify-center gap-1.5">
-                <span>📋 Copy Message for WhatsApp</span>
-              </button>
+              <div class="flex gap-2">
+                <button @click="openWishModal(wishModal.member, wishModal.type)" class="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-200 dark:border-slate-700">
+                  🔄 Re-roll AI
+                </button>
+                <button @click="copyWishToClipboard" class="btn-brand flex-1 py-2.5 text-xs font-bold shadow-md flex items-center justify-center gap-1.5">
+                  <span>📋 Copy Message</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

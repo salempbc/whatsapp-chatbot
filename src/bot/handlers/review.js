@@ -102,13 +102,19 @@ export const reviewItemScreen = async (logId) => {
   text += `<code>${escapeHtml(log.text)}</code>\n\n`;
   text += `<i>💡 Tip: Tap the block above on mobile to copy directly, then paste into church WhatsApp group!</i>`;
 
+  const encodedText = encodeURIComponent(log.text || "");
+  const waUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
+
   const keyboard = [
     [
-      { text: "📋 Show Copyable Text", callback_data: `review:copy:${log._id}` },
+      { text: "📲 Open in WhatsApp", url: waUrl },
       { text: "✅ Mark as Shared", callback_data: `review:share:${log._id}` }
     ],
     [
-      { text: "🔄 Regenerate", callback_data: `review:regen:${log._id}` },
+      { text: "📋 Show Copyable Text", callback_data: `review:copy:${log._id}` },
+      { text: "🔄 Regenerate", callback_data: `review:regen:${log._id}` }
+    ],
+    [
       { text: "🎨 Style", callback_data: `review:style:${log._id}` },
       { text: "✏️ Edit Text", callback_data: `review:edit:${log._id}` }
     ],
