@@ -171,6 +171,20 @@
       </div>
     </header>
 
+    <!-- Global Non-Intrusive Connection / Error Alert Banner -->
+    <transition name="fade">
+      <div v-if="dataLoadError" class="mb-3 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between shadow-sm">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-base flex-shrink-0">⚠️</span>
+          <span class="truncate">{{ dataLoadError }}</span>
+        </div>
+        <div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
+          <button @click="loadData" class="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition-colors shadow-sm">🔄 Retry</button>
+          <button @click="dataLoadError = ''" class="px-2 py-1 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs">✕</button>
+        </div>
+      </div>
+    </transition>
+
     <!-- Floating Bulk Selection Bar -->
     <transition name="fade">
       <div v-if="selectedIds.length > 0" class="fixed top-3 left-4 right-4 max-w-xl mx-auto bg-slate-900 dark:bg-slate-800 text-white p-3 z-50 flex items-center justify-between shadow-2xl rounded-2xl border border-slate-700">
@@ -519,25 +533,24 @@
           <span class="text-[11px] text-slate-400 font-semibold">Next 30 Days</span>
         </div>
 
-        <div class="space-y-2">
-          <div v-for="b in upcomingEvents.birthdays" :key="b.member._id" class="p-3 rounded-xl border flex items-center justify-between transition-all" :class="b.isToday ? 'bg-amber-500/10 border-amber-500/30' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'">
+          <div v-for="(b, bIdx) in (upcomingEvents?.birthdays || [])" :key="b?.member?._id || bIdx" class="p-3 rounded-xl border flex items-center justify-between transition-all" :class="b.isToday ? 'bg-amber-500/10 border-amber-500/30' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'">
             <div class="flex items-center gap-3 min-w-0">
               <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold border', b.isToday ? 'bg-amber-500 text-white border-amber-600 animate-pulse' : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800']">
                 {{ b.isToday ? 'Today 🎉' : b.mmdd }}
               </span>
               <div class="min-w-0">
-                <div class="font-bold text-slate-900 dark:text-white text-sm truncate">{{ b.member.name }}</div>
-                <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">{{ b.member.role || 'Member' }}</div>
+                <div class="font-bold text-slate-900 dark:text-white text-sm truncate">{{ b?.member?.name || 'Member' }}</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">{{ b?.member?.role || 'Member' }}</div>
               </div>
             </div>
 
-            <button @click="openWishModal(b.member, 'birthday')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm">
+            <button v-if="b?.member" @click="openWishModal(b.member, 'birthday')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm">
               <span>✨</span>
               <span>Wish</span>
             </button>
           </div>
 
-          <div v-if="!upcomingEvents.birthdays?.length" class="text-center py-4 text-xs text-slate-400">
+          <div v-if="!upcomingEvents?.birthdays?.length" class="text-center py-4 text-xs text-slate-400">
             No birthdays in the next 30 days.
           </div>
         </div>
@@ -548,24 +561,24 @@
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <div class="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-sm">
             <span>💍</span>
-            <span>Wedding Anniversaries ({{ upcomingEvents.weddings?.length || 0 }})</span>
+            <span>Wedding Anniversaries ({{ upcomingEvents?.weddings?.length || 0 }})</span>
           </div>
           <span class="text-[11px] text-slate-400 font-semibold">Next 30 Days</span>
         </div>
 
         <div class="space-y-2">
-          <div v-for="w in upcomingEvents.weddings" :key="w.member._id" class="p-3 rounded-xl border flex items-center justify-between transition-all" :class="w.isToday ? 'bg-rose-500/10 border-rose-500/30' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'">
+          <div v-for="(w, wIdx) in (upcomingEvents?.weddings || [])" :key="w?.member?._id || wIdx" class="p-3 rounded-xl border flex items-center justify-between transition-all" :class="w.isToday ? 'bg-rose-500/10 border-rose-500/30' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'">
             <div class="flex items-center gap-3 min-w-0">
               <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold border', w.isToday ? 'bg-rose-500 text-white border-rose-600 animate-pulse' : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800']">
                 {{ w.isToday ? 'Today 🎉' : w.mmdd }}
               </span>
               <div class="min-w-0">
-                <div class="font-bold text-slate-900 dark:text-white text-sm truncate">{{ w.member.name }} & {{ w.member.spouseName || 'Spouse' }}</div>
+                <div class="font-bold text-slate-900 dark:text-white text-sm truncate">{{ w?.member?.name || 'Member' }} & {{ w?.member?.spouseName || 'Spouse' }}</div>
                 <div class="text-[11px] text-rose-600 dark:text-rose-400 font-medium">💍 Anniversary</div>
               </div>
             </div>
 
-            <button @click="openWishModal(w.member, 'wedding')" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm">
+            <button v-if="w?.member" @click="openWishModal(w.member, 'wedding')" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm">
               <span>✨</span>
               <span>Wish</span>
             </button>
@@ -1328,7 +1341,7 @@
         </div>
 
         <div v-else class="space-y-2 max-h-64 overflow-y-auto">
-          <div v-for="(issue, idx) in dataQuality.inconsistencies" :key="idx" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-xs flex items-start gap-2">
+          <div v-for="(issue, idx) in (dataQuality?.inconsistencies || [])" :key="idx" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-xs flex items-start gap-2">
             <span class="text-amber-500 mt-0.5">⚠️</span>
             <div class="flex-1">
               <div class="font-bold text-slate-900 dark:text-white">{{ issue.name || 'Member Record' }}</div>

@@ -1,4 +1,4 @@
-const { createApp, ref, computed, onMounted, watch } = window.Vue || Vue || {};
+const { createApp, ref, computed, onMounted, watch, onErrorCaptured } = window.Vue || Vue || {};
 
 const tg = window.Telegram?.WebApp || {
   expand: () => {},
@@ -157,7 +157,19 @@ const app = createApp({
     const saving = ref(false);
     const triggering = ref(false);
     const toastMessage = ref('');
+    const dataLoadError = ref('');
     let toastTimeout = null;
+
+    // Component-level error boundary preventing crashes across sub-views
+    if (typeof onErrorCaptured === 'function') {
+      onErrorCaptured((err, instance, info) => {
+        console.warn('🛡️ [VUE ERROR BOUNDARY]: Intercepted component failure safely:', err?.message || err, info);
+        if (typeof sendClientError === 'function') {
+          sendClientError(err, `onErrorCaptured: ${info}`);
+        }
+        return false; // Prevents error from escalating and breaking entire app shell
+      });
+    }
 
     const showToast = (msg) => {
       if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
@@ -213,7 +225,7 @@ const app = createApp({
     const authError = ref('');
     const authVerifying = ref(false);
 
-    // API Helper with network exception handling
+    // API Helper with network exception handling & request timeouts
     const apiCall = async (url, method = 'GET', body = null) => {
       const token = authToken.value || getStoredToken();
       const opts = {
@@ -225,11 +237,23 @@ const app = createApp({
         opts.body = JSON.stringify(body);
       }
       let res;
+      let timeoutId = null;
       try {
+        if (typeof AbortController !== 'undefined') {
+          const controller = new AbortController();
+          timeoutId = setTimeout(() => controller.abort(), 20000);
+          opts.signal = controller.signal;
+        }
         res = await fetch(`/api${url}`, opts);
       } catch (netErr) {
+        if (netErr?.name === 'AbortError') {
+          throw new Error('Request timed out. Please check your internet connection.');
+        }
         throw new Error('Network connection failed. Please check your internet connection.');
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
       }
+
       if (res.status === 401 || res.status === 403) {
         if (!tg.initData || tg.initData.length < 5) {
           authModalOpen.value = true;
@@ -239,7 +263,7 @@ const app = createApp({
         const detail = await res.json().catch(() => null);
         throw new Error(detail?.error || `Request failed (${res.status})`);
       }
-      return await res.json();
+      return await res.json().catch(() => ({}));
     };
 
     const verifyAndSavePasscode = async () => {
@@ -380,34 +404,37 @@ const app = createApp({
     };
 
     const filteredAuthorizedUsers = computed(() => {
+      if (!Array.isArray(authorizedUsers.value)) return [];
       let list = [...authorizedUsers.value];
       if (userFilter.value === 'active') {
-        list = list.filter(u => u.status === 'active' && !u.telegramId.startsWith('pending_invite_'));
+        list = list.filter(u => u && u.status === 'active' && !String(u.telegramId || '').startsWith('pending_invite_'));
       } else if (userFilter.value === 'pending') {
-        list = list.filter(u => u.status === 'pending');
+        list = list.filter(u => u && u.status === 'pending');
       } else if (userFilter.value === 'suspended') {
-        list = list.filter(u => u.status === 'suspended' || u.status === 'revoked');
+        list = list.filter(u => u && (u.status === 'suspended' || u.status === 'revoked'));
       }
       if (userSearch.value && userSearch.value.trim()) {
         const q = userSearch.value.trim().toLowerCase();
         list = list.filter(u =>
-          (u.name && u.name.toLowerCase().includes(q)) ||
-          (u.username && u.username.toLowerCase().includes(q)) ||
-          (u.telegramId && u.telegramId.includes(q)) ||
-          (u.role && u.role.toLowerCase().includes(q))
+          u && (
+            (u.name && String(u.name).toLowerCase().includes(q)) ||
+            (u.username && String(u.username).toLowerCase().includes(q)) ||
+            (u.telegramId && String(u.telegramId).includes(q)) ||
+            (u.role && String(u.role).toLowerCase().includes(q))
+          )
         );
       }
       return list;
     });
 
     const activeUsersCount = computed(() =>
-      authorizedUsers.value.filter(u => u.status === 'active' && !u.telegramId.startsWith('pending_invite_')).length
+      (Array.isArray(authorizedUsers.value) ? authorizedUsers.value : []).filter(u => u && u.status === 'active' && !String(u.telegramId || '').startsWith('pending_invite_')).length
     );
     const pendingUsersCount = computed(() =>
-      authorizedUsers.value.filter(u => u.status === 'pending').length
+      (Array.isArray(authorizedUsers.value) ? authorizedUsers.value : []).filter(u => u && u.status === 'pending').length
     );
     const suspendedUsersCount = computed(() =>
-      authorizedUsers.value.filter(u => u.status === 'suspended' || u.status === 'revoked').length
+      (Array.isArray(authorizedUsers.value) ? authorizedUsers.value : []).filter(u => u && (u.status === 'suspended' || u.status === 'revoked')).length
     );
 
     const openAddUserModal = () => {
@@ -556,10 +583,11 @@ const app = createApp({
     // Load All Data
     const loadData = async () => {
       loading.value = true;
+      dataLoadError.value = '';
       try {
         const [mRes, tRes, sRes, uRes, eRes, taskRes, statsRes, dqRes, usersRes, taskStatsRes] = await Promise.all([
-          apiCall('/members').catch(() => []),
-          apiCall('/templates').catch(() => []),
+          apiCall('/members').catch((e) => { console.warn('Members load fallback:', e); return []; }),
+          apiCall('/templates').catch((e) => { console.warn('Templates load fallback:', e); return []; }),
           apiCall('/settings').catch(() => ({ sendTime: '06:00', reminderTime: '20:00', customFields: [] })),
           apiCall('/upcoming?days=30').catch(() => ({ birthdays: [], weddings: [] })),
           apiCall('/events').catch(() => []),
@@ -569,19 +597,22 @@ const app = createApp({
           apiCall('/users').catch(() => ({ users: [], superAdminId: null })),
           apiCall('/tasks/stats').catch(() => null)
         ]);
-        members.value = mRes;
-        templates.value = tRes;
-        settings.value = sRes;
-        upcomingEvents.value = uRes;
-        churchEvents.value = eRes;
-        tasks.value = taskRes;
-        churchStats.value = statsRes;
-        dataQuality.value = dqRes;
-        authorizedUsers.value = usersRes.users || [];
-        superAdminId.value = usersRes.superAdminId || '';
-        currentUser.value = usersRes.currentUser || null;
+
+        members.value = Array.isArray(mRes) ? mRes : (mRes?.members || []);
+        templates.value = Array.isArray(tRes) ? tRes : [];
+        settings.value = sRes || { sendTime: '06:00', reminderTime: '20:00', customFields: [] };
+        upcomingEvents.value = uRes || { birthdays: [], weddings: [] };
+        churchEvents.value = Array.isArray(eRes) ? eRes : [];
+        tasks.value = Array.isArray(taskRes) ? taskRes : [];
+        churchStats.value = statsRes || null;
+        dataQuality.value = dqRes || null;
+        authorizedUsers.value = usersRes?.users || [];
+        superAdminId.value = usersRes?.superAdminId || '';
+        currentUser.value = usersRes?.currentUser || null;
         if (taskStatsRes) taskStats.value = taskStatsRes;
       } catch (err) {
+        console.error("loadData critical catch:", err);
+        dataLoadError.value = "Unable to connect to server. Check your connection or tap Retry.";
         showToast("⚠️ Could not load data.");
       } finally {
         loading.value = false;
@@ -2065,7 +2096,7 @@ const app = createApp({
       authToken, authModalOpen, authPasscode, authError, authVerifying, verifyAndSavePasscode, logoutStandalone,
       currentTab, memberView, members, templates, upcomingEvents, churchEvents, tasks, churchStats, dataQuality, settings,
       search, memberFilter, sortBy, selectedIds,
-      loading, saving, triggering, toastMessage, showToast,
+      loading, saving, triggering, toastMessage, showToast, dataLoadError,
       form, tplForm, wishModal, importModal, eventForm, taskForm,
       eventModalOpen, taskModalOpen, eventFilter, taskFilter,
       totalCount, activeCount, marriedCount, celebrationsCount, overdueTasksCount,
