@@ -253,8 +253,13 @@ createApp({
     const avatarStyle = (name) => {
       const colors = ['#ef4444', '#f97316', '#8b5cf6', '#06b6d4', '#10b981', '#3b82f6'];
       const idx = name.charCodeAt(0) % colors.length;
-      return {
-        toastMessage, showToast, backgroundColor: colors[idx] };
+      const totalCount = computed(() => members.value.length);
+    const activeCount = computed(() => members.value.filter(m => m.isActive !== false).length);
+    const marriedCount = computed(() => members.value.filter(m => m.isMarried).length);
+
+    return {
+      totalCount, activeCount, marriedCount,
+      toastMessage, showToast, backgroundColor: colors[idx] };
     };
 
     /* The photo endpoint is admin-only; an <img> tag cannot send an
