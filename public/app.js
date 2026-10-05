@@ -22,6 +22,41 @@ try {
 
 createApp({
   setup() {
+    // Theme Management (Supports Telegram Dark/Light + System + Manual Toggle)
+    const isDark = ref(false);
+
+    const applyTheme = () => {
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const tgDark = tg.colorScheme === 'dark';
+      const saved = localStorage.getItem('theme_pref');
+      const darkActive = saved ? (saved === 'dark') : (tgDark || prefersDark);
+      
+      isDark.value = darkActive;
+      if (darkActive) {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+      } else {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+      }
+    };
+
+    const toggleTheme = () => {
+      isDark.value = !isDark.value;
+      localStorage.setItem('theme_pref', isDark.value ? 'dark' : 'light');
+      if (isDark.value) {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+      } else {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+      }
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    };
+
+    applyTheme();
+    if (tg.onEvent) tg.onEvent('themeChanged', applyTheme);
+
     // Navigation State
     const currentTab = ref('members'); // 'members', 'upcoming', 'templates', 'settings', 'memberForm', 'templateForm'
     const memberView = ref('cards'); // 'cards' | 'families'
@@ -512,6 +547,7 @@ createApp({
     };
 
     return {
+      isDark, toggleTheme,
       currentTab, memberView, members, templates, upcomingEvents, settings,
       search, memberFilter, sortBy, selectedIds,
       loading, saving, triggering, toastMessage, showToast,
