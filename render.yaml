@@ -1,0 +1,39 @@
+# ==============================================================================
+# SPBC Church CMS 2.1 — Render Blueprint Specification (Staging Service)
+# ==============================================================================
+# This blueprint defines the isolated staging web service on Render.
+# All sensitive credentials use `sync: false` to ensure zero secret exposure.
+# ==============================================================================
+
+services:
+  - type: web
+    name: spbc-church-cms-staging
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /ping
+    envVars:
+      - key: NODE_ENV
+        value: staging
+      - key: PORT
+        value: "3000"
+      - key: MONGO_DB_NAME
+        value: spbc_staging
+      - key: MONGO_URI
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false
+      - key: WEBAPP_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-1.5-flash
+      - key: WEBHOOK_SECRET
+        sync: false

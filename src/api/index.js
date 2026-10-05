@@ -1,14 +1,52 @@
 import express from "express";
 import crypto from "crypto";
 import mongoose from "mongoose";
+import fs from "fs";
 import Member from "../models/Member.js";
 import Template from "../models/Template.js";
+import GreetingLog from "../models/GreetingLog.js";
+import ChurchEvent from "../models/ChurchEvent.js";
+import Task from "../models/Task.js";
+import { handleWebhook, getWebhookSecret } from "../bot/index.js";
+import { verifyTelegramWebAppData } from "./middleware.js";
+import { exportMembersToCSV } from "../services/exportService.js";
+import { getSetting, setSetting } from "../models/Settings.js";
+import { restartScheduler, triggerNow } from "../scheduler/dailyJob.js";
+import { sendAdminMessage } from "../bot/index.js";
+import { getUpcomingEvents } from "../services/eventService.js";
+import {
+  prepareTodayGreetings,
+  regenerateGreeting,
+  markGreetingAsShared,
+  skipGreeting,
+  updateGreetingText
+} from "../services/greetingService.js";
+import {
+  checkDuplicates,
+  archiveMember,
+  restoreMember,
+  validateStatusTransition
+} from "../services/memberService.js";
+import {
+  createChurchEvent,
+  updateChurchEvent,
+  cancelChurchEvent,
+  getUnifiedEventsForRange,
+  exportEventsToICS
+} from "../services/churchCalendarService.js";
+import {
+  createTask,
+  updateTask,
+  getTasksDueTodayOrOverdue
+} from "../services/taskService.js";
+import {
+  getChurchStatistics,
+  getDataQualityReport
+} from "../services/reportService.js";
 
 const router = express.Router();
 
-/* Express 4 does not catch rejections from async handlers — an unhandled one
-   leaves the request hanging until the client times out. Patch the verb methods
-   once so every route registered below forwards failures to the error handler. */
+/* Express async handler error forwarding patch */
 for (const verb of ["get", "post", "put", "patch", "delete"]) {
   const register = router[verb].bind(router);
   router[verb] = (path, ...handlers) =>
@@ -22,10 +60,7 @@ for (const verb of ["get", "post", "put", "patch", "delete"]) {
     );
 }
 
-import { handleWebhook, getWebhookSecret } from "../bot/index.js";
-
-/* Telegram echoes the secret we registered with setWebHook. Without this check
-   anyone who knows the URL can POST forged updates straight into the bot. */
+/* Telegram Bot Webhook endpoint */
 router.post("/bot-webhook", express.json({ limit: "1mb" }), (req, res) => {
   const provided = req.get("X-Telegram-Bot-Api-Secret-Token") || "";
   const expected = getWebhookSecret();
@@ -39,7 +74,7 @@ router.post("/bot-webhook", express.json({ limit: "1mb" }), (req, res) => {
   res.sendStatus(200);
 });
 
-/* file_id -> { url, expires }. Telegram file links are valid ~1h. */
+/* Photo cache to prevent rate-limiting from Telegram getFile */
 const photoCache = new Map();
 const PHOTO_CACHE_TTL = 50 * 60 * 1000;
 const PHOTO_CACHE_MAX = 500;
@@ -47,101 +82,16 @@ const PHOTO_CACHE_MAX = 500;
 const prunePhotoCache = () => {
   const now = Date.now();
   for (const [key, val] of photoCache) if (now >= val.expires) photoCache.delete(key);
-  /* Map iterates in insertion order, so the front entries are the oldest. */
   while (photoCache.size > PHOTO_CACHE_MAX) {
     photoCache.delete(photoCache.keys().next().value);
   }
 };
 
-// Middleware to verify Telegram WebApp initData
-const verifyTelegramWebAppData = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-
-  /* <img src> cannot set an Authorization header, so the photo route passes the
-     same signed initData as a query param. It is verified identically. */
-  const initData =
-    authHeader && authHeader.startsWith("Bearer ")
-      ? authHeader.slice("Bearer ".length)
-      : typeof req.query.auth === "string"
-        ? req.query.auth
-        : null;
-
-  if (!initData) {
-    return res.status(401).json({ error: "Missing authorization" });
-  }
-
-  // Allow standalone browser admin access via ADMIN_SECRET header/query
-  if (process.env.ADMIN_SECRET && initData === process.env.ADMIN_SECRET) {
-    return next();
-  }
-
-  if (!process.env.BOT_TOKEN || !process.env.ADMIN_ID) {
-    return res.status(500).json({ error: "Server auth not configured" });
-  }
-
-  const urlParams = new URLSearchParams(initData);
-  const hash = urlParams.get("hash") || "";
-  urlParams.delete("hash");
-
-  const dataCheckString = Array.from(urlParams.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${key}=${value}`)
-    .join("\n");
-
-  const secretKey = crypto.createHmac("sha256", "WebAppData").update(process.env.BOT_TOKEN).digest();
-  const calculatedHash = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
-
-  const hashOk =
-    hash.length === calculatedHash.length &&
-    crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(calculatedHash));
-
-  if (!hashOk) {
-    return res.status(403).json({ error: "Invalid signature" });
-  }
-
-  /* Without an auth_date window a captured initData string is a permanent
-     credential, so expire it after 24h. */
-  const authDate = Number(urlParams.get("auth_date"));
-  if (!Number.isFinite(authDate) || Date.now() / 1000 - authDate > 86400) {
-    return res.status(403).json({ error: "Session expired, please reopen the app" });
-  }
-
-  // Ensure it's the admin
-  try {
-    const user = JSON.parse(urlParams.get("user"));
-    if (String(user.id) !== process.env.ADMIN_ID) {
-      return res.status(403).json({ error: "Not authorized (Admin only)" });
-    }
-  } catch (e) {
-    return res.status(400).json({ error: "Invalid user data" });
-  }
-
-  next();
-};
-
 router.use(express.json());
+
+/* 1. PUBLIC HEALTH & TELEMETRY */
 router.get("/ping", (req, res) => res.status(200).send("pong"));
-router.get("/test-telegram", async (req, res) => {
-  try {
-    const resp = await fetch("https://api.telegram.org/bot" + process.env.BOT_TOKEN + "/getMe");
-    const data = await resp.json();
-    res.json({ success: true, data });
-  } catch (err) {
-    res.json({ success: false, error: err.message, stack: err.stack });
-  }
-});
 
-router.get("/test-webhook-info", async (req, res) => {
-  try {
-    const resp = await fetch("https://api.telegram.org/bot" + process.env.BOT_TOKEN + "/getWebhookInfo");
-    const data = await resp.json();
-    res.json(data);
-  } catch (err) {
-    res.json({ success: false, error: err.message, stack: err.stack });
-  }
-});
-
-/* 📊 PRODUCTION TELEMETRY & SYSTEM HEALTH METRICS */
 router.get("/diagnostics", async (req, res) => {
   const start = Date.now();
   let dbStatus = "connected";
@@ -159,7 +109,7 @@ router.get("/diagnostics", async (req, res) => {
 
   const mem = process.memoryUsage();
   res.json({
-    status: "healthy",
+    status: dbStatus === "connected" ? "healthy" : "degraded",
     uptimeSeconds: Math.floor(process.uptime()),
     database: { status: dbStatus, latencyMs: dbLatency },
     memory: {
@@ -173,9 +123,10 @@ router.get("/diagnostics", async (req, res) => {
   });
 });
 
+/* 2. PROTECTED ADMIN ROUTES */
 router.use(verifyTelegramWebAppData);
 
-/* Behind the auth middleware — member photos are private data. */
+/* Member Photo Proxy */
 router.get("/members/:id/photo", async (req, res) => {
   const m = await Member.findById(req.params.id).catch(() => null);
   if (!m || !m.photo) return res.status(404).send("No photo");
@@ -195,34 +146,85 @@ router.get("/members/:id/photo", async (req, res) => {
   res.redirect(url);
 });
 
+/* ========================================================= */
+/* MODULE A: MEMBER LIFECYCLE MANAGEMENT                     */
+/* ========================================================= */
 router.get("/members", async (req, res) => {
-  const members = await Member.find({ isDeleted: { $ne: true } }).sort({ name: 1 });
+  const { status, includeArchived, search } = req.query;
+  const filter = {};
+
+  if (includeArchived !== "true") {
+    filter.isDeleted = { $ne: true };
+  }
+  if (status && status !== "all") {
+    filter.status = status;
+  }
+  if (search && search.trim()) {
+    const s = search.trim();
+    filter.$or = [
+      { name: new RegExp(s, "i") },
+      { familyName: new RegExp(s, "i") },
+      { phone: new RegExp(s, "i") },
+      { role: new RegExp(s, "i") }
+    ];
+  }
+
+  const members = await Member.find(filter).sort({ name: 1 });
   res.json(members);
 });
 
+router.post("/members/check-duplicate", async (req, res) => {
+  const duplicates = await checkDuplicates(req.body);
+  res.json({ duplicates });
+});
+
 router.post("/members", async (req, res) => {
-    if (req.body.dob) req.body.birthday = req.body.dob.substring(5);
-    if (req.body.weddingDate) req.body.wedding = req.body.weddingDate.substring(5);
+  if (req.body.dob) req.body.birthday = req.body.dob.substring(5);
+  if (req.body.weddingDate) req.body.wedding = req.body.weddingDate.substring(5);
   const m = await Member.create(req.body);
   res.json(m);
 });
 
 router.put("/members/:id", async (req, res) => {
-    if (req.body.dob) req.body.birthday = req.body.dob.substring(5); else if (req.body.dob === '') req.body.birthday = '';
-    if (req.body.weddingDate) req.body.wedding = req.body.weddingDate.substring(5); else if (req.body.weddingDate === '') req.body.wedding = '';
-  /* runValidators — otherwise schema rules (gender enum, required name) are
-     skipped entirely on updates. */
-  const m = await Member.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true
-  });
+  const m = await Member.findById(req.params.id);
   if (!m) return res.status(404).json({ error: "Member not found" });
+
+  if (req.body.dob !== undefined) {
+    req.body.birthday = req.body.dob ? req.body.dob.substring(5) : "";
+  }
+  if (req.body.weddingDate !== undefined) {
+    req.body.wedding = req.body.weddingDate ? req.body.weddingDate.substring(5) : "";
+  }
+
+  if (req.body.status && req.body.status !== m.status) {
+    if (!validateStatusTransition(m.status, req.body.status)) {
+      return res.status(400).json({
+        error: `Invalid status transition from '${m.status}' to '${req.body.status}'`
+      });
+    }
+  }
+
+  Object.assign(m, req.body);
+  await m.save();
   res.json(m);
 });
 
-import { exportMembersToCSV } from "../services/exportService.js";
-import fs from "fs";
+router.post("/members/:id/archive", async (req, res) => {
+  const m = await archiveMember(req.params.id);
+  res.json({ success: true, member: m });
+});
 
+router.post("/members/:id/restore", async (req, res) => {
+  const m = await restoreMember(req.params.id);
+  res.json({ success: true, member: m });
+});
+
+router.delete("/members/:id", async (req, res) => {
+  const m = await archiveMember(req.params.id);
+  res.json({ success: true, member: m });
+});
+
+/* Export Roster to CSV */
 router.get("/export", async (req, res) => {
   const members = await Member.find({ isDeleted: { $ne: true } }).sort({ name: 1 });
   const filePath = await exportMembersToCSV(members, "all");
@@ -231,11 +233,10 @@ router.get("/export", async (req, res) => {
   });
 });
 
-/* PRINTABLE CHURCH DIRECTORY (PDF / PRINT READY) */
+/* Church Directory HTML */
 router.get("/directory", async (req, res) => {
   const members = await Member.find({ isDeleted: { $ne: true } }).sort({ familyName: 1, name: 1 });
   
-  // Group by Family
   const families = {};
   for (const m of members) {
     const fam = m.familyName || "General Roster";
@@ -268,8 +269,7 @@ router.get("/directory", async (req, res) => {
       <p style="color: #64748b; margin-top: -15px;">Generated on ${new Date().toLocaleDateString('en-US', { dateStyle: 'full' })}</p>
     </div>
     <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
-  </div>
-`;
+  </div>`;
 
   for (const [famName, famMembers] of Object.entries(families)) {
     html += `<div class="family-card">
@@ -278,15 +278,15 @@ router.get("/directory", async (req, res) => {
     
     for (const m of famMembers) {
       html += `<div class="member-item">
-        <div style="display:flex; justify-between; align-items:center;">
+        <div style="display:flex; justify-content: space-between; align-items:center;">
           <strong style="font-size: 16px;">${m.name}</strong>
-          ${m.role ? `<span class="role-badge">${m.role}</span>` : ''}
+          ${m.role ? `<span class="role-badge">${m.role}</span>` : ""}
         </div>
         <div style="font-size: 13px; color: #475569; margin-top: 6px;">
-          Gender: ${m.gender === 'male' ? '♂ Male' : '♀ Female'}<br>
-          ${m.dob ? `DOB: ${m.dob}<br>` : ''}
-          ${m.isMarried ? `Spouse: ${m.spouseName || 'Married'}<br>` : ''}
-          ${m.weddingDate ? `Anniversary: ${m.weddingDate}` : ''}
+          Gender: ${m.gender === "male" ? "♂ Male" : "♀ Female"}<br>
+          ${m.dob ? `DOB: ${m.dob}<br>` : ""}
+          ${m.isMarried ? `Spouse: ${m.spouseName || "Married"}<br>` : ""}
+          ${m.weddingDate ? `Anniversary: ${m.weddingDate}` : ""}
         </div>
       </div>`;
     }
@@ -298,7 +298,7 @@ router.get("/directory", async (req, res) => {
   res.send(html);
 });
 
-/* BULK MEMBER IMPORT (JSON/CSV UPSERT) */
+/* Bulk Member Import with validation */
 router.post("/members/import", async (req, res) => {
   const { members } = req.body;
   if (!Array.isArray(members) || !members.length) {
@@ -331,7 +331,8 @@ router.post("/members/import", async (req, res) => {
       familyName: item.familyName || "",
       isChild: Boolean(item.isChild),
       isPastor: Boolean(item.isPastor),
-      isActive: item.isActive !== false,
+      status: item.status || "active",
+      isActive: item.status ? item.status === "active" : item.isActive !== false,
       customData: item.customData || {}
     };
 
@@ -346,7 +347,118 @@ router.post("/members/import", async (req, res) => {
   res.json({ success: true, count: created, skipped });
 });
 
-/* TEMPLATES API */
+/* Bulk Member Actions */
+router.post("/members/bulk", async (req, res) => {
+  const { ids, action, payload } = req.body;
+  if (!Array.isArray(ids) || !ids.length) {
+    return res.status(400).json({ error: "No ids provided" });
+  }
+  if (!ids.every((id) => mongoose.isValidObjectId(id))) {
+    return res.status(400).json({ error: "Invalid id in list" });
+  }
+
+  if (action === "delete" || action === "archive") {
+    await Member.updateMany({ _id: { $in: ids } }, { status: "archived", isDeleted: true, isActive: false });
+  } else if (action === "restore") {
+    await Member.updateMany({ _id: { $in: ids } }, { status: "active", isDeleted: false, isActive: true });
+  } else if (action === "update") {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return res.status(400).json({ error: "Invalid payload" });
+    }
+    await Member.updateMany({ _id: { $in: ids } }, { $set: payload }, { runValidators: true });
+  } else {
+    return res.status(400).json({ error: "Unknown action" });
+  }
+  res.json({ success: true });
+});
+
+/* ========================================================= */
+/* MODULE B: UNIFIED CHURCH CALENDAR & EVENTS                */
+/* ========================================================= */
+router.get("/events", async (req, res) => {
+  const { startDate, endDate, category } = req.query;
+  const filter = { status: { $ne: "cancelled" } };
+  if (startDate && endDate) {
+    filter.startDate = { $gte: startDate, $lte: endDate };
+  }
+  if (category && category !== "all") {
+    filter.category = category;
+  }
+  const events = await ChurchEvent.find(filter).sort({ startDate: 1, startTime: 1 });
+  res.json(events);
+});
+
+router.post("/events", async (req, res) => {
+  const event = await createChurchEvent(req.body);
+  res.json(event);
+});
+
+router.put("/events/:id", async (req, res) => {
+  const event = await updateChurchEvent(req.params.id, req.body);
+  res.json(event);
+});
+
+router.delete("/events/:id", async (req, res) => {
+  const event = await cancelChurchEvent(req.params.id);
+  res.json({ success: true, event });
+});
+
+router.get("/events/export/ics", async (req, res) => {
+  const events = await ChurchEvent.find({ status: { $ne: "cancelled" } }).sort({ startDate: 1 });
+  const ics = exportEventsToICS(events);
+  res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="spbc_church_calendar.ics"');
+  res.send(ics);
+});
+
+/* ========================================================= */
+/* MODULE C: ADMINISTRATIVE TASK & FOLLOW-UP MANAGEMENT      */
+/* ========================================================= */
+router.get("/tasks", async (req, res) => {
+  const { status, category, priority } = req.query;
+  const filter = {};
+  if (status && status !== "all") filter.status = status;
+  if (category && category !== "all") filter.category = category;
+  if (priority && priority !== "all") filter.priority = priority;
+
+  const tasks = await Task.find(filter).sort({ dueDate: 1, priority: -1 });
+  res.json(tasks);
+});
+
+router.post("/tasks", async (req, res) => {
+  const task = await createTask(req.body);
+  res.json(task);
+});
+
+router.put("/tasks/:id", async (req, res) => {
+  const task = await updateTask(req.params.id, req.body);
+  res.json(task);
+});
+
+router.delete("/tasks/:id", async (req, res) => {
+  const task = await updateTask(req.params.id, { status: "cancelled" });
+  res.json({ success: true, task });
+});
+
+router.get("/tasks/overdue", async (req, res) => {
+  const tasks = await getTasksDueTodayOrOverdue();
+  res.json(tasks);
+});
+
+/* ========================================================= */
+/* MODULE D: ADVANCED CHURCH STATISTICS & DATA QUALITY       */
+/* ========================================================= */
+router.get("/reports/stats", async (req, res) => {
+  const stats = await getChurchStatistics();
+  res.json(stats);
+});
+
+router.get("/reports/data-quality", async (req, res) => {
+  const report = await getDataQualityReport();
+  res.json(report);
+});
+
+/* Templates */
 router.get("/templates", async (req, res) => {
   const templates = await Template.find().sort({ type: 1, category: 1 });
   res.json(templates);
@@ -372,34 +484,7 @@ router.delete("/templates/:id", async (req, res) => {
   res.json({ success: true });
 });
 
-/* BULK MEMBER ACTIONS */
-router.post("/members/bulk", async (req, res) => {
-  const { ids, action, payload } = req.body;
-  if (!Array.isArray(ids) || !ids.length) {
-    return res.status(400).json({ error: "No ids provided" });
-  }
-  if (!ids.every((id) => mongoose.isValidObjectId(id))) {
-    return res.status(400).json({ error: "Invalid id in list" });
-  }
-
-  if (action === "delete") {
-    await Member.updateMany({ _id: { $in: ids } }, { isDeleted: true });
-  } else if (action === "update") {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-      return res.status(400).json({ error: "Invalid payload" });
-    }
-    await Member.updateMany({ _id: { $in: ids } }, { $set: payload }, { runValidators: true });
-  } else {
-    return res.status(400).json({ error: "Unknown action" });
-  }
-  res.json({ success: true });
-});
-
-/* SETTINGS & ACTIONS API */
-import { getSetting, setSetting } from "../models/Settings.js";
-import { restartScheduler, triggerNow } from "../scheduler/dailyJob.js";
-import { sendMessage } from "../bot/index.js";
-
+/* Settings */
 router.get("/settings", async (req, res) => {
   const sendTime = await getSetting("sendTime", "06:00");
   const reminderTime = await getSetting("reminderTime", "20:00");
@@ -407,8 +492,6 @@ router.get("/settings", async (req, res) => {
   res.json({ sendTime, reminderTime, customFields });
 });
 
-/* These values are interpolated into a cron expression, so a malformed one
-   would throw inside startScheduler and leave both daily jobs stopped. */
 const isHHMM = (v) => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
 router.post("/settings", async (req, res) => {
@@ -428,23 +511,11 @@ router.post("/settings", async (req, res) => {
   if (reminderTime) await setSetting("reminderTime", reminderTime);
   if (customFields) await setSetting("customFields", customFields);
 
-  // Restart scheduler to apply new cron times
   await restartScheduler();
   res.json({ success: true });
 });
 
-router.post("/actions/ping", async (req, res) => {
-  try {
-    await sendMessage("🔔 <b>CMS Ping Test</b>\n<i>If you see this, the Web App is successfully connected to the Telegram Group.</i>");
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-import { getUpcomingEvents } from "../services/eventService.js";
-import { enhanceTamil } from "../services/aiService.js";
-
+/* Upcoming Celebrations */
 router.get("/upcoming", async (req, res) => {
   try {
     const days = Number(req.query.days) || 30;
@@ -455,29 +526,58 @@ router.get("/upcoming", async (req, res) => {
   }
 });
 
-router.post("/actions/preview-wish", async (req, res) => {
+/* Greetings Review API for Dashboard */
+router.get("/greetings/today", async (req, res) => {
   try {
-    const { memberId, type = "birthday" } = req.body;
-    const member = await Member.findById(memberId);
-    if (!member) return res.status(404).json({ error: "Member not found" });
-
-    const preview = await enhanceTamil(
-      type === "birthday" ? `இனிய பிறந்தநாள் வாழ்த்துகள், ${member.name}!` : `இனிய திருமண நாள் வாழ்த்துகள்!`,
-      { type, member }
-    );
-    res.json({ success: true, preview, photo: member.photo || null });
+    const logs = await prepareTodayGreetings();
+    res.json(logs);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post("/actions/send-wish", async (req, res) => {
+router.post("/greetings/:id/regenerate", async (req, res) => {
   try {
-    const { memberId, text } = req.body;
-    const member = await Member.findById(memberId);
-    if (!member) return res.status(404).json({ error: "Member not found" });
+    const log = await regenerateGreeting(req.params.id, req.body);
+    res.json({ success: true, greeting: log });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    await sendMessage(text, member);
+router.post("/greetings/:id/shared", async (req, res) => {
+  try {
+    const log = await markGreetingAsShared(req.params.id);
+    res.json({ success: true, greeting: log });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/greetings/:id/skip", async (req, res) => {
+  try {
+    const log = await skipGreeting(req.params.id);
+    res.json({ success: true, greeting: log });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put("/greetings/:id/text", async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: "Text required" });
+    const log = await updateGreetingText(req.params.id, text);
+    res.json({ success: true, greeting: log });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* Actions */
+router.post("/actions/ping", async (req, res) => {
+  try {
+    await sendAdminMessage("🔔 <b>CMS Ping Test</b>\n<i>If you see this, the Web App is successfully connected to the Admin Telegram channel.</i>");
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -486,15 +586,14 @@ router.post("/actions/send-wish", async (req, res) => {
 
 router.post("/actions/trigger-today", async (req, res) => {
   try {
-    const sent = await triggerNow();
-    res.json({ success: true, count: sent });
+    const count = await triggerNow();
+    res.json({ success: true, count });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-/* Catch-all so a thrown handler returns JSON instead of hanging or leaking a
-   stack trace. Must stay last. */
+/* Catch-all error handler */
 router.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
 

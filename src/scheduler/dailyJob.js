@@ -1,49 +1,56 @@
-﻿import Memorial from "../models/Memorial.js";
-import { getTodayKey, getTomorrowKey } from "../services/eventService.js";
+import Memorial from "../models/Memorial.js";
+import { getTodayKey, getTomorrowKey, getTomorrowEvents } from "../services/eventService.js";
+import { prepareTodayGreetings } from "../services/greetingService.js";
+import { reviewSummaryScreen } from "../bot/handlers/review.js";
+import { renderScreen } from "../bot/ui.js";
 import cron from "node-cron";
-import { getTodayEvents, buildMessages, getTomorrowEvents } from "../services/eventService.js";
-import { sendMessage, sendAdminMessage } from "../bot/index.js";
+import { sendAdminMessage, getBotInstance } from "../bot/index.js";
 import { getSetting } from "../models/Settings.js";
 
 let morningTask = null;
 let reminderTask = null;
 
+/**
+ * Morning job:
+ * 1. Prepares greeting drafts idempotently.
+ * 2. Checks memorials today.
+ * 3. Delivers a private review summary directly to the Admin chat.
+ * 4. NEVER automatically broadcasts to CHAT_ID or WhatsApp.
+ */
 const runMorningJob = async () => {
   try {
-    console.log("🌞 Morning cron triggered");
-    const events = await getTodayEvents();
-    
-    const todayStr = getTodayKey();
-    const todayMemorials = await Memorial.find({ date: todayStr });
-    if (todayMemorials.length > 0) {
-      let mText = "🕊️ *Memorial Anniversary Today*\n\n";
-      todayMemorials.forEach(m => {
-        mText += `- ${m.name} ${m.relation ? "(" + m.relation + ")" : ""}\n`;
-      });
-      mText += "\n_Please keep the family in your prayers and reach out to them._";
-      await sendAdminMessage(mText);
-    }
-
-    const messages = await buildMessages(events);
-
-    if (!messages.length) {
-      console.log("ℹ️ No events today");
+    console.log("🌞 Morning greeting job triggered (Admin Review Mode)");
+    const adminId = process.env.ADMIN_ID;
+    if (!adminId) {
+      console.error("❌ Cannot run morning job: ADMIN_ID is unset.");
       return 0;
     }
 
-    let sent = 0;
-    for (const msg of messages) {
-      try {
-        await sendMessage(msg.text, { photo: msg.photo });
-        sent++;
-      } catch (err) {
-        console.error("❌ Failed to send message:", err.message);
-      }
+    const todayStr = getTodayKey();
+    const todayMemorials = await Memorial.find({ date: todayStr });
+    if (todayMemorials.length > 0) {
+      let mText = "🕊️ <b>Memorial Anniversary Today</b>\n\n";
+      todayMemorials.forEach(m => {
+        mText += `- <b>${m.name}</b> ${m.relation ? "(" + m.relation + ")" : ""}\n`;
+      });
+      mText += "\n<i>Please remember the bereaved family in your prayers.</i>";
+      await sendAdminMessage(mText);
     }
-    console.log(`✅ ${sent}/${messages.length} messages sent`);
-    return sent;
+
+    // 1. Prepare today's greetings idempotently in GreetingLog
+    const preparedLogs = await prepareTodayGreetings();
+
+    // 2. Send private review card to admin
+    const bot = getBotInstance();
+    if (bot && adminId) {
+      const summary = await reviewSummaryScreen();
+      await renderScreen(bot, adminId, null, summary);
+    }
+
+    console.log(`✅ Morning job prepared ${preparedLogs.length} greeting cards for admin review.`);
+    return preparedLogs.length;
   } catch (err) {
-    console.error("❌ Scheduler error:", err.message);
+    console.error("❌ Morning job error:", err.message);
     throw err;
   }
 };
@@ -56,25 +63,25 @@ const runReminderJob = async () => {
 
     if (!birthdays.length && !weddings.length && tomorrowMemorials.length === 0) return;
 
-    let text = "📅 🔔 நாளைக் குறிப்புகள்:\n\n";
+    let text = "📅 🔔 <b>நாளைக் குறிப்புகள் (Admin Reminder):</b>\n\n";
     if (birthdays.length) {
-      text += "🎂 பிறந்தநாள்:\n";
+      text += "🎂 <b>பிறந்தநாள்:</b>\n";
       for (const m of birthdays) text += `  🔹 ${m.name}\n`;
     }
     if (weddings.length) {
-      text += "\n💍 திருமண நாள்:\n";
+      text += "\n💍 <b>திருமண நாள்:</b>\n";
       for (const m of weddings) text += `  🔹 ${m.name} & ${m.spouseName || "அவர்கள்"}\n`;
     }
 
     if (tomorrowMemorials.length > 0) {
-      text += "\n🕊️ *Memorials Tomorrow:*\n";
+      text += "\n🕊️ <b>Memorials Tomorrow:</b>\n";
       tomorrowMemorials.forEach(m => {
         text += `  - ${m.name} ${m.relation ? "(" + m.relation + ")" : ""}\n`;
       });
     }
 
     await sendAdminMessage(text);
-    console.log("🔔 Day-before reminder sent to admin");
+    console.log("🔔 Day-before reminder sent privately to admin");
   } catch (err) {
     console.error("❌ Reminder job error:", err.message);
   }

@@ -9,14 +9,55 @@ const memberSchema = new mongoose.Schema(
       trim: true
     },
 
+    displayName: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
     gender: {
       type: String,
       enum: ["male", "female"],
       required: true
     },
 
+    phone: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    address: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
     role: {
-      type: String // treasurer, secretary
+      type: String // pastor, elder, deacon, treasurer, secretary, youth leader, worship leader, member
+    },
+
+    ministry: {
+      type: String, // worship, youth, sunday school, prayer, outreach, hospitality
+      trim: true,
+      default: ""
+    },
+
+    status: {
+      type: String,
+      enum: ["active", "inactive", "transferred", "deceased", "archived"],
+      default: "active",
+      index: true
+    },
+
+    membershipDate: {
+      type: String, // YYYY-MM-DD
+      default: ""
+    },
+
+    adminNotes: {
+      type: String,
+      default: ""
     },
 
     isChild: {
@@ -31,13 +72,15 @@ const memberSchema = new mongoose.Schema(
 
     isDeleted: {
       type: Boolean,
-      default: false
+      default: false,
+      index: true
     },
 
-    /* 🏠 Attendance status — false = left the church */
+    /* 🏠 Attendance / operational status — kept synced with status */
     isActive: {
       type: Boolean,
-      default: true
+      default: true,
+      index: true
     },
 
     /* 👨‍👩‍👧 Family group label (free text, e.g. "Kumar Family") */
@@ -73,6 +116,18 @@ const memberSchema = new mongoose.Schema(
       enum: ["male", "female"]
     },
 
+    spouseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Member",
+      default: null
+    },
+
+    parentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Member",
+      default: null
+    },
+
     weddingDate: {
       type: String // YYYY-MM-DD
     },
@@ -82,9 +137,7 @@ const memberSchema = new mongoose.Schema(
       index: true
     },
 
-    /* Telegram file_id of the member's photo. Must be declared: in strict mode
-       Mongoose silently drops undeclared paths, so photo uploads were saving
-       nothing. */
+    /* Telegram file_id of the member's photo */
     photo: {
       type: String
     },
@@ -99,15 +152,29 @@ const memberSchema = new mongoose.Schema(
   }
 );
 
-/* 🚀 PERFORMANCE: Compound indexes for zero-scan cron queries */
+/* 🚀 PERFORMANCE: Compound indexes */
 memberSchema.index({ isDeleted: 1, isActive: 1, birthday: 1 });
 memberSchema.index({ isDeleted: 1, isActive: 1, wedding: 1 });
 memberSchema.index({ familyName: 1, name: 1 });
+memberSchema.index({ status: 1, isDeleted: 1 });
 
 /**
  * 🔒 VALIDATION LOGIC
  */
 memberSchema.pre("save", function (next) {
+  // Sync isActive with lifecycle status
+  if (this.status) {
+    if (this.status === "active") {
+      this.isActive = true;
+      this.isDeleted = false;
+    } else {
+      this.isActive = false;
+      if (this.status === "archived") {
+        this.isDeleted = true;
+      }
+    }
+  }
+
   if (this.isMarried) {
     // spouse required
     if (!this.spouseName) {
@@ -115,7 +182,7 @@ memberSchema.pre("save", function (next) {
     }
 
     // gender pairing check
-    if (this.gender === this.spouseGender) {
+    if (this.gender && this.spouseGender && this.gender === this.spouseGender) {
       return next(
         new Error("Invalid marriage: same gender pairing not allowed")
       );
@@ -125,7 +192,24 @@ memberSchema.pre("save", function (next) {
   next();
 });
 
+memberSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate();
+  if (update) {
+    const status = update.status || update.$set?.status;
+    if (status) {
+      if (status === "active") {
+        this.set({ isActive: true, isDeleted: false });
+      } else {
+        this.set({ isActive: false });
+        if (status === "archived") {
+          this.set({ isDeleted: true });
+        }
+      }
+    }
+  }
+  next();
+});
 
-const Member = mongoose.model("Member", memberSchema);
+const Member = mongoose.models.Member || mongoose.model("Member", memberSchema);
 
 export default Member;

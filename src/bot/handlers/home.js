@@ -2,32 +2,48 @@ import { renderScreen } from "../ui.js";
 import { clearState } from "../session.js";
 import { adminOnly } from "../guard.js";
 
-const HELP_TEXT = `<b>📊 Church CMS — User Guide</b>
+const HELP_TEXT = `<b>📊 Church CMS 2.1 — Administrator Guide</b>
 
-<b>👥 Members:</b> Browse, search, and manage your congregation. Add new members, link families, or restore deleted records from the trash.
-<b>📅 Calendar:</b> View all birthdays and weddings grouped month by month.
-<b>🗓 Coming Up:</b> See who has a special day in the next 7 or 30 days.
-<b>📝 Templates:</b> Manage the messages the bot sends. <i>Supports variables like {name}, {husband}, {wife}, and {years}.</i>
-<b>📤 Export:</b> Download clean CSV reports of active members, married couples, or the entire roster.
-<b>📊 Stats:</b> View real-time demographics and growth metrics.
-<b>⚙️ Settings:</b> Configure exactly when the daily message fires, or manually test the broadcast.
+<b>📋 /review:</b> Open today's celebrations review deck. Copy personalized Tamil greetings before sharing to WhatsApp.
+<b>👥 /members:</b> Manage congregational records, family links, lifecycle statuses, archive and restoration.
+<b>📅 /events:</b> Browse and schedule church services, prayer meetings, and special programs.
+<b>📝 /tasks:</b> Track church follow-ups, event preparations, and assigned tasks.
+<b>📊 /stats:</b> Church demographic analytics, growth metrics, and data quality audits.
+<b>🗓 /calendar:</b> Monthly celebration roster (birthdays, wedding anniversaries, memorials).
+<b>📤 /export:</b> Download member database spreadsheets.
+<b>⚙️ Settings:</b> Configure daily review schedules and notifications.
 
-<i>Tip: Type /menu anytime to return to the dashboard, or /cancel to abort an action.</i>`;
+<i>Note: WhatsApp remains your manual destination for all finalized greetings.</i>`;
 
-export const homeScreen = () => ({
-  text: `<b>✝️ SPBC Admin Dashboard</b>
-<i>Welcome back to the Church Management System.</i>
+export const homeScreen = () => {
+  let webAppUrl = process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "");
+  if (webAppUrl && !webAppUrl.startsWith("http")) webAppUrl = "https://" + webAppUrl;
 
-<blockquote><b>System Status:</b> 🟢 Online & Listening
-<b>Timezone:</b> 🇮🇳 Asia/Kolkata</blockquote>
-What would you like to manage today?`,
-  keyboard: [
-    [{ text: "🌐 Open Web CMS", web_app: { url: (() => { let d = process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : ""); return d.startsWith("http") ? d : "https://" + d; })() } }],
-    [{ text: "📅 Monthly Calendar", callback_data: "calendar:show:current" }, { text: "🔜 Coming Up", callback_data: "upcoming:show:7" }],
-    [{ text: "📊 Demographics & Stats", callback_data: "stats:show" }],
-    [{ text: "⚙️ Bot Diagnostics", callback_data: "settings:show" }, { text: "❓ Help", callback_data: "help:show" }]
-  ]
-});
+  const keyboard = [
+    [{ text: "📋 Today's Greeting Review (/review)", callback_data: "review:summary" }]
+  ];
+
+  if (webAppUrl && webAppUrl.length > 8) {
+    keyboard.push([{ text: "🌐 Open Web Admin Dashboard", web_app: { url: webAppUrl } }]);
+  }
+
+  keyboard.push(
+    [{ text: "👥 Members", callback_data: "members:list:0:active" }, { text: "📅 Events", callback_data: "events:list" }],
+    [{ text: "📋 Tasks", callback_data: "tasks:list" }, { text: "📊 Analytics", callback_data: "stats:show" }],
+    [{ text: "🗓 Calendar", callback_data: "calendar:show:current" }, { text: "⚙️ Settings", callback_data: "settings:show" }],
+    [{ text: "❓ Help Guide", callback_data: "help:show" }]
+  );
+
+  return {
+    text: `<b>✝️ Salem Primitive Baptist Church (SPBC)</b>
+<i>Church Operating System 2.1</i>
+
+<blockquote><b>System Mode:</b> 🔒 Private Admin Mode
+<b>Timezone:</b> 🇮🇳 Asia/Kolkata (IST)</blockquote>
+Select an administrative module:`,
+    keyboard
+  };
+};
 
 export const registerHome = (bot) => {
   const openMenu = adminOnly(async (msg) => {
@@ -42,10 +58,13 @@ export const registerHome = (bot) => {
     await bot.sendMessage(msg.chat.id, HELP_TEXT, { parse_mode: "HTML" });
   }));
 
-  bot.onText(/^\/ping$/, async (msg) => { await bot.sendMessage(msg.chat.id, 'pong'); });
+  bot.onText(/^\/ping$/, adminOnly(async (msg) => {
+    await bot.sendMessage(msg.chat.id, "pong");
+  }));
+
   bot.onText(/\/cancel/, adminOnly(async (msg) => {
     clearState(msg.chat.id);
-    await bot.sendMessage(msg.chat.id, "✅ Action aborted. Type /menu to go back.", { parse_mode: "HTML" });
+    await bot.sendMessage(msg.chat.id, "✅ Action aborted. Type /menu to return to main dashboard.", { parse_mode: "HTML" });
   }));
 };
 

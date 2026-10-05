@@ -6,9 +6,11 @@ import { templatesCallbacks, templatesStateHandlers } from "./handlers/templates
 import { calendarCallbacks } from "./handlers/calendar.js";
 import { exportCallbacks } from "./handlers/export.js";
 import { upcomingCallbacks } from "./handlers/upcoming.js";
-
 import { statsCallbacks } from "./handlers/stats.js";
 import { settingsCallbacks, settingsStateHandlers } from "./handlers/settings.js";
+import { reviewCallbacks, reviewStateHandlers } from "./handlers/review.js";
+import { eventsCallbacks, eventsStateHandlers } from "./handlers/events.js";
+import { tasksCallbacks, tasksStateHandlers } from "./handlers/tasks.js";
 
 const callbackRoutes = {
   ...homeCallbacks,
@@ -18,13 +20,19 @@ const callbackRoutes = {
   ...exportCallbacks,
   ...upcomingCallbacks,
   ...statsCallbacks,
-  ...settingsCallbacks
+  ...settingsCallbacks,
+  ...reviewCallbacks,
+  ...eventsCallbacks,
+  ...tasksCallbacks
 };
 
 const stateRoutes = {
   ...membersStateHandlers,
   ...templatesStateHandlers,
-  ...settingsStateHandlers
+  ...settingsStateHandlers,
+  ...reviewStateHandlers,
+  ...eventsStateHandlers,
+  ...tasksStateHandlers
 };
 
 export const registerRouter = (bot) => {
@@ -34,10 +42,9 @@ export const registerRouter = (bot) => {
     const chatId = q.message.chat.id;
     const messageId = q.message.message_id;
 
-    bot.answerCallbackQuery(q.id).catch(() => {});
-
-    if (!isAdmin(q.from.id)) {
-      return bot.sendMessage(chatId, "❌ Unauthorized");
+    if (!isAdmin(q.from?.id)) {
+      bot.answerCallbackQuery(q.id, { text: "❌ Unauthorized access", show_alert: true }).catch(() => {});
+      return;
     }
 
     const [ns, action, ...args] = q.data.split(":");
@@ -56,13 +63,16 @@ export const registerRouter = (bot) => {
       }
     } catch (err) {
       console.error(`❌ Callback error [${ns}:${action}]:`, err.message);
-      bot.answerCallbackQuery(q.id, { text: "❌ Error" }).catch(() => {});
-      bot.sendMessage(chatId, "❌ Something went wrong");
+      bot.answerCallbackQuery(q.id, { text: "❌ Error occurred" }).catch(() => {});
+      bot.sendMessage(chatId, "❌ Something went wrong while processing your request.");
     }
   });
 
   bot.on("message", async (msg) => {
-    if (!msg.text || !isAdmin(msg.from.id)) return;
+    if (!msg.text) return;
+    if (!isAdmin(msg.from?.id)) {
+      return;
+    }
 
     const chatId = msg.chat.id;
 
@@ -82,12 +92,12 @@ export const registerRouter = (bot) => {
     } catch (err) {
       console.error(`❌ State handler error [${state.type}]:`, err.message);
       clearState(chatId);
-      bot.sendMessage(chatId, "❌ Something went wrong");
+      bot.sendMessage(chatId, "❌ Something went wrong processing input.");
     }
   });
 
   bot.on("photo", async (msg) => {
-    if (!isAdmin(msg.from.id)) return;
+    if (!isAdmin(msg.from?.id)) return;
 
     const chatId = msg.chat.id;
     const state = getState(chatId);

@@ -1,9 +1,18 @@
 export const isAdmin = (id) => {
-  if (!process.env.ADMIN_ID) return true;
-  return String(id) === String(process.env.ADMIN_ID);
+  const adminId = process.env.ADMIN_ID;
+  if (!adminId || typeof adminId !== "string" || !adminId.trim()) {
+    console.warn("⚠️ [SECURITY] ADMIN_ID is unset, missing or malformed. Rejecting access (fail-closed).");
+    return false;
+  }
+  if (!id && id !== 0) return false;
+  return String(id).trim() === adminId.trim();
 };
 
 export const adminOnly = (fn) => (msg, ...rest) => {
-  if (!isAdmin(msg.from.id)) return;
+  const userId = msg?.from?.id;
+  if (!isAdmin(userId)) {
+    console.warn(`⚠️ [SECURITY] Denied unauthorized interaction from user ID: ${userId || "unknown"}`);
+    return;
+  }
   return fn(msg, ...rest);
 };
