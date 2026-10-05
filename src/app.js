@@ -14,6 +14,7 @@ import apiRouter from "./api/index.js";
 import { connectDB } from "./config/db.js";
 import { initLogger } from "./config/logger.js";
 import { loadAuthorizedUsersCache } from "./services/userService.js";
+import { captureError } from "./services/errorLogService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,7 +72,26 @@ app.use((err, req, res, next) => {
   if (err?.type === "entity.too.large") {
     return res.status(413).json({ error: "Payload exceeds size limit (max 15MB)" });
   }
+
   console.error("💥 [EXPRESS ERROR]:", err?.stack || err?.message || err);
+
+  // Capture error into database for CMS audit & debugging
+  captureError({
+    error: err,
+    source: "express",
+    endpoint: req.originalUrl || req.path,
+    method: req.method,
+    statusCode: err.status || 500,
+    userId: req.user?.id || req.headers["x-telegram-user-id"] || "client",
+    userName: req.user?.username || "",
+    context: {
+      params: req.params,
+      query: req.query,
+      ip: req.ip,
+      userAgent: req.headers["user-agent"]
+    }
+  }).catch(() => {});
+
   if (res.headersSent) return next(err);
   res.status(err.status || 500).json({ error: err.message || "Internal server error" });
 });
@@ -137,9 +157,19 @@ process.on("SIGINT",  () => shutdown("SIGINT"));
 // Process-level unhandled exception safety net (resilient crash guard)
 process.on("uncaughtException", (err) => {
   console.error("💥 [UNCAUGHT EXCEPTION]:", err?.stack || err?.message || err);
+  captureError({
+    error: err,
+    source: "system",
+    endpoint: "process:uncaughtException"
+  }).catch(() => {});
 });
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("💥 [UNHANDLED REJECTION]:", reason?.stack || reason?.message || reason);
+  captureError({
+    error: reason instanceof Error ? reason : new Error(String(reason)),
+    source: "system",
+    endpoint: "process:unhandledRejection"
+  }).catch(() => {});
 });
 

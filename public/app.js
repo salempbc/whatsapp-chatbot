@@ -105,6 +105,13 @@ const app = createApp({
     watch([currentTab, eventModalOpen, taskModalOpen, userModalOpen, inviteModalOpen, () => wishModal.value.open, () => importModal.value.open], () => {
       if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
       updateBackButtonState();
+      if (currentTab.value === 'analytics') {
+        loadErrorLogs();
+      }
+    });
+
+    watch([errorFilter], () => {
+      loadErrorLogs();
     });
 
     tg.onEvent('backButtonClicked', () => {
@@ -129,6 +136,12 @@ const app = createApp({
     const tasks = ref([]);
     const churchStats = ref(null);
     const dataQuality = ref(null);
+    const errorLogs = ref([]);
+    const errorStats = ref({ total: 0, unresolved: 0 });
+    const errorLoading = ref(false);
+    const errorFilter = ref('all'); // 'all', 'unresolved', 'resolved', 'telegram', 'express'
+    const errorSearch = ref('');
+    const expandedErrorId = ref(null);
     const settings = ref({
       sendTime: '06:00',
       reminderTime: '20:00',
@@ -1919,6 +1932,109 @@ const app = createApp({
       window.open(`/api/directory?auth=${encodeURIComponent(token)}`, '_blank');
     };
 
+    // System Error Logs Management
+    const loadErrorLogs = async () => {
+      errorLoading.value = true;
+      try {
+        let url = `/errors?limit=50`;
+        if (errorFilter.value === 'unresolved') url += `&resolved=false`;
+        else if (errorFilter.value === 'resolved') url += `&resolved=true`;
+        else if (['telegram', 'express', 'system'].includes(errorFilter.value)) url += `&source=${errorFilter.value}`;
+
+        if (errorSearch.value.trim()) {
+          url += `&search=${encodeURIComponent(errorSearch.value.trim())}`;
+        }
+
+        const res = await apiCall(url);
+        errorLogs.value = res.logs || [];
+        errorStats.value = {
+          total: res.total || 0,
+          unresolved: res.unresolvedCount || 0
+        };
+      } catch (e) {
+        // Silently fail or minimal toast if error table is unavailable
+      } finally {
+        errorLoading.value = false;
+      }
+    };
+
+    const resolveErrorLogAction = async (id) => {
+      try {
+        await apiCall(`/errors/${id}/resolve`, 'POST');
+        const target = errorLogs.value.find(l => l._id === id);
+        if (target) {
+          target.resolved = true;
+          target.resolvedBy = currentUser.value?.name || 'Admin';
+          target.resolvedAt = new Date().toISOString();
+        }
+        if (errorStats.value.unresolved > 0) errorStats.value.unresolved--;
+        showToast("✅ Error marked as resolved");
+      } catch (e) {
+        tg.showAlert(e.message);
+      }
+    };
+
+    const deleteErrorLogAction = async (id) => {
+      tg.showConfirm("Are you sure you want to delete this error log entry?", async (confirmed) => {
+        if (!confirmed) return;
+        try {
+          await apiCall(`/errors/${id}`, 'DELETE');
+          errorLogs.value = errorLogs.value.filter(l => l._id !== id);
+          if (errorStats.value.total > 0) errorStats.value.total--;
+          showToast("🗑 Error entry deleted");
+        } catch (e) {
+          tg.showAlert(e.message);
+        }
+      });
+    };
+
+    const clearResolvedErrorsAction = async () => {
+      tg.showConfirm("Clear all resolved error logs from the database?", async (confirmed) => {
+        if (!confirmed) return;
+        try {
+          const res = await apiCall('/errors/clear', 'POST', { onlyResolved: true });
+          showToast(`🧹 Purged ${res.deletedCount || 0} resolved error entries`);
+          await loadErrorLogs();
+        } catch (e) {
+          tg.showAlert(e.message);
+        }
+      });
+    };
+
+    const toggleErrorExpanded = (id) => {
+      expandedErrorId.value = expandedErrorId.value === id ? null : id;
+    };
+
+    const copyErrorDetails = (err) => {
+      const report = [
+        `🚨 **Bug Report / Error Log Details**`,
+        `- **Timestamp:** ${new Date(err.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST`,
+        `- **Source:** ${err.source.toUpperCase()}`,
+        `- **Endpoint / Action:** \`${err.endpoint || 'N/A'}\``,
+        `- **Status Code:** ${err.statusCode || 500}`,
+        `- **User ID / Name:** ${err.userId || 'anonymous'} (${err.userName || 'N/A'})`,
+        `- **Error Message:** \`${err.message}\``,
+        ``,
+        `**Stack Trace:**`,
+        '```',
+        err.stack || 'No stack trace captured',
+        '```',
+        ``,
+        `**Context Payload:**`,
+        '```json',
+        JSON.stringify(err.context || {}, null, 2),
+        '```'
+      ].join('\n');
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(report)
+          .then(() => showToast("📋 Error report copied to clipboard!"))
+          .catch(() => tg.showAlert(report));
+      } else {
+        tg.showAlert(report);
+      }
+    };
+
     // Formatting Helpers
     const getInitials = (name) => {
       if (!name) return '??';
@@ -1972,6 +2088,8 @@ const app = createApp({
       fastForm, retainHousehold, fastSessionMembers, fastSaving, existingFamilies, existingRoles,
       handleAgeEstimateChange, setFastPrefix, setFastRole, resetFastForm, openFastEntry, saveFastMember,
       saveSettings, triggerAction, exportCSV, openDirectory,
+      errorLogs, errorStats, errorLoading, errorFilter, errorSearch, expandedErrorId,
+      loadErrorLogs, resolveErrorLogAction, deleteErrorLogAction, clearResolvedErrorsAction, toggleErrorExpanded, copyErrorDetails,
       authorizedUsers, superAdminId, currentUser, activeInviteUrl, generatingInvite,
       userModalOpen, isEditingUser, userSaving, inviteModalOpen, inviteRole, inviteHours,
       userFilter, userSearch, userForm, filteredAuthorizedUsers,

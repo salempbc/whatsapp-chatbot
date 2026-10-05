@@ -39,6 +39,28 @@ const stateRoutes = {
   ...tasksStateHandlers
 };
 
+import { captureError } from "../services/errorLogService.js";
+
+export const resolveCallbackHandler = (callbackData, routes = callbackRoutes) => {
+  if (!callbackData) return { handler: null, args: [] };
+
+  // 1. Check exact full match (e.g., "events:add:start", "tasks:add:start", "auth:approve")
+  if (routes[callbackData]) {
+    return { handler: routes[callbackData], args: [] };
+  }
+
+  // 2. Progressive prefix matching from longest prefix to shortest
+  const parts = callbackData.split(":");
+  for (let i = parts.length - 1; i >= 1; i--) {
+    const routeKey = parts.slice(0, i).join(":");
+    if (routes[routeKey]) {
+      return { handler: routes[routeKey], args: parts.slice(i) };
+    }
+  }
+
+  return { handler: null, args: [] };
+};
+
 export const registerRouter = (bot) => {
   bot.on("callback_query", async (q) => {
     if (!q.data || !q.message) return;
@@ -53,10 +75,10 @@ export const registerRouter = (bot) => {
       return;
     }
 
-    const [ns, action, ...args] = q.data.split(":");
-    const handler = callbackRoutes[`${ns}:${action}`];
+    const { handler, args } = resolveCallbackHandler(q.data, callbackRoutes);
     if (!handler) {
-      bot.answerCallbackQuery(q.id).catch(() => {});
+      console.warn(`⚠️ Unhandled callback route: [${q.data}]`);
+      bot.answerCallbackQuery(q.id, { text: "⚠️ Unknown or obsolete action" }).catch(() => {});
       return;
     }
 
@@ -69,7 +91,21 @@ export const registerRouter = (bot) => {
       }
     } catch (err) {
       if (!/message is not modified/i.test(err.message)) {
-        console.error(`❌ Callback error [${ns}:${action}]:`, err.message);
+        console.error(`❌ Callback error [${q.data}]:`, err.message);
+        captureError({
+          error: err,
+          source: "telegram",
+          endpoint: `callback:${q.data}`,
+          userId: String(q.from?.id || chatId),
+          userName: [q.from?.first_name, q.from?.last_name].filter(Boolean).join(" ") || q.from?.username || "",
+          context: {
+            callbackData: q.data,
+            chatId,
+            messageId,
+            user: q.from
+          }
+        }).catch(() => {});
+
         bot.sendMessage(chatId, "❌ Something went wrong while processing your request. Please try again or type /menu.").catch(() => {});
       }
       bot.answerCallbackQuery(q.id, { text: "⚠️ Error occurred" }).catch(() => {});
@@ -99,6 +135,18 @@ export const registerRouter = (bot) => {
       await handler({ bot, chatId, text: msg.text.trim(), state });
     } catch (err) {
       console.error(`❌ State handler error [${state.type}]:`, err.message);
+      captureError({
+        error: err,
+        source: "telegram",
+        endpoint: `state:${state.type}`,
+        userId: String(msg.from?.id || chatId),
+        userName: [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(" ") || msg.from?.username || "",
+        context: {
+          state,
+          text: msg.text?.slice(0, 200)
+        }
+      }).catch(() => {});
+
       clearState(chatId);
       bot.sendMessage(chatId, "❌ Something went wrong processing input.");
     }
@@ -116,6 +164,15 @@ export const registerRouter = (bot) => {
       await handlePhotoUpload({ bot, chatId, fileId, state });
     } catch (err) {
       console.error("❌ Photo save error:", err.message);
+      captureError({
+        error: err,
+        source: "telegram",
+        endpoint: "photo:upload",
+        userId: String(msg.from?.id || chatId),
+        userName: [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(" ") || msg.from?.username || "",
+        context: { state }
+      }).catch(() => {});
+
       clearState(chatId);
       bot.sendMessage(chatId, "❌ Could not save photo");
     }

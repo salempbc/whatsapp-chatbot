@@ -71,6 +71,12 @@ import {
   createInviteToken,
   getDefaultPermissions
 } from "../services/userService.js";
+import {
+  getErrorLogs,
+  resolveErrorLog,
+  deleteErrorLog,
+  clearErrorLogs
+} from "../services/errorLogService.js";
 
 const router = express.Router();
 
@@ -890,6 +896,50 @@ router.post("/actions/trigger-today", async (req, res) => {
   try {
     const count = await triggerNow();
     res.json({ success: true, count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ========================================================================= */
+/* --- SYSTEM ERROR LOGS & AUDIT TRAIL ------------------------------------- */
+/* ========================================================================= */
+router.get("/errors", requirePermission("view_analytics"), async (req, res) => {
+  try {
+    const { source, resolved, search, page, limit } = req.query;
+    const result = await getErrorLogs({ source, resolved, search, page, limit });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/errors/:id/resolve", requirePermission("edit_settings"), async (req, res) => {
+  try {
+    const user = req.user?.username || req.user?.first_name || "Admin";
+    const updated = await resolveErrorLog(req.params.id, user);
+    if (!updated) return res.status(404).json({ error: "Error log not found" });
+    res.json({ success: true, log: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete("/errors/:id", requirePermission("edit_settings"), async (req, res) => {
+  try {
+    const deleted = await deleteErrorLog(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Error log not found" });
+    res.json({ success: true, message: "Error log entry deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/errors/clear", requirePermission("edit_settings"), async (req, res) => {
+  try {
+    const { onlyResolved = true } = req.body;
+    const count = await clearErrorLogs(onlyResolved);
+    res.json({ success: true, deletedCount: count });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
