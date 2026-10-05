@@ -164,6 +164,58 @@ export const ensureSpouse = async (member) => {
 };
 
 /**
+ * 🔀 DUPLICATE MEMBER MERGER SERVICE
+ * Merges source duplicate record into target primary record and archives source.
+ */
+export const mergeMembers = async (targetId, sourceId, performedBy = "admin") => {
+  if (targetId === sourceId) throw new Error("Cannot merge a member into themselves.");
+
+  const [target, source] = await Promise.all([
+    Member.findById(targetId),
+    Member.findById(sourceId)
+  ]);
+
+  if (!target || !source) throw new Error("One or both members not found.");
+
+  // Consolidate non-empty fields from source into target if target lacks them
+  const fields = ["phone", "address", "role", "ministry", "membershipDate", "adminNotes", "dob", "birthday", "weddingDate", "wedding", "familyName", "spouseName", "photo"];
+  for (const f of fields) {
+    if (!target[f] && source[f]) {
+      target[f] = source[f];
+    }
+  }
+
+  if (!target.isMarried && source.isMarried) target.isMarried = true;
+  if (!target.isChild && source.isChild) target.isChild = true;
+  if (!target.isPastor && source.isPastor) target.isPastor = true;
+
+  // Append notes
+  if (source.name !== target.name) {
+    target.adminNotes = (target.adminNotes ? target.adminNotes + "\n" : "") + `[Merged alias: ${source.name}]`;
+  }
+
+  await target.save();
+
+  // Mark source as archived/merged
+  source.status = "archived";
+  source.isDeleted = true;
+  source.isActive = false;
+  source.adminNotes = (source.adminNotes ? source.adminNotes + "\n" : "") + `[Merged into: ${target.name} (${target._id})]`;
+  await source.save();
+
+  await AuditLog.create({
+    entity: "member",
+    entityId: target._id,
+    action: "merge",
+    performedBy,
+    details: `Merged duplicate record ${source.name} into ${target.name}`,
+    changes: { mergedFrom: source._id }
+  });
+
+  return { target, source };
+};
+
+/**
  * Soft delete backwards compatibility
  */
 export const softDeleteMember = async (id) => {

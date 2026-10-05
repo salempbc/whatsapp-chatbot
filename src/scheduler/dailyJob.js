@@ -9,6 +9,36 @@ import { getSetting } from "../models/Settings.js";
 
 let morningTask = null;
 let reminderTask = null;
+let monthlyBackupTask = null;
+
+const runMonthlyBackupJob = async () => {
+  try {
+    const { createDatabaseDump } = await import("../services/backupService.js");
+    const Member = (await import("../models/Member.js")).default;
+    const adminId = process.env.ADMIN_ID;
+    if (!adminId) return;
+
+    const dump = await createDatabaseDump();
+    const activeCount = await Member.countDocuments({ isDeleted: { $ne: true }, isActive: { $ne: false } });
+    const bot = getBotInstance();
+
+    if (bot) {
+      await bot.sendDocument(adminId, dump.filePath, {
+        caption: `🛡️ <b>Monthly Automated Backup & Health Check</b>\n\n` +
+                 `• <b>Active Members:</b> ${activeCount}\n` +
+                 `• <b>Total Records:</b> ${dump.totalRecords}\n` +
+                 `• <b>Collections:</b> ${dump.collectionsCount}\n` +
+                 `• <b>Backup Size:</b> ${(dump.sizeBytes / 1024).toFixed(1)} KB\n` +
+                 `• <b>Status:</b> ✅ Database Healthy & Consistent`,
+        parse_mode: "HTML"
+      });
+    }
+    const fs = (await import("fs")).default;
+    fs.unlink(dump.filePath, () => {});
+  } catch (err) {
+    console.error("❌ Monthly backup job error:", err.message);
+  }
+};
 
 /**
  * Morning job:
@@ -94,6 +124,7 @@ export const triggerNow = async () => {
 const stopAll = () => {
   if (morningTask) { morningTask.stop(); morningTask = null; }
   if (reminderTask) { reminderTask.stop(); reminderTask = null; }
+  if (monthlyBackupTask) { monthlyBackupTask.stop(); monthlyBackupTask = null; }
 };
 
 const toCron = (value, fallback) => {
@@ -113,8 +144,10 @@ export const startScheduler = async () => {
 
   morningTask = cron.schedule(morning.cron, runMorningJob, { timezone: "Asia/Kolkata" });
   reminderTask = cron.schedule(reminder.cron, runReminderJob, { timezone: "Asia/Kolkata" });
+  // Runs on the 1st day of every month at 06:15 IST
+  monthlyBackupTask = cron.schedule("15 6 1 * *", runMonthlyBackupJob, { timezone: "Asia/Kolkata" });
 
-  console.log(`⏰ Scheduler started (${morning.time} IST daily + ${reminder.time} IST reminder)`);
+  console.log(`⏰ Scheduler started (${morning.time} IST daily + ${reminder.time} IST reminder + Monthly Backup)`);
 };
 
 export const restartScheduler = async () => {

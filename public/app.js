@@ -338,6 +338,23 @@ createApp({
       currentTab.value = 'memberForm';
     };
 
+    const handlePhotoFileInput = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (file.size > 8 * 1024 * 1024) {
+        return tg.showAlert("File is too large! Please choose an image or document under 8MB.");
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        form.value.photo = reader.result;
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        showToast("📸 Photo attached to profile");
+      };
+      reader.readAsDataURL(file);
+    };
+
     const saveMember = async () => {
       if (!form.value.name) return tg.showAlert("Full Name is required!");
       saving.value = true;
@@ -468,18 +485,61 @@ createApp({
       showToast("📅 Calendar (.ics) export initiated");
     };
 
-    const filteredChurchEvents = computed(() => {
-      let list = [...churchEvents.value];
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
+    // Calendar Month Grid View
+    const calendarMonth = ref(new Date());
+    const calendarMonthDays = computed(() => {
+      const year = calendarMonth.value.getFullYear();
+      const month = calendarMonth.value.getMonth();
+      const firstDayIndex = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-      if (eventFilter.value === 'upcoming') {
-        list = list.filter(e => new Date(e.startDate) >= now);
-      } else if (eventFilter.value === 'past') {
-        list = list.filter(e => new Date(e.startDate) < now);
+      const days = [];
+      for (let i = 0; i < firstDayIndex; i++) {
+        days.push({ day: null, dateStr: null, events: [] });
       }
-      return list.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const mm = String(month + 1).padStart(2, '0');
+        const dd = String(d).padStart(2, '0');
+        const dateStr = `${year}-${mm}-${dd}`;
+        const mmdd = `${mm}-${dd}`;
+
+        const dayEvents = [];
+        // Match church events
+        churchEvents.value.forEach(e => {
+          if (e.startDate === dateStr) dayEvents.push({ label: e.title, type: 'church' });
+        });
+        // Match birthdays
+        members.value.forEach(m => {
+          if (m.birthday === mmdd && m.isActive !== false) dayEvents.push({ label: `🎂 ${m.name}`, type: 'birthday' });
+          if (m.wedding === mmdd && m.isMarried && m.isActive !== false) dayEvents.push({ label: `💍 ${m.name}`, type: 'wedding' });
+        });
+
+        days.push({ day: d, dateStr, events: dayEvents });
+      }
+      return days;
     });
+
+    const shiftCalendarMonth = (delta) => {
+      const d = new Date(calendarMonth.value);
+      d.setMonth(d.getMonth() + delta);
+      calendarMonth.value = d;
+    };
+
+    // Duplicate Member Merger Action
+    const mergeMemberAction = async (targetId, sourceId) => {
+      tg.showConfirm("Merge these two member records? All details will be consolidated into the primary profile and the duplicate will be archived.", async (ok) => {
+        if (!ok) return;
+        try {
+          await apiCall('/members/merge', 'POST', { targetId, sourceId });
+          await loadData();
+          if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+          showToast("🎉 Duplicate member merged successfully!");
+        } catch (e) {
+          tg.showAlert(e.message);
+        }
+      });
+    };
 
     // Task Management
     const defaultTaskForm = () => ({
@@ -568,6 +628,17 @@ createApp({
       }
       return list;
     });
+
+    const updateTaskStatus = async (task, newStatus) => {
+      try {
+        await apiCall(`/tasks/${task._id}`, 'PUT', { status: newStatus });
+        task.status = newStatus;
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        showToast(`Moved to ${newStatus}`);
+      } catch (e) {
+        tg.showAlert(e.message);
+      }
+    };
 
     const deleteTemplate = async () => {
       tg.showConfirm("Delete this template?", async (ok) => {
@@ -794,9 +865,10 @@ createApp({
       selectAll, bulkAction, openMemberForm, saveMember, archiveMember, restoreMember,
       openTemplateForm, saveTemplate, deleteTemplate, insertVariable,
       openEventForm, saveEvent, deleteEvent, exportICS,
-      openTaskForm, saveTask, deleteTask, toggleTaskComplete,
+      openTaskForm, saveTask, deleteTask, toggleTaskComplete, updateTaskStatus,
       openWishModal, copyWishToClipboard, openWhatsAppWish,
       openImportModal, parseCSVFile, executeBulkImport,
+      handlePhotoFileInput, calendarMonth, calendarMonthDays, shiftCalendarMonth, mergeMemberAction,
       saveSettings, triggerAction, exportCSV, openDirectory,
       getAge, getInitials, avatarStyle, photoUrl, getCelebrationPill
     };

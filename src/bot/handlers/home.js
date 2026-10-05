@@ -63,6 +63,64 @@ export const registerHome = (bot) => {
     await exportCallbacks["export:backup"]({ bot, chatId: msg.chat.id, messageId: null });
   }));
 
+  bot.onText(/\/find(?:\s+(.+))?/, adminOnly(async (msg, match) => {
+    const query = match[1]?.trim();
+    if (!query) {
+      return bot.sendMessage(msg.chat.id, "🔍 <b>Find Member</b>\n\nUsage: <code>/find &lt;name or phone&gt;</code>\nExample: <code>/find David</code> or <code>/find 9876543210</code>", { parse_mode: "HTML" });
+    }
+
+    const { default: Member } = await import("../../models/Member.js");
+    const { renderScreen } = await import("../ui.js");
+
+    const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const members = await Member.find({
+      isDeleted: { $ne: true },
+      $or: [
+        { name: new RegExp(escapeRegex(query), "i") },
+        { phone: new RegExp(escapeRegex(query), "i") },
+        { familyName: new RegExp(escapeRegex(query), "i") }
+      ]
+    }).limit(5);
+
+    if (!members.length) {
+      return bot.sendMessage(msg.chat.id, `❌ No member found matching: "<b>${query}</b>"`, { parse_mode: "HTML" });
+    }
+
+    if (members.length === 1) {
+      const m = members[0];
+      let text = `👤 <b>${m.name}</b> (${m.role || "Member"})\n`;
+      text += `• <b>Status:</b> ${m.status || "active"}\n`;
+      if (m.phone) text += `• <b>Phone:</b> <code>${m.phone}</code>\n`;
+      if (m.familyName) text += `• <b>Family:</b> ${m.familyName}\n`;
+      if (m.birthday) text += `• <b>Birthday:</b> ${m.birthday}\n`;
+      if (m.isMarried && m.spouseName) text += `• <b>Spouse:</b> ${m.spouseName}\n`;
+
+      const keyboard = [];
+      const actionRow = [];
+      if (m.phone) {
+        const cleanPhone = m.phone.replace(/[^0-9]/g, "");
+        actionRow.push({ text: "💬 WhatsApp", url: `https://wa.me/${cleanPhone}` });
+        actionRow.push({ text: "📞 Call", url: `tel:${cleanPhone}` });
+      }
+      if (actionRow.length) keyboard.push(actionRow);
+      keyboard.push([
+        { text: "👤 Full Profile", callback_data: `members:open:${m._id}` },
+        { text: "✏️ Edit", callback_data: `members:edit:${m._id}` }
+      ]);
+      keyboard.push([{ text: "🏠 Return to Dashboard", callback_data: "home:show" }]);
+
+      return renderScreen(bot, msg.chat.id, null, { text, keyboard });
+    }
+
+    let text = `🔍 <b>Search results for "${query}":</b>\nSelect a member:\n`;
+    const keyboard = members.map((m) => [{
+      text: `${m.name} ${m.phone ? `(${m.phone})` : ""}`,
+      callback_data: `members:open:${m._id}`
+    }]);
+    keyboard.push([{ text: "🏠 Return to Dashboard", callback_data: "home:show" }]);
+    return renderScreen(bot, msg.chat.id, null, { text, keyboard });
+  }));
+
   bot.onText(/^\/ping$/, adminOnly(async (msg) => {
     await bot.sendMessage(msg.chat.id, "pong");
   }));

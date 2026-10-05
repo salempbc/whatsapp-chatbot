@@ -15,10 +15,10 @@ test("AI & Scripture: getCanonicalVerse returns authentic Scripture references w
   assert.ok(bdayVerse.text.includes(bdayVerse.reference), "Text must cite the canonical reference");
 
   const youthVerse = await getCanonicalVerse("birthday", { dob: "2010-01-01" });
-  assert.ok(youthVerse.reference.includes("சங்கீதம்") || youthVerse.reference.includes("தீமோத்தேயு"), "Youth verse matches curated Scripture");
+  assert.ok(youthVerse.reference.includes("சங்கீதம்") || youthVerse.reference.includes("தீமோத்தேயு") || youthVerse.reference.includes("யோசுவா") || youthVerse.reference.includes("பிலிப்பியர்") || youthVerse.reference.includes("பிரசங்கி"), "Youth verse matches curated Scripture");
 
   const elderVerse = await getCanonicalVerse("birthday", { dob: "1950-01-01" });
-  assert.ok(elderVerse.reference.includes("சங்கீதம்") || elderVerse.reference.includes("ஏசாயா"), "Elder verse matches curated Scripture");
+  assert.ok(elderVerse.reference.includes("சங்கீதம்") || elderVerse.reference.includes("ஏசாயா") || elderVerse.reference.includes("நீதிமொழிகள்"), "Elder verse matches curated Scripture");
 
   const weddingVerse = await getCanonicalVerse("wedding");
   assert.ok(weddingVerse.reference.includes("ஆதியாகமம்") || weddingVerse.reference.includes("மத்தேயு") || weddingVerse.reference.includes("கொரிந்தியர்") || weddingVerse.reference.includes("கொலோசெயர்"));

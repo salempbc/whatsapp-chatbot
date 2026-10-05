@@ -426,11 +426,46 @@
         </div>
       </div>
 
-      <!-- Event Filters -->
-      <div class="flex items-center gap-1.5 text-xs font-semibold">
-        <button @click="eventFilter = 'all'" :class="['px-3 py-1.5 rounded-xl transition-all', eventFilter === 'all' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">All ({{ churchEvents.length }})</button>
-        <button @click="eventFilter = 'upcoming'" :class="['px-3 py-1.5 rounded-xl transition-all', eventFilter === 'upcoming' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">Upcoming</button>
-        <button @click="eventFilter = 'past'" :class="['px-3 py-1.5 rounded-xl transition-all', eventFilter === 'past' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">Past</button>
+      <!-- Event Filters & Calendar Grid Switcher -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-1.5 text-xs font-semibold">
+          <button @click="eventFilter = 'all'" :class="['px-3 py-1.5 rounded-xl transition-all', eventFilter === 'all' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">All ({{ churchEvents.length }})</button>
+          <button @click="eventFilter = 'upcoming'" :class="['px-3 py-1.5 rounded-xl transition-all', eventFilter === 'upcoming' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">Upcoming</button>
+          <button @click="eventFilter = 'past'" :class="['px-3 py-1.5 rounded-xl transition-all', eventFilter === 'past' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300']">Past</button>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE MONTH CALENDAR GRID -->
+      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+          <h3 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+            <span>🗓️</span>
+            <span>{{ calendarMonth.toLocaleString('default', { month: 'long', year: 'numeric' }) }}</span>
+          </h3>
+          <div class="flex items-center gap-1">
+            <button @click="shiftCalendarMonth(-1)" class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold flex items-center justify-center">◀</button>
+            <button @click="calendarMonth = new Date()" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-[10px] font-bold">Today</button>
+            <button @click="shiftCalendarMonth(1)" class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold flex items-center justify-center">▶</button>
+          </div>
+        </div>
+
+        <!-- Weekday Headers -->
+        <div class="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 uppercase">
+          <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
+
+        <!-- Month Day Cells -->
+        <div class="grid grid-cols-7 gap-1 text-xs">
+          <div v-for="(c, idx) in calendarMonthDays" :key="idx" class="min-h-[52px] p-1 rounded-xl border flex flex-col justify-between transition-colors" :class="c.day ? 'bg-slate-50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/80 hover:border-indigo-400' : 'border-transparent'">
+            <div v-if="c.day" class="font-bold text-[11px] text-slate-700 dark:text-slate-300">{{ c.day }}</div>
+            <div v-if="c.events && c.events.length" class="space-y-0.5">
+              <div v-for="(ev, eIdx) in c.events.slice(0, 2)" :key="eIdx" class="text-[9px] px-1 py-0.5 rounded truncate font-medium" :class="ev.type === 'church' ? 'bg-indigo-600 text-white font-bold' : ev.type === 'wedding' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'">
+                {{ ev.label }}
+              </div>
+              <div v-if="c.events.length > 2" class="text-[8px] text-slate-400 text-center font-bold">+{{ c.events.length - 2 }} more</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Events List -->
@@ -547,6 +582,12 @@
                 <span>⏰</span>
                 <span>Due: {{ new Date(t.dueDate).toLocaleDateString() }}</span>
               </span>
+            <div class="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <span class="text-[10px] font-bold text-slate-400">Move:</span>
+              <button @click="updateTaskStatus(t, 'todo')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'todo' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">To-Do</button>
+              <button @click="updateTaskStatus(t, 'in_progress')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'in_progress' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">In-Progress</button>
+              <button @click="updateTaskStatus(t, 'waiting')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'waiting' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">Waiting</button>
+              <button @click="updateTaskStatus(t, 'completed')" :class="['px-2 py-0.5 rounded text-[10px] font-semibold', t.status === 'completed' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">Done</button>
             </div>
           </div>
 
@@ -600,13 +641,50 @@
             <span class="text-slate-600 dark:text-slate-400">Inactive / Archived</span>
             <span class="font-extrabold text-slate-900 dark:text-white">{{ (churchStats?.members?.inactiveCount || 0) + (churchStats?.members?.archivedCount || 0) }}</span>
           </div>
-          <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex justify-between items-center">
-            <span class="text-slate-600 dark:text-slate-400">Married</span>
-            <span class="font-extrabold text-slate-900 dark:text-white">{{ churchStats?.members?.marriedCount || marriedCount }}</span>
-          </div>
-          <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex justify-between items-center">
-            <span class="text-slate-600 dark:text-slate-400">Children & Youth</span>
-            <span class="font-extrabold text-slate-900 dark:text-white">{{ churchStats?.members?.childrenCount || 0 }}</span>
+        <!-- Visual Age Distribution Bars -->
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+          <div class="text-[11px] font-bold text-slate-500">Demographic Distribution</div>
+          
+          <div class="space-y-1.5 text-[11px]">
+            <div>
+              <div class="flex justify-between mb-0.5 text-slate-600 dark:text-slate-400">
+                <span>Children & Teens (&lt;18)</span>
+                <span class="font-bold">{{ members.filter(m => m.isChild || (getAge(m.dob) !== null && getAge(m.dob) < 18)).length }}</span>
+              </div>
+              <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div class="h-full bg-emerald-500 rounded-full" :style="{ width: `${totalCount ? (members.filter(m => m.isChild || (getAge(m.dob) !== null && getAge(m.dob) < 18)).length / totalCount * 100) : 0}%` }"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-0.5 text-slate-600 dark:text-slate-400">
+                <span>Youth & Young Adults (18-35)</span>
+                <span class="font-bold">{{ members.filter(m => !m.isChild && getAge(m.dob) !== null && getAge(m.dob) >= 18 && getAge(m.dob) <= 35).length }}</span>
+              </div>
+              <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div class="h-full bg-indigo-500 rounded-full" :style="{ width: `${totalCount ? (members.filter(m => !m.isChild && getAge(m.dob) !== null && getAge(m.dob) >= 18 && getAge(m.dob) <= 35).length / totalCount * 100) : 0}%` }"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-0.5 text-slate-600 dark:text-slate-400">
+                <span>Adults (36-59)</span>
+                <span class="font-bold">{{ members.filter(m => getAge(m.dob) !== null && getAge(m.dob) >= 36 && getAge(m.dob) < 60).length }}</span>
+              </div>
+              <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div class="h-full bg-blue-500 rounded-full" :style="{ width: `${totalCount ? (members.filter(m => getAge(m.dob) !== null && getAge(m.dob) >= 36 && getAge(m.dob) < 60).length / totalCount * 100) : 0}%` }"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-0.5 text-slate-600 dark:text-slate-400">
+                <span>Senior Citizens (60+)</span>
+                <span class="font-bold">{{ members.filter(m => getAge(m.dob) !== null && getAge(m.dob) >= 60).length }}</span>
+              </div>
+              <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div class="h-full bg-purple-500 rounded-full" :style="{ width: `${totalCount ? (members.filter(m => getAge(m.dob) !== null && getAge(m.dob) >= 60).length / totalCount * 100) : 0}%` }"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -652,6 +730,40 @@
             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400">{{ issue.type || 'Warning' }}</span>
           </div>
         </div>
+      </div>
+
+      <!-- Quick Duplicate Member Merger Tool -->
+      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">🔀 Member Profile Merger</h3>
+          <span class="text-[10px] text-slate-400">Reconcile Duplicates</span>
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Merge a duplicate record into a primary member profile to consolidate contact and family details.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+          <div>
+            <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300">Keep Primary Record</label>
+            <select id="merge-target" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white">
+              <option value="" disabled selected>Select primary member...</option>
+              <option v-for="m in members" :key="m._id" :value="m._id">{{ m.name }} ({{ m.role || 'Member' }})</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300">Merge & Archive Duplicate</label>
+            <select id="merge-source" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white">
+              <option value="" disabled selected>Select duplicate to merge...</option>
+              <option v-for="m in members" :key="m._id" :value="m._id">{{ m.name }} ({{ m.role || 'Member' }})</option>
+            </select>
+          </div>
+        </div>
+        <button @click="() => {
+          const t = document.getElementById('merge-target')?.value;
+          const s = document.getElementById('merge-source')?.value;
+          if (!t || !s) return tg.showAlert('Please select both a primary member and a duplicate member.');
+          if (t === s) return tg.showAlert('Cannot merge a member into themselves.');
+          mergeMemberAction(t, s);
+        }" class="w-full py-2.5 rounded-xl btn-brand text-xs font-bold shadow-md">
+          Consolidate & Merge Profiles
+        </button>
       </div>
     </main>
 
@@ -1038,6 +1150,16 @@
           <div>
             <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Ministry / Dept</label>
             <input type="text" v-model="form.ministry" placeholder="e.g. Worship, Youth" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Profile Photo / Document Attachment</label>
+          <div class="mt-1 flex items-center gap-3">
+            <div v-if="form.photo" class="w-12 h-12 rounded-xl overflow-hidden border border-indigo-300 flex-shrink-0 bg-slate-100 flex items-center justify-center">
+              <img :src="form.photo" class="w-full h-full object-cover" />
+            </div>
+            <input type="file" @change="handlePhotoFileInput" accept="image/*,.pdf,.doc,.docx" class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-950/60 dark:file:text-indigo-300" />
           </div>
         </div>
 

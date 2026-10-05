@@ -25,7 +25,8 @@ import {
   checkDuplicates,
   archiveMember,
   restoreMember,
-  validateStatusTransition
+  validateStatusTransition,
+  mergeMembers
 } from "../services/memberService.js";
 import {
   createChurchEvent,
@@ -126,10 +127,20 @@ router.get("/diagnostics", async (req, res) => {
 /* 2. PROTECTED ADMIN ROUTES */
 router.use(verifyTelegramWebAppData);
 
-/* Member Photo Proxy */
+/* Member Photo Proxy & Upload */
 router.get("/members/:id/photo", async (req, res) => {
   const m = await Member.findById(req.params.id).catch(() => null);
   if (!m || !m.photo) return res.status(404).send("No photo");
+
+  // If photo is stored directly as a base64 data URL
+  if (m.photo.startsWith("data:image/")) {
+    const parts = m.photo.split(",");
+    const mimeMatch = parts[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    const imgBuffer = Buffer.from(parts[1], "base64");
+    res.setHeader("Content-Type", mime);
+    return res.send(imgBuffer);
+  }
 
   const cached = photoCache.get(m.photo);
   if (cached && Date.now() < cached.expires) return res.redirect(cached.url);
@@ -144,6 +155,19 @@ router.get("/members/:id/photo", async (req, res) => {
   photoCache.set(m.photo, { url, expires: Date.now() + PHOTO_CACHE_TTL });
   prunePhotoCache();
   res.redirect(url);
+});
+
+router.post("/members/:id/photo", express.json({ limit: "10mb" }), async (req, res) => {
+  const { photo } = req.body;
+  if (!photo || typeof photo !== "string") {
+    return res.status(400).json({ error: "Invalid photo payload" });
+  }
+  const m = await Member.findById(req.params.id);
+  if (!m) return res.status(404).json({ error: "Member not found" });
+
+  m.photo = photo;
+  await m.save();
+  res.json({ success: true, member: m });
 });
 
 /* ========================================================= */
@@ -219,9 +243,13 @@ router.post("/members/:id/restore", async (req, res) => {
   res.json({ success: true, member: m });
 });
 
-router.delete("/members/:id", async (req, res) => {
-  const m = await archiveMember(req.params.id);
-  res.json({ success: true, member: m });
+router.post("/members/merge", async (req, res) => {
+  const { targetId, sourceId } = req.body;
+  if (!targetId || !sourceId) {
+    return res.status(400).json({ error: "targetId and sourceId are required" });
+  }
+  const result = await mergeMembers(targetId, sourceId, req.user?.id ? `tg:${req.user.id}` : "admin");
+  res.json({ success: true, ...result });
 });
 
 /* Export Roster to CSV */
