@@ -5,7 +5,9 @@ import {
   setAuthorizedUserCache,
   clearAuthorizedUserCache,
   isAuthorizedUser,
-  getCachedUserRole
+  getCachedUserRole,
+  hasUserPermission,
+  getDefaultPermissions
 } from "../src/services/userService.js";
 import { renderScreen } from "../src/bot/ui.js";
 
@@ -100,3 +102,58 @@ test("Error Resilience: renderScreen recovers gracefully when HTML contains unes
   assert.equal(sendCalled, true, "Fell back to sending fresh message");
   assert.equal(sentPlain, true, "Stripped broken tags for entity safety");
 });
+
+test("Access Control (RBAC): Role default permissions and granular overrides", () => {
+  const superPerms = getDefaultPermissions("superadmin");
+  assert.equal(superPerms.canManageUsers, true);
+  assert.equal(superPerms.canDeleteMembers, true);
+
+  const staffPerms = getDefaultPermissions("staff");
+  assert.equal(staffPerms.canManageMembers, true);
+  assert.equal(staffPerms.canDeleteMembers, false);
+  assert.equal(staffPerms.canManageUsers, false);
+  assert.equal(staffPerms.canSendGreetings, true);
+
+  const volunteerPerms = getDefaultPermissions("volunteer");
+  assert.equal(volunteerPerms.canManageMembers, false);
+  assert.equal(volunteerPerms.canDeleteMembers, false);
+  assert.equal(volunteerPerms.canSendGreetings, true);
+
+  const orig = process.env.ADMIN_ID;
+  process.env.ADMIN_ID = "5550001";
+  clearAuthorizedUserCache();
+
+  // Super Admin has all permissions automatically
+  assert.equal(hasUserPermission("5550001", "canManageUsers"), true);
+  assert.equal(hasUserPermission("5550001", "canDeleteMembers"), true);
+
+  // Staff user with default permissions
+  setAuthorizedUserCache("6660002", {
+    name: "Staff Sarah",
+    role: "staff",
+    status: "active"
+  });
+
+  assert.equal(hasUserPermission("6660002", "canSendGreetings"), true);
+  assert.equal(hasUserPermission("6660002", "canManageMembers"), true);
+  assert.equal(hasUserPermission("6660002", "canDeleteMembers"), false);
+  assert.equal(hasUserPermission("6660002", "canManageUsers"), false);
+
+  // Granular override: grant canExportData to this staff user
+  setAuthorizedUserCache("6660002", {
+    name: "Staff Sarah",
+    role: "staff",
+    status: "active",
+    permissions: { ...getDefaultPermissions("staff"), canExportData: true }
+  });
+  assert.equal(hasUserPermission("6660002", "canExportData"), true);
+
+  // Suspended user loses all permissions immediately
+  setAuthorizedUserCache("6660002", { status: "suspended" });
+  assert.equal(hasUserPermission("6660002", "canSendGreetings"), false);
+  assert.equal(isAuthorizedUser("6660002"), false);
+
+  clearAuthorizedUserCache();
+  process.env.ADMIN_ID = orig;
+});
+

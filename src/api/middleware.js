@@ -1,5 +1,11 @@
 import crypto from "crypto";
 import { isAdmin } from "../bot/guard.js";
+import {
+  getCachedUserRole,
+  getCachedUserPermissions,
+  getDefaultPermissions,
+  hasUserPermission
+} from "../services/userService.js";
 
 /**
  * Middleware to verify Telegram WebApp initData with strict HMAC-SHA256,
@@ -25,7 +31,11 @@ export const verifyTelegramWebAppData = (req, res, next) => {
       initData.length === process.env.ADMIN_SECRET.length &&
       crypto.timingSafeEqual(Buffer.from(initData), Buffer.from(process.env.ADMIN_SECRET))
     ) {
-      req.user = { id: process.env.ADMIN_ID || "admin", role: "admin" };
+      req.user = {
+        id: process.env.ADMIN_ID || "admin",
+        role: "superadmin",
+        permissions: getDefaultPermissions("superadmin")
+      };
       return next();
     }
   }
@@ -34,7 +44,11 @@ export const verifyTelegramWebAppData = (req, res, next) => {
   if (process.env.ADMIN_ID) {
     const adminIdStr = String(process.env.ADMIN_ID).trim();
     if (initData.trim().length === adminIdStr.length && crypto.timingSafeEqual(Buffer.from(initData.trim()), Buffer.from(adminIdStr))) {
-      req.user = { id: adminIdStr, role: "admin" };
+      req.user = {
+        id: adminIdStr,
+        role: "superadmin",
+        permissions: getDefaultPermissions("superadmin")
+      };
       return next();
     }
   }
@@ -86,9 +100,45 @@ export const verifyTelegramWebAppData = (req, res, next) => {
       return res.status(403).json({ error: "Not authorized (Admin only)" });
     }
 
-    req.user = user;
+    const isSuper = process.env.ADMIN_ID && String(user.id).trim() === String(process.env.ADMIN_ID).trim();
+    const userRole = isSuper ? "superadmin" : (getCachedUserRole(user.id) || "admin");
+    const userPermissions = isSuper
+      ? getDefaultPermissions("superadmin")
+      : (getCachedUserPermissions(user.id) || getDefaultPermissions(userRole));
+
+    req.user = {
+      ...user,
+      role: userRole,
+      permissions: userPermissions
+    };
+
     next();
   } catch (err) {
     return res.status(400).json({ error: "Malformed authentication data" });
   }
+};
+
+/**
+ * Middleware to require a specific granular permission for a route.
+ */
+export const requirePermission = (permissionKey) => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  // Superadmin or ENV ADMIN_ID always has root bypass
+  if (process.env.ADMIN_ID && String(req.user.id).trim() === String(process.env.ADMIN_ID).trim()) {
+    return next();
+  }
+  if (req.user.role === "superadmin") {
+    return next();
+  }
+
+  if (hasUserPermission(req.user.id, permissionKey)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    error: `Forbidden: Missing required permission '${permissionKey}'`
+  });
 };

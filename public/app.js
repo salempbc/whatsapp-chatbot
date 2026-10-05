@@ -72,6 +72,8 @@ const app = createApp({
     // Modal and Form States (declared early for BackButton tracking)
     const eventModalOpen = ref(false);
     const taskModalOpen = ref(false);
+    const userModalOpen = ref(false);
+    const inviteModalOpen = ref(false);
     const wishModal = ref({
       open: false,
       loading: false,
@@ -92,7 +94,7 @@ const app = createApp({
     // Unified BackButton management across all tabs, forms, and modals
     const updateBackButtonState = () => {
       const isSubForm = ['memberForm', 'templateForm', 'fastEntry'].includes(currentTab.value);
-      const isModalActive = eventModalOpen.value || taskModalOpen.value || wishModal.value.open || importModal.value.open;
+      const isModalActive = eventModalOpen.value || taskModalOpen.value || userModalOpen.value || inviteModalOpen.value || wishModal.value.open || importModal.value.open;
       if (isSubForm || isModalActive) {
         tg.BackButton.show();
       } else {
@@ -100,7 +102,7 @@ const app = createApp({
       }
     };
 
-    watch([currentTab, eventModalOpen, taskModalOpen, () => wishModal.value.open, () => importModal.value.open], () => {
+    watch([currentTab, eventModalOpen, taskModalOpen, userModalOpen, inviteModalOpen, () => wishModal.value.open, () => importModal.value.open], () => {
       if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
       updateBackButtonState();
     });
@@ -112,6 +114,8 @@ const app = createApp({
       if (importModal.value.open) { importModal.value.open = false; return; }
       if (eventModalOpen.value) { eventModalOpen.value = false; return; }
       if (taskModalOpen.value) { taskModalOpen.value = false; return; }
+      if (userModalOpen.value) { userModalOpen.value = false; return; }
+      if (inviteModalOpen.value) { inviteModalOpen.value = false; return; }
       // 2. Sub-forms return to their parent list tab
       if (currentTab.value === 'memberForm' || currentTab.value === 'fastEntry') { currentTab.value = 'members'; return; }
       if (currentTab.value === 'templateForm') { currentTab.value = 'templates'; return; }
@@ -267,25 +271,227 @@ const app = createApp({
       authModalOpen.value = true;
     };
 
-    // User Management State
+    // User Management State (Full Access Control & CRUD)
     const authorizedUsers = ref([]);
     const superAdminId = ref('');
+    const currentUser = ref(null);
     const activeInviteUrl = ref('');
     const generatingInvite = ref(false);
+    const userFilter = ref('all'); // 'all', 'active', 'pending', 'suspended'
+    const userSearch = ref('');
+    const isEditingUser = ref(false);
+    const userSaving = ref(false);
+    const inviteRole = ref('admin');
+    const inviteHours = ref(72);
+
+    const defaultUserPermissions = (role = 'admin') => {
+      if (role === 'admin' || role === 'superadmin') {
+        return {
+          canManageMembers: true,
+          canDeleteMembers: true,
+          canSendGreetings: true,
+          canManageTemplates: true,
+          canManageEvents: true,
+          canManageTasks: true,
+          canExportData: true,
+          canManageUsers: true
+        };
+      }
+      if (role === 'pastor') {
+        return {
+          canManageMembers: true,
+          canDeleteMembers: true,
+          canSendGreetings: true,
+          canManageTemplates: true,
+          canManageEvents: true,
+          canManageTasks: true,
+          canExportData: true,
+          canManageUsers: false
+        };
+      }
+      if (role === 'staff') {
+        return {
+          canManageMembers: true,
+          canDeleteMembers: false,
+          canSendGreetings: true,
+          canManageTemplates: true,
+          canManageEvents: true,
+          canManageTasks: true,
+          canExportData: false,
+          canManageUsers: false
+        };
+      }
+      if (role === 'volunteer') {
+        return {
+          canManageMembers: false,
+          canDeleteMembers: false,
+          canSendGreetings: true,
+          canManageTemplates: false,
+          canManageEvents: false,
+          canManageTasks: false,
+          canExportData: false,
+          canManageUsers: false
+        };
+      }
+      return {
+        canManageMembers: true,
+        canDeleteMembers: false,
+        canSendGreetings: true,
+        canManageTemplates: false,
+        canManageEvents: true,
+        canManageTasks: true,
+        canExportData: false,
+        canManageUsers: false
+      };
+    };
+
+    const defaultUserForm = () => ({
+      telegramId: '',
+      name: '',
+      username: '',
+      role: 'admin',
+      status: 'active',
+      notes: '',
+      permissions: defaultUserPermissions('admin')
+    });
+
+    const userForm = ref(defaultUserForm());
+
+    const onUserRoleChange = () => {
+      userForm.value.permissions = defaultUserPermissions(userForm.value.role);
+    };
 
     const loadUsers = async () => {
       try {
         const res = await apiCall('/users');
         authorizedUsers.value = res.users || [];
         superAdminId.value = res.superAdminId || '';
+        currentUser.value = res.currentUser || null;
       } catch (_) {}
     };
 
-    const generateInviteLink = async (role = 'admin') => {
+    const filteredAuthorizedUsers = computed(() => {
+      let list = [...authorizedUsers.value];
+      if (userFilter.value === 'active') {
+        list = list.filter(u => u.status === 'active' && !u.telegramId.startsWith('pending_invite_'));
+      } else if (userFilter.value === 'pending') {
+        list = list.filter(u => u.status === 'pending');
+      } else if (userFilter.value === 'suspended') {
+        list = list.filter(u => u.status === 'suspended' || u.status === 'revoked');
+      }
+      if (userSearch.value && userSearch.value.trim()) {
+        const q = userSearch.value.trim().toLowerCase();
+        list = list.filter(u =>
+          (u.name && u.name.toLowerCase().includes(q)) ||
+          (u.username && u.username.toLowerCase().includes(q)) ||
+          (u.telegramId && u.telegramId.includes(q)) ||
+          (u.role && u.role.toLowerCase().includes(q))
+        );
+      }
+      return list;
+    });
+
+    const activeUsersCount = computed(() =>
+      authorizedUsers.value.filter(u => u.status === 'active' && !u.telegramId.startsWith('pending_invite_')).length
+    );
+    const pendingUsersCount = computed(() =>
+      authorizedUsers.value.filter(u => u.status === 'pending').length
+    );
+    const suspendedUsersCount = computed(() =>
+      authorizedUsers.value.filter(u => u.status === 'suspended' || u.status === 'revoked').length
+    );
+
+    const openAddUserModal = () => {
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      isEditingUser.value = false;
+      userForm.value = defaultUserForm();
+      userModalOpen.value = true;
+    };
+
+    const openEditUserModal = (u) => {
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      isEditingUser.value = true;
+      userForm.value = {
+        telegramId: u.telegramId,
+        name: u.name || '',
+        username: u.username || '',
+        role: u.role || 'admin',
+        status: u.status || 'active',
+        notes: u.notes || '',
+        permissions: {
+          ...defaultUserPermissions(u.role || 'admin'),
+          ...(u.permissions || {})
+        }
+      };
+      userModalOpen.value = true;
+    };
+
+    const saveUserAction = async () => {
+      if (!userForm.value.telegramId || !String(userForm.value.telegramId).trim()) {
+        return tg.showAlert("Telegram ID is required (e.g. 7018241155)");
+      }
+      if (!userForm.value.name || !userForm.value.name.trim()) {
+        return tg.showAlert("Leader name is required");
+      }
+      userSaving.value = true;
+      try {
+        if (isEditingUser.value) {
+          await apiCall(`/users/${userForm.value.telegramId}`, 'PUT', userForm.value);
+          showToast(`✅ Updated ${userForm.value.name}`);
+        } else {
+          await apiCall('/users', 'POST', userForm.value);
+          showToast(`🎉 Added ${userForm.value.name} as ${userForm.value.role}`);
+        }
+        await loadUsers();
+        userModalOpen.value = false;
+      } catch (err) {
+        tg.showAlert(err.message);
+      } finally {
+        userSaving.value = false;
+      }
+    };
+
+    const deleteUserAction = async (u) => {
+      tg.showConfirm(`Permanently delete ${u.name} (ID: ${u.telegramId}) from authorized leaders?`, async (ok) => {
+        if (!ok) return;
+        try {
+          await apiCall(`/users/${u.telegramId}?hard=true`, 'DELETE');
+          showToast(`🗑 Deleted ${u.name}`);
+          await loadUsers();
+        } catch (err) {
+          tg.showAlert(err.message);
+        }
+      });
+    };
+
+    const toggleUserStatusAction = async (u) => {
+      try {
+        await apiCall(`/users/${u.telegramId}/toggle-status`, 'POST');
+        const nextState = u.status === 'active' ? 'Suspended' : 'Activated';
+        showToast(`${nextState} ${u.name}`);
+        await loadUsers();
+      } catch (err) {
+        tg.showAlert(err.message);
+      }
+    };
+
+    const openInviteModal = () => {
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      inviteRole.value = 'admin';
+      inviteHours.value = 72;
+      inviteModalOpen.value = true;
+    };
+
+    const generateInviteLink = async (role = inviteRole.value, hoursValid = inviteHours.value) => {
       generatingInvite.value = true;
       try {
-        const res = await apiCall('/users/invite', 'POST', { role, hoursValid: 72 });
+        const res = await apiCall('/users/invite', 'POST', {
+          role: role || inviteRole.value,
+          hoursValid: hoursValid || inviteHours.value,
+          permissions: defaultUserPermissions(role || inviteRole.value)
+        });
         activeInviteUrl.value = res.inviteUrl;
+        inviteModalOpen.value = false;
         showToast('🔗 Invite Link generated!');
       } catch (err) {
         showToast('❌ ' + err.message);
@@ -312,7 +518,12 @@ const app = createApp({
 
     const approveUserAction = async (telegramId, role = 'admin', name = '') => {
       try {
-        await apiCall('/users/approve', 'POST', { telegramId, role, name });
+        await apiCall('/users/approve', 'POST', {
+          telegramId,
+          role,
+          name,
+          permissions: defaultUserPermissions(role)
+        });
         showToast(`✅ Approved ${name || 'user'} as ${role}`);
         await loadUsers();
       } catch (err) {
@@ -321,14 +532,16 @@ const app = createApp({
     };
 
     const revokeUserAction = async (telegramId, name = '') => {
-      if (!confirm(`Are you sure you want to revoke bot access for ${name || 'this leader'}?`)) return;
-      try {
-        await apiCall(`/users/${telegramId}`, 'DELETE');
-        showToast('🗑 Leader access revoked');
-        await loadUsers();
-      } catch (err) {
-        showToast('❌ ' + err.message);
-      }
+      tg.showConfirm(`Are you sure you want to revoke bot access for ${name || 'this leader'}?`, async (ok) => {
+        if (!ok) return;
+        try {
+          await apiCall(`/users/${telegramId}`, 'DELETE');
+          showToast('🗑 Leader access revoked');
+          await loadUsers();
+        } catch (err) {
+          tg.showAlert(err.message);
+        }
+      });
     };
 
     // Load All Data
@@ -356,6 +569,7 @@ const app = createApp({
         dataQuality.value = dqRes;
         authorizedUsers.value = usersRes.users || [];
         superAdminId.value = usersRes.superAdminId || '';
+        currentUser.value = usersRes.currentUser || null;
       } catch (err) {
         showToast("⚠️ Could not load data.");
       } finally {
@@ -1367,7 +1581,11 @@ const app = createApp({
       fastForm, retainHousehold, fastSessionMembers, fastSaving, existingFamilies, existingRoles,
       handleAgeEstimateChange, setFastPrefix, setFastRole, resetFastForm, openFastEntry, saveFastMember,
       saveSettings, triggerAction, exportCSV, openDirectory,
-      authorizedUsers, superAdminId, activeInviteUrl, generatingInvite,
+      authorizedUsers, superAdminId, currentUser, activeInviteUrl, generatingInvite,
+      userModalOpen, isEditingUser, userSaving, inviteModalOpen, inviteRole, inviteHours,
+      userFilter, userSearch, userForm, filteredAuthorizedUsers,
+      activeUsersCount, pendingUsersCount, suspendedUsersCount,
+      openAddUserModal, openEditUserModal, onUserRoleChange, saveUserAction, deleteUserAction, toggleUserStatusAction, openInviteModal,
       loadUsers, generateInviteLink, copyInviteLink, shareInviteWhatsApp, approveUserAction, revokeUserAction,
       getAge, computeAge, getInitials, avatarStyle, photoUrl, getCelebrationPill
     };

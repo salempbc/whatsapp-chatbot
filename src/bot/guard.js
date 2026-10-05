@@ -1,4 +1,4 @@
-import { isAuthorizedUser, getCachedUserRole } from "../services/userService.js";
+import { isAuthorizedUser, getCachedUserRole, hasUserPermission } from "../services/userService.js";
 
 /**
  * Checks if a Telegram user ID is authorized as an administrator or staff.
@@ -59,6 +59,22 @@ export const superAdminOnly = (fn) => (msg, ...rest) => {
   const userId = msg?.from?.id;
   if (!isSuperAdmin(userId)) {
     console.warn(`⚠️ [SECURITY] Denied non-superadmin interaction from user ID: ${userId || "unknown"}`);
+    return;
+  }
+  return fn(msg, ...rest);
+};
+
+/**
+ * Protects handlers that require a specific granular permission.
+ */
+export const permissionOnly = (permissionKey) => (fn) => (msg, ...rest) => {
+  const userId = msg?.from?.id;
+  if (!isAdmin(userId)) {
+    console.warn(`⚠️ [SECURITY] Denied unauthorized interaction from user ID: ${userId || "unknown"}`);
+    return;
+  }
+  if (!hasUserPermission(userId, permissionKey)) {
+    console.warn(`⚠️ [SECURITY] Denied missing permission ${permissionKey} for user ID: ${userId || "unknown"}`);
     return;
   }
   return fn(msg, ...rest);

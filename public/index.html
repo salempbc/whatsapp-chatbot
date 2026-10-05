@@ -1067,35 +1067,76 @@
       </section>
 
       <!-- Authorized Leaders & User Management Section -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
-        <div class="flex items-center justify-between">
+      <!-- Authorized Leaders & User Access Control (RBAC & CRUD) Section -->
+      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div>
-            <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Authorized Leaders & Staff</h3>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400">Telegram accounts with permission to manage the church bot</p>
+            <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🛡️</span>
+              <span>Authorized Leaders & Access Control</span>
+            </h3>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Full RBAC, granular CRUD permissions & Telegram account management</p>
           </div>
-          <button @click="generateInviteLink('admin')" :disabled="generatingInvite" class="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs hover:bg-indigo-100 flex items-center gap-1 border border-indigo-200 dark:border-indigo-800">
-            <span>➕</span>
-            <span>Invite Leader</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <button @click="openAddUserModal()" class="btn-brand px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm flex items-center gap-1">
+              <span>➕</span>
+              <span>Add Leader</span>
+            </button>
+            <button @click="openInviteModal()" :disabled="generatingInvite" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1 border border-slate-200 dark:border-slate-700">
+              <span>🔗</span>
+              <span>Invite Link</span>
+            </button>
+          </div>
         </div>
 
-        <!-- Super Admin Badge -->
-        <div v-if="superAdminId" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between text-xs">
-          <div class="flex items-center gap-2">
-            <span class="text-base">👑</span>
+        <!-- Filter Tabs & Quick Search -->
+        <div class="flex flex-col sm:flex-row gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60">
+          <div class="flex items-center gap-1 text-[11px] font-bold overflow-x-auto pb-1 sm:pb-0">
+            <button @click="userFilter = 'all'" :class="['px-2.5 py-1 rounded-lg transition-all', userFilter === 'all' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">
+              All ({{ authorizedUsers.length }})
+            </button>
+            <button @click="userFilter = 'active'" :class="['px-2.5 py-1 rounded-lg transition-all', userFilter === 'active' ? 'bg-emerald-600 text-white font-bold shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">
+              Active ({{ activeUsersCount }})
+            </button>
+            <button @click="userFilter = 'pending'" :class="['px-2.5 py-1 rounded-lg transition-all', userFilter === 'pending' ? 'bg-sky-600 text-white font-bold shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">
+              Pending ({{ pendingUsersCount }})
+            </button>
+            <button @click="userFilter = 'suspended'" :class="['px-2.5 py-1 rounded-lg transition-all', userFilter === 'suspended' ? 'bg-amber-600 text-white font-bold shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400']">
+              Suspended ({{ suspendedUsersCount }})
+            </button>
+          </div>
+          <div class="flex-1">
+            <input v-model="userSearch" type="text" placeholder="Search by name, @username, or ID..." class="w-full text-xs px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500" />
+          </div>
+        </div>
+
+        <!-- Super Admin Pinned Owner Card -->
+        <div v-if="superAdminId" class="p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 border border-amber-200/80 dark:border-amber-800/50 flex items-center justify-between text-xs shadow-sm">
+          <div class="flex items-center gap-2.5">
+            <span class="text-xl">👑</span>
             <div>
-              <span class="font-bold text-slate-900 dark:text-white">Primary Super Admin</span>
-              <div class="text-[10px] text-slate-400 font-mono">ID: {{ superAdminId }}</div>
+              <div class="flex items-center gap-2">
+                <span class="font-extrabold text-slate-900 dark:text-white">Primary Super Admin</span>
+                <span class="px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[9px] font-extrabold uppercase">Owner</span>
+              </div>
+              <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                ID: {{ superAdminId }} • Root access across all systems
+              </div>
             </div>
           </div>
-          <span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-extrabold uppercase">Owner</span>
+          <span class="text-[10px] font-bold text-amber-700 dark:text-amber-400 px-2 py-1 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-amber-200 dark:border-amber-900">
+            Unrestricted
+          </span>
         </div>
 
-        <!-- Generated Invite Link Box -->
+        <!-- Active Invite Link Banner (if generated) -->
         <div v-if="activeInviteUrl" class="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 space-y-2">
-          <div class="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
-            <span>🔗</span>
-            <span>Active One-Click Invite Link (Valid for 72h):</span>
+          <div class="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <span>🔗</span>
+              <span>Active One-Click Invite Link:</span>
+            </span>
+            <button @click="activeInviteUrl = ''" class="text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
           </div>
           <div class="p-2 rounded-lg bg-white dark:bg-slate-900 font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all select-all border border-indigo-100 dark:border-indigo-900">
             {{ activeInviteUrl }}
@@ -1108,37 +1149,93 @@
               📲 Share on WhatsApp
             </button>
           </div>
-          <p class="text-[10px] text-indigo-700 dark:text-indigo-300">💡 When the recipient opens this link in Telegram and taps Start, they are authorized immediately!</p>
+          <p class="text-[10px] text-indigo-700 dark:text-indigo-300">💡 When recipient taps this link and presses Start, their access is activated instantly with assigned permissions!</p>
         </div>
 
-        <!-- Authorized Users Roster -->
-        <div v-if="authorizedUsers && authorizedUsers.length > 0" class="space-y-1.5 pt-1">
-          <div v-for="u in authorizedUsers" :key="u._id" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/40 flex items-center justify-between text-xs">
-            <div>
-              <div class="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
-                <span>{{ u.role === 'staff' ? '👤' : '👑' }}</span>
-                <span>{{ u.name }}</span>
-                <span v-if="u.username" class="text-indigo-500 font-normal">(@{{ u.username }})</span>
-                <span :class="['px-1.5 py-0.5 rounded text-[9px] font-bold uppercase', u.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300']">
-                  {{ u.status }}
-                </span>
+        <!-- Authorized Users Roster (CRUD List) -->
+        <div v-if="filteredAuthorizedUsers && filteredAuthorizedUsers.length > 0" class="space-y-2 pt-1">
+          <div v-for="u in filteredAuthorizedUsers" :key="u._id" class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/40 space-y-2">
+            <!-- User Header Row -->
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-start gap-2.5">
+                <div class="w-8 h-8 rounded-xl font-bold text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5" :style="avatarStyle(u.name)">
+                  {{ getInitials(u.name) }}
+                </div>
+                <div>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="font-bold text-slate-900 dark:text-white text-xs">{{ u.name }}</span>
+                    <a v-if="u.username" :href="'https://t.me/' + u.username" target="_blank" class="text-indigo-600 dark:text-indigo-400 font-medium text-[11px] hover:underline">@{{ u.username }}</a>
+                    
+                    <!-- Role Pill -->
+                    <span :class="['px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase', 
+                      u.role === 'admin' ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300' :
+                      u.role === 'pastor' ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300' :
+                      u.role === 'staff' ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300' :
+                      'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300']">
+                      {{ u.role === 'admin' ? '👑 Admin' : u.role === 'pastor' ? '✝️ Pastor' : u.role === 'staff' ? '👤 Staff' : '🤝 Volunteer' }}
+                    </span>
+
+                    <!-- Status Pill -->
+                    <span :class="['px-1.5 py-0.5 rounded text-[9px] font-bold uppercase',
+                      u.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' :
+                      u.status === 'suspended' ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300' :
+                      u.status === 'pending' ? 'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300' :
+                      'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300']">
+                      {{ u.status }}
+                    </span>
+                  </div>
+
+                  <div class="text-[10px] text-slate-400 font-mono mt-0.5">
+                    ID: <code>{{ u.telegramId }}</code> <span v-if="u.addedBy">• Added by {{ u.addedBy }}</span>
+                  </div>
+                </div>
               </div>
-              <div class="text-[10px] text-slate-400 mt-0.5">
-                Role: <span class="font-semibold capitalize">{{ u.role }}</span> • Added by {{ u.addedBy || 'Admin' }}
+
+              <!-- Quick CRUD Actions for User -->
+              <div class="flex items-center gap-1">
+                <!-- Pending Approval Buttons -->
+                <button v-if="u.status === 'pending' && !u.telegramId.startsWith('pending_invite_')" @click="approveUserAction(u.telegramId, 'admin', u.name)" class="px-2 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[10px] hover:bg-emerald-700 shadow-sm" title="Approve as Co-Admin">
+                  ✅ Approve
+                </button>
+                <button v-if="u.status === 'pending' && !u.telegramId.startsWith('pending_invite_')" @click="approveUserAction(u.telegramId, 'staff', u.name)" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-bold text-[10px] hover:bg-blue-700 shadow-sm" title="Approve as Staff">
+                  👤 Staff
+                </button>
+
+                <!-- Edit Button -->
+                <button @click="openEditUserModal(u)" class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs" title="Edit permissions & role">
+                  ✏️
+                </button>
+
+                <!-- Toggle Active / Suspended Button -->
+                <button v-if="u.status === 'active' || u.status === 'suspended'" @click="toggleUserStatusAction(u)" :class="['px-2 py-1 rounded-lg font-bold text-[10px] transition-colors', u.status === 'active' ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800']" :title="u.status === 'active' ? 'Suspend User Access' : 'Reactivate User'">
+                  {{ u.status === 'active' ? '⏸️ Suspend' : '▶️ Activate' }}
+                </button>
+
+                <!-- Delete / Remove Button -->
+                <button @click="deleteUserAction(u)" class="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs" title="Permanently delete user">
+                  🗑️
+                </button>
               </div>
             </div>
-            <div class="flex items-center gap-1.5">
-              <button v-if="u.status === 'pending' && !u.telegramId.startsWith('pending_invite_')" @click="approveUserAction(u.telegramId, 'admin', u.name)" class="px-2 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[10px]">
-                Approve
-              </button>
-              <button v-if="u.status === 'active'" @click="revokeUserAction(u.telegramId, u.name)" class="px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold text-[10px] border border-rose-200 dark:border-rose-900 hover:bg-rose-100">
-                Revoke
-              </button>
+
+            <!-- Permissions Tags Preview -->
+            <div class="flex flex-wrap gap-1 pt-1 border-t border-slate-200/50 dark:border-slate-700/30 text-[10px]">
+              <span v-if="u.permissions?.canManageMembers" class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">👥 Members</span>
+              <span v-if="u.permissions?.canDeleteMembers" class="px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 font-medium">🗑️ Del</span>
+              <span v-if="u.permissions?.canSendGreetings" class="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 font-medium">💌 Wishes</span>
+              <span v-if="u.permissions?.canManageTemplates" class="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-medium">📝 Templates</span>
+              <span v-if="u.permissions?.canManageEvents" class="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 font-medium">🗓️ Events</span>
+              <span v-if="u.permissions?.canManageTasks" class="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-medium">✅ Tasks</span>
+              <span v-if="u.permissions?.canExportData" class="px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 font-medium">📊 Export</span>
+              <span v-if="u.permissions?.canManageUsers" class="px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 font-semibold">⚙️ Users</span>
+              <span v-if="u.notes" class="text-slate-400 italic ml-1">"{{ u.notes }}"</span>
             </div>
           </div>
         </div>
-        <div v-else class="text-center py-2 text-xs text-slate-400">
-          No additional leaders registered yet. Generate an invite link to add co-pastors or church staff.
+
+        <div v-else class="text-center py-6 text-xs text-slate-400 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+          <p class="font-semibold">No leaders found matching filter.</p>
+          <p class="text-[11px] mt-1">Tap <b>Add Leader</b> to register directly or <b>Invite Link</b> to generate an onboarding URL.</p>
         </div>
       </section>
     </main>
@@ -1377,6 +1474,201 @@
               </button>
               <button v-if="taskForm._id" @click="deleteTask(taskForm._id); taskModalOpen = false" class="px-3 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold hover:bg-rose-100 text-xs border border-rose-200 dark:border-rose-800">
                 🗑 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- ========================================== -->
+    <!-- MODAL 5: ADD / EDIT LEADER & ACCESS CONTROL -->
+    <!-- ========================================== -->
+    <transition name="fade">
+      <div v-if="userModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="w-full max-w-lg p-5 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl my-8" @click.stop>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">{{ isEditingUser ? '✏️' : '➕' }}</span>
+              <h3 class="font-bold text-slate-900 dark:text-white text-base">
+                {{ isEditingUser ? 'Edit Leader & Access Control' : 'Add Authorized Leader' }}
+              </h3>
+            </div>
+            <button @click="userModalOpen = false" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
+          </div>
+
+          <div class="space-y-3.5 text-xs">
+            <!-- Telegram ID -->
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Telegram User ID <span class="text-rose-500">*</span></label>
+              <input v-model="userForm.telegramId" :disabled="isEditingUser" type="text" placeholder="Numeric ID, e.g. 7018241155" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-indigo-500 disabled:opacity-60" />
+              <p class="text-[10px] text-slate-400 mt-1">💡 Ask user to forward any message to @userinfobot or @raw_data_bot on Telegram to get their numeric ID.</p>
+            </div>
+
+            <!-- Full Name & Username -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Full Name <span class="text-rose-500">*</span></label>
+                <input v-model="userForm.name" type="text" placeholder="e.g. Pastor Paul" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Telegram @Username (Optional)</label>
+                <input v-model="userForm.username" type="text" placeholder="e.g. paul_pastor" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+            </div>
+
+            <!-- Role & Status -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Church Role</label>
+                <select v-model="userForm.role" @change="onUserRoleChange" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-semibold">
+                  <option value="admin">👑 Co-Admin (Full Administrative)</option>
+                  <option value="pastor">✝️ Pastor (Pastoral Care & Roster)</option>
+                  <option value="staff">👤 Staff (Daily Operations)</option>
+                  <option value="volunteer">🤝 Volunteer (Greetings & View)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Status</label>
+                <select v-model="userForm.status" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-semibold">
+                  <option value="active">Active (Full Bot Access)</option>
+                  <option value="suspended">Suspended (Access Temporarily Paused)</option>
+                  <option value="pending">Pending Approval</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Granular Permissions Grid -->
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                <span>Granular Access Permissions (RBAC)</span>
+                <span class="text-[10px] text-slate-400 font-normal">Auto-preset by role; customized below</span>
+              </label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  <input type="checkbox" v-model="userForm.permissions.canManageMembers" class="rounded text-indigo-600 w-4 h-4" />
+                  <div>
+                    <div class="font-bold text-slate-800 dark:text-slate-200">👥 Manage Members</div>
+                    <div class="text-[10px] text-slate-400">View, add, edit roster</div>
+                  </div>
+                </label>
+                <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  <input type="checkbox" v-model="userForm.permissions.canDeleteMembers" class="rounded text-indigo-600 w-4 h-4" />
+                  <div>
+                    <div class="font-bold text-rose-600 dark:text-rose-400">🗑️ Delete Members</div>
+                    <div class="text-[10px] text-slate-400">Archive, delete & merge</div>
+                  </div>
+                </label>
+                <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  <input type="checkbox" v-model="userForm.permissions.canSendGreetings" class="rounded text-indigo-600 w-4 h-4" />
+                  <div>
+                    <div class="font-bold text-slate-800 dark:text-slate-200">💌 Send Greetings</div>
+                    <div class="text-[10px] text-slate-400">Wishes & broadcasts</div>
+                  </div>
+                </label>
+                <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  <input type="checkbox" v-model="userForm.permissions.canManageTemplates" class="rounded text-indigo-600 w-4 h-4" />
+                  <div>
+                    <div class="font-bold text-slate-800 dark:text-slate-200">📝 Templates</div>
+                    <div class="text-[10px] text-slate-400">Edit greeting texts</div>
+                  </div>
+                </label>
+                <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  <input type="checkbox" v-model="userForm.permissions.canManageEvents" class="rounded text-indigo-600 w-4 h-4" />
+                  <div>
+                    <div class="font-bold text-slate-800 dark:text-slate-200">🗓️ Church Events</div>
+                    <div class="text-[10px] text-slate-400">Calendar scheduling</div>
+                  </div>
+                </label>
+                <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  <input type="checkbox" v-model="userForm.permissions.canManageTasks" class="rounded text-indigo-600 w-4 h-4" />
+                  <div>
+                    <div class="font-bold text-slate-800 dark:text-slate-200">✅ Pastoral Tasks</div>
+                    <div class="text-[10px] text-slate-400">Create & complete tasks</div>
+                  </div>
+                </label>
+                <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  <input type="checkbox" v-model="userForm.permissions.canExportData" class="rounded text-indigo-600 w-4 h-4" />
+                  <div>
+                    <div class="font-bold text-slate-800 dark:text-slate-200">📊 Export Data</div>
+                    <div class="text-[10px] text-slate-400">Download CSV & ICS</div>
+                  </div>
+                </label>
+                <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  <input type="checkbox" v-model="userForm.permissions.canManageUsers" class="rounded text-indigo-600 w-4 h-4" />
+                  <div>
+                    <div class="font-bold text-red-600 dark:text-red-400">⚙️ User Management</div>
+                    <div class="text-[10px] text-slate-400">Add/edit other leaders</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Administrative Notes (Optional)</label>
+              <input v-model="userForm.notes" type="text" placeholder="e.g. Media Team Lead, Youth Coordinator" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <!-- Submit Buttons -->
+            <div class="flex items-center gap-2 pt-2">
+              <button @click="userModalOpen = false" type="button" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200">
+                Cancel
+              </button>
+              <button @click="saveUserAction" :disabled="userSaving" type="button" class="btn-brand flex-1 py-2.5 rounded-xl font-bold shadow-md">
+                {{ userSaving ? 'Saving...' : (isEditingUser ? 'Save Changes' : 'Create Leader') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- ========================================== -->
+    <!-- MODAL 6: CONFIGURE & GENERATE INVITE LINK -->
+    <!-- ========================================== -->
+    <transition name="fade">
+      <div v-if="inviteModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="w-full max-w-md p-5 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl" @click.stop>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">🔗</span>
+              <h3 class="font-bold text-slate-900 dark:text-white text-base">Generate 1-Click Invite Link</h3>
+            </div>
+            <button @click="inviteModalOpen = false" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
+          </div>
+
+          <div class="space-y-3.5 text-xs">
+            <p class="text-slate-500 dark:text-slate-400">
+              The recipient can tap this link in WhatsApp or Telegram and will be automatically registered with the selected role upon tapping Start.
+            </p>
+
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Target Role</label>
+              <select v-model="inviteRole" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-semibold">
+                <option value="admin">👑 Co-Admin (Full Administrative)</option>
+                <option value="pastor">✝️ Pastor (Pastoral Care & Roster)</option>
+                <option value="staff">👤 Church Staff (Daily Operations)</option>
+                <option value="volunteer">🤝 Volunteer (Greetings & View)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Link Expiration</label>
+              <select v-model="inviteHours" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-semibold">
+                <option :value="24">24 Hours (1 Day)</option>
+                <option :value="48">48 Hours (2 Days)</option>
+                <option :value="72">72 Hours (3 Days - Recommended)</option>
+                <option :value="168">7 Days (1 Week)</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2 pt-2">
+              <button @click="inviteModalOpen = false" type="button" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200">
+                Cancel
+              </button>
+              <button @click="generateInviteLink(inviteRole, inviteHours)" :disabled="generatingInvite" type="button" class="btn-brand flex-1 py-2.5 rounded-xl font-bold shadow-md">
+                {{ generatingInvite ? 'Generating...' : 'Create Invite Link' }}
               </button>
             </div>
           </div>
