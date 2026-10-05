@@ -75,7 +75,8 @@ import {
   getErrorLogs,
   resolveErrorLog,
   deleteErrorLog,
-  clearErrorLogs
+  clearErrorLogs,
+  captureError
 } from "../services/errorLogService.js";
 
 const router = express.Router();
@@ -169,6 +170,24 @@ router.get("/diagnostics", async (req, res) => {
     platform: process.platform,
     timestamp: new Date().toISOString()
   });
+});
+
+/* Client-side telemetry & error reporting endpoint (Accessible without auth to report frontend crashes) */
+router.post("/client-error", async (req, res) => {
+  try {
+    const { message, stack, info, userAgent, url } = req.body || {};
+    await captureError({
+      error: { message: message || "Unknown WebApp client error", stack: stack || "" },
+      source: "client",
+      endpoint: url || "webapp:browser",
+      statusCode: 500,
+      userId: req.headers["x-telegram-user-id"] || "client-user",
+      context: { info, userAgent, url }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(200).json({ ok: false });
+  }
 });
 
 /* 2. PROTECTED ADMIN ROUTES */

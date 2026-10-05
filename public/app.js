@@ -22,7 +22,7 @@ try {
 
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=4').then((reg) => {
+    navigator.serviceWorker.register('/sw.js?v=5').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });
@@ -105,13 +105,9 @@ const app = createApp({
     watch([currentTab, eventModalOpen, taskModalOpen, userModalOpen, inviteModalOpen, () => wishModal.value.open, () => importModal.value.open], () => {
       if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
       updateBackButtonState();
-      if (currentTab.value === 'analytics') {
+      if (currentTab.value === 'analytics' && typeof loadErrorLogs === 'function') {
         loadErrorLogs();
       }
-    });
-
-    watch([errorFilter], () => {
-      loadErrorLogs();
     });
 
     tg.onEvent('backButtonClicked', () => {
@@ -2035,6 +2031,10 @@ const app = createApp({
       }
     };
 
+    watch([errorFilter], () => {
+      loadErrorLogs();
+    });
+
     // Formatting Helpers
     const getInitials = (name) => {
       if (!name) return '??';
@@ -2101,9 +2101,27 @@ const app = createApp({
   }
 });
 
+// Telemetry: report errors from client to server database for CMS inspection
+const sendClientError = (err, info = '') => {
+  try {
+    fetch('/api/client-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: err?.message || String(err),
+        stack: err?.stack || '',
+        info,
+        userAgent: navigator.userAgent,
+        url: window.location.href
+      })
+    }).catch(() => {});
+  } catch (_) {}
+};
+
 // Resilient Vue global error handler to prevent blank screen failures
 app.config.errorHandler = (err, instance, info) => {
   console.error("💥 [VUE ERROR]:", err, info);
+  sendClientError(err, `Vue errorHandler (${info})`);
   try {
     if (instance?.showToast) {
       instance.showToast("⚠️ " + (err?.message || "UI Error occurred"));
@@ -2113,10 +2131,12 @@ app.config.errorHandler = (err, instance, info) => {
 
 window.addEventListener("unhandledrejection", (event) => {
   console.error("💥 [UNHANDLED REJECTION in WebApp]:", event.reason);
+  sendClientError(event.reason, "unhandledrejection");
 });
 
 window.addEventListener("error", (event) => {
   console.error("💥 [GLOBAL ERROR in WebApp]:", event.error);
+  sendClientError(event.error || event.message, "global error");
   // Guarantee preloader does not trap user on runtime errors
   const p = document.getElementById('preloader');
   if (p) p.style.display = 'none';
@@ -2126,6 +2146,7 @@ try {
   app.mount('#app');
 } catch (mountErr) {
   console.error("💥 [VUE MOUNT ERROR]:", mountErr);
+  sendClientError(mountErr, "app.mount");
   const p = document.getElementById('preloader');
   if (p) p.style.display = 'none';
 }
