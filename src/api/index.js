@@ -70,6 +70,11 @@ const verifyTelegramWebAppData = (req, res, next) => {
     return res.status(401).json({ error: "Missing authorization" });
   }
 
+  // Allow standalone browser admin access via ADMIN_SECRET header/query
+  if (process.env.ADMIN_SECRET && initData === process.env.ADMIN_SECRET) {
+    return next();
+  }
+
   if (!process.env.BOT_TOKEN || !process.env.ADMIN_ID) {
     return res.status(500).json({ error: "Server auth not configured" });
   }
@@ -134,6 +139,38 @@ router.get("/test-webhook-info", async (req, res) => {
   } catch (err) {
     res.json({ success: false, error: err.message, stack: err.stack });
   }
+});
+
+/* 📊 PRODUCTION TELEMETRY & SYSTEM HEALTH METRICS */
+router.get("/diagnostics", async (req, res) => {
+  const start = Date.now();
+  let dbStatus = "connected";
+  let dbLatency = 0;
+  try {
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.connection.db.admin().ping();
+      dbLatency = Date.now() - start;
+    } else {
+      dbStatus = "disconnected";
+    }
+  } catch (e) {
+    dbStatus = "error: " + e.message;
+  }
+
+  const mem = process.memoryUsage();
+  res.json({
+    status: "healthy",
+    uptimeSeconds: Math.floor(process.uptime()),
+    database: { status: dbStatus, latencyMs: dbLatency },
+    memory: {
+      rssMb: Math.round(mem.rss / 1024 / 1024),
+      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024)
+    },
+    nodeVersion: process.version,
+    platform: process.platform,
+    timestamp: new Date().toISOString()
+  });
 });
 
 router.use(verifyTelegramWebAppData);

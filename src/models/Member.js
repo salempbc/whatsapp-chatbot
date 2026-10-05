@@ -99,6 +99,11 @@ const memberSchema = new mongoose.Schema(
   }
 );
 
+/* 🚀 PERFORMANCE: Compound indexes for zero-scan cron queries */
+memberSchema.index({ isDeleted: 1, isActive: 1, birthday: 1 });
+memberSchema.index({ isDeleted: 1, isActive: 1, wedding: 1 });
+memberSchema.index({ familyName: 1, name: 1 });
+
 /**
  * 🔒 VALIDATION LOGIC
  */

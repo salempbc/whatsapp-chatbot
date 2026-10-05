@@ -7,7 +7,7 @@ const MOJI = /[À-ÿ][-ÿ–—‘-”†-•€ŒœŽž™]/g;
 const files = execSync("git ls-files").toString().trim().split(/\r?\n/);
 
 for (const f of files) {
-  if (!/\.(js|html|css|json|md)$/.test(f)) continue;
+  if (!/\.(js|html|css|json|md)$/.test(f) || !fs.existsSync(f)) continue;
   const b = fs.readFileSync(f);
   const s = b.toString("utf8");
   const runs = (s.match(MOJI) || []).length;
