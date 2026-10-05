@@ -263,31 +263,181 @@
         </div>
       </div>
 
-      <!-- VIEW B: GROUPED FAMILY TREE VIEW -->
+      <!-- VIEW B: GROUPED FAMILY TREE & HOUSEHOLD VIEW -->
       <div v-if="memberView === 'families'" class="space-y-4">
-        <div v-for="(famList, famName) in groupedFamilies" :key="famName" class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
-            <div class="flex items-center gap-2">
-              <span class="text-lg">🏡</span>
-              <h3 class="font-extrabold text-slate-900 dark:text-white text-base">{{ famName }}</h3>
+        <!-- Household Analytics Header -->
+        <div class="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 text-center">
+          <div class="p-2 rounded-xl bg-white dark:bg-[#151c28] border border-slate-100 dark:border-slate-700/50 shadow-xs">
+            <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Households</div>
+            <div class="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5">🏡 {{ householdStats.totalHouseholds }}</div>
+          </div>
+          <div class="p-2 rounded-xl bg-white dark:bg-[#151c28] border border-slate-100 dark:border-slate-700/50 shadow-xs">
+            <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">In Families</div>
+            <div class="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">👨‍👩‍👧‍👦 {{ householdStats.totalInHouseholds }}</div>
+          </div>
+          <div class="p-2 rounded-xl bg-white dark:bg-[#151c28] border border-slate-100 dark:border-slate-700/50 shadow-xs">
+            <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Avg. Size</div>
+            <div class="text-lg font-black text-sky-600 dark:text-sky-400 mt-0.5">📊 {{ householdStats.avgSize }}</div>
+          </div>
+        </div>
+
+        <!-- Household Units List -->
+        <div v-for="fam in structuredFamilies" :key="fam.name" class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
+          
+          <!-- Family Header -->
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xl">{{ fam.isUnassigned ? '📋' : '🏡' }}</span>
+                <h3 class="font-extrabold text-slate-900 dark:text-white text-base tracking-tight">{{ fam.name }}</h3>
+                <span :class="['px-2.5 py-0.5 rounded-full text-xs font-bold border', fam.isUnassigned ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800' : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800']">
+                  {{ fam.totalCount }} {{ fam.totalCount === 1 ? 'member' : 'members' }}
+                </span>
+              </div>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <span v-if="fam.primaryAddress" class="flex items-center gap-1">📍 {{ fam.primaryAddress }}</span>
+                <span v-if="fam.weddingDate || fam.weddingKey" class="flex items-center gap-1 text-pink-600 dark:text-pink-400 font-medium">💍 Anniversary: {{ fam.weddingDate || fam.weddingKey }}</span>
+              </div>
             </div>
-            <span class="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700">{{ famList.length }} members</span>
+
+            <!-- Header Quick Actions -->
+            <div class="flex items-center gap-1.5">
+              <button v-if="!fam.isUnassigned" @click="addFamilyMember(fam.name)" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors flex items-center gap-1" title="Add family member">
+                <span>➕ Add</span>
+              </button>
+              <button v-if="fam.primaryPhone" @click="openFamilyWhatsApp(fam.primaryPhone)" class="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition-colors flex items-center gap-1" title="WhatsApp Family">
+                <span>💬 WhatsApp</span>
+              </button>
+              <a v-if="fam.primaryPhone" :href="'tel:' + fam.primaryPhone" class="px-2.5 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 text-sky-700 dark:text-sky-300 text-xs font-bold transition-colors flex items-center gap-1" title="Call Household">
+                <span>📞 Call</span>
+              </a>
+            </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div v-for="fm in famList" :key="fm._id" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
+          <!-- Unassigned Roster Notice -->
+          <div v-if="fam.isUnassigned" class="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 text-xs text-amber-700 dark:text-amber-300">
+            💡 These members do not currently belong to a linked household. Click any profile below to assign them to their family group.
+          </div>
+
+          <!-- Structured Family Tree Grid -->
+          <div v-if="!fam.isUnassigned" class="space-y-3">
+            
+            <!-- Tier 1: Parents / Head of Household & Spouse -->
+            <div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5 flex items-center gap-1">
+                <span>👑</span>
+                <span>Parents & Household Leads</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                
+                <!-- Head -->
+                <div v-if="fam.head" class="p-3 rounded-xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between">
+                  <div class="flex items-center gap-2.5 min-w-0 cursor-pointer" @click="openMemberForm(fam.head)">
+                    <div class="w-9 h-9 rounded-xl font-bold text-white text-xs flex items-center justify-center flex-shrink-0" :style="avatarStyle(fam.head.name)">
+                      {{ getInitials(fam.head.name) }}
+                    </div>
+                    <div class="truncate">
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-slate-900 dark:text-white text-sm truncate">{{ fam.head.name }}</span>
+                        <span class="px-1.5 py-0.2 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">Head</span>
+                      </div>
+                      <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ fam.head.role || 'Member' }} <span v-if="fam.head.phone">• {{ fam.head.phone }}</span></div>
+                    </div>
+                  </div>
+                  <button @click="openWishModal(fam.head, 'birthday')" class="p-1.5 rounded-lg bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 text-xs font-bold shadow-xs">✨</button>
+                </div>
+
+                <!-- Spouse -->
+                <div v-if="fam.spouse" class="p-3 rounded-xl bg-pink-50/40 dark:bg-pink-950/20 border border-pink-100 dark:border-pink-900/40 flex items-center justify-between">
+                  <div class="flex items-center gap-2.5 min-w-0 cursor-pointer" @click="openMemberForm(fam.spouse)">
+                    <div class="w-9 h-9 rounded-xl font-bold text-white text-xs flex items-center justify-center flex-shrink-0" :style="avatarStyle(fam.spouse.name)">
+                      {{ getInitials(fam.spouse.name) }}
+                    </div>
+                    <div class="truncate">
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-slate-900 dark:text-white text-sm truncate">{{ fam.spouse.name }}</span>
+                        <span class="px-1.5 py-0.2 rounded bg-pink-100 dark:bg-pink-900/60 text-pink-700 dark:text-pink-300 text-[10px] font-bold">Spouse</span>
+                      </div>
+                      <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ fam.spouse.role || 'Member' }} <span v-if="fam.spouse.phone">• {{ fam.spouse.phone }}</span></div>
+                    </div>
+                  </div>
+                  <button @click="openWishModal(fam.spouse, 'wedding')" class="p-1.5 rounded-lg bg-white dark:bg-slate-800 text-pink-600 dark:text-pink-400 hover:bg-pink-50 text-xs font-bold shadow-xs">✨</button>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Tier 2: Children & Dependents -->
+            <div v-if="fam.children && fam.children.length > 0">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5 flex items-center gap-1">
+                <span>👶</span>
+                <span>Children & Youth ({{ fam.children.length }})</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2 border-l-2 border-indigo-200 dark:border-indigo-800/60 ml-2">
+                <div v-for="c in fam.children" :key="c._id" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
+                  <div class="flex items-center gap-2 min-w-0 cursor-pointer" @click="openMemberForm(c)">
+                    <div class="w-8 h-8 rounded-lg font-bold text-white text-xs flex items-center justify-center flex-shrink-0" :style="avatarStyle(c.name)">
+                      {{ getInitials(c.name) }}
+                    </div>
+                    <div class="truncate">
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-slate-900 dark:text-white text-sm truncate">{{ c.name }}</span>
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold">
+                          {{ c.gender === 'male' ? '👦 Son' : '👧 Daughter' }}
+                        </span>
+                      </div>
+                      <div class="text-[11px] text-slate-500 dark:text-slate-400">
+                        <span v-if="computeAge(c.dob) !== null">{{ computeAge(c.dob) }} yrs</span>
+                        <span v-else>{{ c.isChild ? 'Child' : 'Youth' }}</span>
+                        <span v-if="c.birthday"> • 🎂 {{ c.birthday }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button @click="openWishModal(c, 'birthday')" class="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 text-xs font-bold">✨</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tier 3: Other Household Members / Relatives -->
+            <div v-if="fam.others && fam.others.length > 0">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5 flex items-center gap-1">
+                <span>👥</span>
+                <span>Extended Family & Relatives ({{ fam.others.length }})</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2 border-l-2 border-slate-200 dark:border-slate-800 ml-2">
+                <div v-for="o in fam.others" :key="o._id" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
+                  <div class="flex items-center gap-2 min-w-0 cursor-pointer" @click="openMemberForm(o)">
+                    <div class="w-8 h-8 rounded-lg font-bold text-white text-xs flex items-center justify-center flex-shrink-0" :style="avatarStyle(o.name)">
+                      {{ getInitials(o.name) }}
+                    </div>
+                    <div class="truncate">
+                      <div class="font-bold text-slate-900 dark:text-white text-sm truncate">{{ o.name }}</div>
+                      <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ o.role || 'Member' }} <span v-if="o.phone">• {{ o.phone }}</span></div>
+                    </div>
+                  </div>
+                  <button @click="openWishModal(o, 'birthday')" class="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 text-xs font-bold">✨</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Unassigned Members Flat Grid -->
+          <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div v-for="fm in fam.allMembers" :key="fm._id" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
               <div class="flex items-center gap-2.5 min-w-0 cursor-pointer" @click="openMemberForm(fm)">
                 <div class="w-8 h-8 rounded-xl font-bold text-white text-xs flex items-center justify-center flex-shrink-0" :style="avatarStyle(fm.name)">
                   {{ getInitials(fm.name) }}
                 </div>
                 <div class="truncate">
                   <div class="font-bold text-slate-900 dark:text-white text-sm truncate">{{ fm.name }}</div>
-                  <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ fm.role || 'Member' }}</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ fm.role || 'Member' }} <span v-if="fm.phone">• {{ fm.phone }}</span></div>
                 </div>
               </div>
-              <button @click="openWishModal(fm, 'birthday')" class="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 text-xs font-bold">✨</button>
+              <button @click="openMemberForm(fm)" class="px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-xs font-semibold hover:bg-amber-200">Set Family</button>
             </div>
           </div>
+
         </div>
       </div>
 

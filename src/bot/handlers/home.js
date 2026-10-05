@@ -2,25 +2,144 @@ import { renderScreen } from "../ui.js";
 import { clearState } from "../session.js";
 import { adminOnly } from "../guard.js";
 
-const HELP_TEXT = `<b>📊 Church CMS 2.1 — Administrator Guide</b>
+export const HELP_TOPICS = {
+  overview: {
+    title: "📖 Church CMS 2.1 — Administrator Guide",
+    text: `<b>📖 Church CMS 2.1 — Administrator Guide</b>
+<i>Salem Primitive Baptist Church (SPBC)</i>
 
-<b>📋 /review:</b> Open today's celebrations review deck. Copy personalized Tamil greetings before sharing to WhatsApp.
-<b>👥 /members:</b> Manage congregational records, family links, lifecycle statuses, archive and restoration.
-<b>📅 /events:</b> Browse and schedule church services, prayer meetings, and special programs.
-<b>📝 /tasks:</b> Track church follow-ups, event preparations, and assigned tasks.
-<b>📊 /stats:</b> Church demographic analytics, growth metrics, and data quality audits.
-<b>🗓 /calendar:</b> Monthly celebration roster (birthdays, wedding anniversaries, memorials).
-<b>📤 /export:</b> Download member database spreadsheets.
-<b>⚙️ Settings:</b> Configure daily review schedules and notifications.
+Welcome to the SPBC Administration Engine. Select any topic below for instant command syntax, shortcuts, and features:
 
-<i>Note: WhatsApp remains your manual destination for all finalized greetings.</i>`;
+• <b>👥 Members:</b> Roster management, search, family grouping & lifecycle
+• <b>📋 Greetings:</b> Birthday/anniversary review deck & WhatsApp sharing
+• <b>📜 Bulletin:</b> Weekly bulletin generator with Tamil O.V. BSI Scripture
+• <b>📅 Events:</b> Services, prayer meetings, and monthly calendar
+• <b>📝 Tasks:</b> Administrative follow-ups & Kanban task progress
+• <b>📖 Scripture:</b> Canonical Tamil Bible O.V. BSI verse lookups
+• <b>⚙️ System:</b> Automated backups, demographic analytics & health audits
+
+<i>💡 Tip: Type <code>/help &lt;topic&gt;</code> anytime (e.g., <code>/help members</code> or <code>/help bulletin</code>).</i>`
+  },
+  members: {
+    title: "👥 Members & Directory Guide",
+    text: `<b>👥 Members & Directory Management</b>
+
+<b>Commands & Shortcuts:</b>
+• <code>/find &lt;name or phone&gt;</code>: Search any member instantly. Displays phone, family, and direct [💬 WhatsApp] / [📞 Call] buttons.
+• <code>/members</code>: Complete congregational directory with status filters (Active, Inactive, Transferred, Archived).
+• <b>Household Linking:</b> Members are organized into family units (Head, spouse, and children).
+• <b>Web Dashboard:</b> Supports Excel/CSV bulk import and duplicate profile merging.`
+  },
+  greetings: {
+    title: "📋 Celebrations & WhatsApp Greetings",
+    text: `<b>📋 Celebrations & WhatsApp Greetings</b>
+
+<b>Commands & Shortcuts:</b>
+• <code>/review</code>: Open today's celebration review deck for pending birthdays and anniversaries.
+• <code>/genwish &lt;name&gt;</code>: Preview an AI-generated Tamil Christian prayer blessing.
+• <b>Tamil Scripture Guardrails:</b> All prayer blessings strictly use authentic phrasing faithful to the <b>Tamil Bible Old Version (BSI - பரிசுத்த வேதாகமம் O.V.)</b>.
+• <b>One-Tap WhatsApp:</b> Tap [📲 Open in WhatsApp] to launch WhatsApp with the pre-formatted greeting.`
+  },
+  bulletin: {
+    title: "📜 Weekly Church Bulletin Guide",
+    text: `<b>📜 Weekly Church Bulletin Generator</b>
+
+<b>Commands & Shortcuts:</b>
+• <code>/bulletin</code>: Compiles the weekly SPBC church bulletin with one tap.
+• <b>What's Included:</b>
+  1. Canonical Tamil Bible O.V. BSI meditation verse for the week
+  2. Weekly service timings (Sunday Worship, Wed Bible Study, Fri Fasting Prayer)
+  3. Scheduled church events from calendar
+  4. Upcoming birthdays and wedding anniversaries for the next 7 days
+  5. Announcements
+• <b>One-Tap Share:</b> Tap [📲 Share on WhatsApp] to broadcast to church WhatsApp groups.`
+  },
+  events: {
+    title: "📅 Church Events & Calendar",
+    text: `<b>📅 Church Events & Calendar Guide</b>
+
+<b>Commands & Shortcuts:</b>
+• <code>/events</code>: View scheduled church services, revival meetings, and cottage prayers for the next 30 days.
+• <code>/addevent</code>: Interactive wizard to schedule a new church event with title, date, time, and venue.
+• <code>/calendar</code>: Monthly grid roster tracking member milestones and church services.`
+  },
+  tasks: {
+    title: "📝 Tasks & Follow-up Manager",
+    text: `<b>📝 Administrative Tasks & Follow-ups</b>
+
+<b>Commands & Shortcuts:</b>
+• <code>/tasks</code>: Interactive task list with Kanban status indicators (To-Do, In-Progress, Waiting, Done).
+• <code>/addtask</code>: Quickly create a follow-up task with priority (urgent/high/normal) and due date.
+• <b>Quick Actions:</b> Tap [✅ Done] directly in Telegram to complete tasks without typing.
+• <b>Overdue Tracking:</b> Highlights overdue tasks automatically.`
+  },
+  scripture: {
+    title: "📖 Scripture & Memorials (Tamil O.V. BSI)",
+    text: `<b>📖 Scripture & Memorials (Tamil Bible O.V. BSI)</b>
+
+<b>Commands & Shortcuts:</b>
+• <code>/bible &lt;query&gt;</code>: Search canonical verses from the Tamil Bible Old Version (BSI).
+• <code>/addverse &lt;type&gt; &lt;ref&gt;</code>: Add a custom canonical verse for birthday, wedding, or youth.
+• <code>/listverses</code>: View custom registered event verses.
+• <code>/addmemorial &lt;MM-DD&gt; &lt;Name&gt; [, Note]</code>: Track memorial dates with comforting Tamil O.V. BSI Scripture verses.
+• <code>/listmemorials</code>: Browse tracked family memorials.`
+  },
+  system: {
+    title: "⚙️ System, Backups & Analytics",
+    text: `<b>⚙️ System, Backups & Analytics</b>
+
+<b>Commands & Shortcuts:</b>
+• <code>/backup</code>: Instant full database backup sent directly to Telegram as a downloadable JSON document. 100% free forever.
+• <b>Automated Backup Heartbeat:</b> Runs automatically on the 1st of every month at 06:15 IST.
+• <code>/stats</code>: Church demographic statistics, age distribution visualizer, and gender ratio.
+• <code>/dataquality</code>: Run data integrity audit checking for duplicate names, missing phones, or broken dates.
+• <code>/ping</code>: Verify server responsiveness.
+• <code>/cancel</code>: Abort any active conversational input.`
+  }
+};
+
+export const helpScreen = (topicKey = "overview") => {
+  const topic = HELP_TOPICS[topicKey] || HELP_TOPICS.overview;
+
+  const keyboard = [
+    [
+      { text: "👥 Members", callback_data: "help:topic:members" },
+      { text: "📋 Greetings", callback_data: "help:topic:greetings" }
+    ],
+    [
+      { text: "📜 Bulletin", callback_data: "help:topic:bulletin" },
+      { text: "📅 Events", callback_data: "help:topic:events" }
+    ],
+    [
+      { text: "📝 Tasks", callback_data: "help:topic:tasks" },
+      { text: "📖 Scripture", callback_data: "help:topic:scripture" }
+    ],
+    [
+      { text: "⚙️ System & Backup", callback_data: "help:topic:system" }
+    ]
+  ];
+
+  if (topicKey !== "overview") {
+    keyboard.push([
+      { text: "🔙 All Topics", callback_data: "help:topic:overview" },
+      { text: "🏠 Return to Dashboard", callback_data: "home:show" }
+    ]);
+  } else {
+    keyboard.push([
+      { text: "🏠 Return to Dashboard", callback_data: "home:show" }
+    ]);
+  }
+
+  return { text: topic.text, keyboard };
+};
 
 export const homeScreen = () => {
   let webAppUrl = process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "");
   if (webAppUrl && !webAppUrl.startsWith("http")) webAppUrl = "https://" + webAppUrl;
 
   const keyboard = [
-    [{ text: "📋 Today's Greeting Review (/review)", callback_data: "review:summary" }]
+    [{ text: "📋 Today's Greeting Review (/review)", callback_data: "review:summary" }],
+    [{ text: "📜 Weekly Church Bulletin (/bulletin)", callback_data: "bulletin:show" }]
   ];
 
   if (webAppUrl && webAppUrl.length > 8) {
@@ -31,7 +150,7 @@ export const homeScreen = () => {
     [{ text: "👥 Members", callback_data: "members:list:0:active" }, { text: "📅 Events", callback_data: "events:list" }],
     [{ text: "📋 Tasks", callback_data: "tasks:list" }, { text: "📊 Analytics", callback_data: "stats:show" }],
     [{ text: "🗓 Calendar", callback_data: "calendar:show:current" }, { text: "⚙️ Settings", callback_data: "settings:show" }],
-    [{ text: "❓ Help Guide", callback_data: "help:show" }]
+    [{ text: "❓ Help Wizard (/help)", callback_data: "help:topic:overview" }]
   );
 
   return {
@@ -54,8 +173,20 @@ export const registerHome = (bot) => {
   bot.onText(/\/start/, openMenu);
   bot.onText(/\/menu/, openMenu);
 
-  bot.onText(/\/help/, adminOnly(async (msg) => {
-    await bot.sendMessage(msg.chat.id, HELP_TEXT, { parse_mode: "HTML" });
+  bot.onText(/\/help(?:\s+(.+))?/, adminOnly(async (msg, match) => {
+    const rawTopic = match[1]?.trim().toLowerCase();
+    let topicKey = "overview";
+    if (rawTopic) {
+      if (rawTopic.includes("mem") || rawTopic.includes("find")) topicKey = "members";
+      else if (rawTopic.includes("greet") || rawTopic.includes("wish") || rawTopic.includes("review")) topicKey = "greetings";
+      else if (rawTopic.includes("bull") || rawTopic.includes("announc")) topicKey = "bulletin";
+      else if (rawTopic.includes("event") || rawTopic.includes("cal")) topicKey = "events";
+      else if (rawTopic.includes("task")) topicKey = "tasks";
+      else if (rawTopic.includes("bib") || rawTopic.includes("vers") || rawTopic.includes("scrip") || rawTopic.includes("memo")) topicKey = "scripture";
+      else if (rawTopic.includes("sys") || rawTopic.includes("back") || rawTopic.includes("stat") || rawTopic.includes("qual")) topicKey = "system";
+    }
+    const screen = helpScreen(topicKey);
+    await renderScreen(bot, msg.chat.id, null, screen);
   }));
 
   bot.onText(/\/backup/, adminOnly(async (msg) => {
@@ -70,7 +201,6 @@ export const registerHome = (bot) => {
     }
 
     const { default: Member } = await import("../../models/Member.js");
-    const { renderScreen } = await import("../ui.js");
 
     const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const members = await Member.find({
@@ -136,9 +266,10 @@ export const homeCallbacks = {
     await renderScreen(bot, chatId, messageId, homeScreen());
   },
   "help:show": async ({ bot, chatId, messageId }) => {
-    await renderScreen(bot, chatId, messageId, {
-      text: HELP_TEXT,
-      keyboard: [[{ text: "🔙 Return to Dashboard", callback_data: "home:show" }]]
-    });
+    await renderScreen(bot, chatId, messageId, helpScreen("overview"));
+  },
+  "help:topic": async ({ bot, chatId, messageId, args }) => {
+    const topic = args[0] || "overview";
+    await renderScreen(bot, chatId, messageId, helpScreen(topic));
   }
 };

@@ -7,6 +7,7 @@ import { registerReview } from "./handlers/review.js";
 import { registerEvents } from "./handlers/events.js";
 import { registerTasks } from "./handlers/tasks.js";
 import { registerStats } from "./handlers/stats.js";
+import { registerBulletin } from "./handlers/bulletin.js";
 import { registerRouter } from "./router.js";
 
 let bot;
@@ -59,13 +60,14 @@ export const initTelegram = () => {
     { command: "start", description: "Open main menu" },
     { command: "menu", description: "Open main menu" },
     { command: "review", description: "Review today's greetings" },
+    { command: "bulletin", description: "Generate weekly church bulletin & announcements" },
     { command: "events", description: "Browse church events & services" },
     { command: "addevent", description: "Schedule a church program" },
     { command: "tasks", description: "Manage administrative tasks" },
     { command: "addtask", description: "Create an administrative task" },
     { command: "stats", description: "Church demographics & analytics" },
     { command: "dataquality", description: "Run data quality inspection" },
-    { command: "help", description: "Show administrator guide" },
+    { command: "help", description: "Show interactive administrator guide wizard" },
     { command: "cancel", description: "Cancel current action" },
     { command: "bible", description: "Search for a Bible verse" },
     { command: "addverse", description: "<type> <ref> - Add a custom event verse" },
@@ -76,6 +78,7 @@ export const initTelegram = () => {
   ]).catch((err) => console.error("❌ setMyCommands failed:", err.message));
 
   registerHome(bot);
+  registerBulletin(bot);
   registerBible(bot);
   registerMemorial(bot);
   registerReview(bot);

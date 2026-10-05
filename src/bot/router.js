@@ -11,6 +11,7 @@ import { settingsCallbacks, settingsStateHandlers } from "./handlers/settings.js
 import { reviewCallbacks, reviewStateHandlers } from "./handlers/review.js";
 import { eventsCallbacks, eventsStateHandlers } from "./handlers/events.js";
 import { tasksCallbacks, tasksStateHandlers } from "./handlers/tasks.js";
+import { bulletinCallbacks } from "./handlers/bulletin.js";
 
 const callbackRoutes = {
   ...homeCallbacks,
@@ -23,7 +24,8 @@ const callbackRoutes = {
   ...settingsCallbacks,
   ...reviewCallbacks,
   ...eventsCallbacks,
-  ...tasksCallbacks
+  ...tasksCallbacks,
+  ...bulletinCallbacks
 };
 
 const stateRoutes = {

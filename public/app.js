@@ -289,7 +289,19 @@ createApp({
       return list;
     });
 
-    // Grouped Family Units
+    // Helper to calculate age from DOB
+    const computeAge = (dob) => {
+      if (!dob) return null;
+      const b = new Date(dob);
+      if (isNaN(b.getTime())) return null;
+      const now = new Date();
+      let age = now.getFullYear() - b.getFullYear();
+      const m = now.getMonth() - b.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+      return age >= 0 ? age : null;
+    };
+
+    // Grouped Family Units (Legacy map for backward compatibility)
     const groupedFamilies = computed(() => {
       const groups = {};
       for (const m of filteredMembers.value) {
@@ -299,6 +311,149 @@ createApp({
       }
       return groups;
     });
+
+    // Rich Household / Family Tree Structure
+    const structuredFamilies = computed(() => {
+      const map = new Map();
+      const unassigned = [];
+
+      for (const m of filteredMembers.value) {
+        const famName = m.familyName?.trim();
+        if (famName) {
+          if (!map.has(famName)) map.set(famName, []);
+          map.get(famName).push(m);
+        } else {
+          unassigned.push(m);
+        }
+      }
+
+      const list = [];
+
+      for (const [famName, membersList] of map.entries()) {
+        // Hierarchy for Head of Household:
+        // 1. Pastor / Elder / Deacon
+        // 2. Married male
+        // 3. Adult male
+        // 4. Any adult
+        // 5. First member
+        let head = membersList.find(m => m.isPastor || ['pastor', 'elder', 'deacon', 'treasurer', 'secretary'].includes((m.role || '').toLowerCase()));
+        if (!head) {
+          head = membersList.find(m => m.gender === 'male' && m.isMarried);
+        }
+        if (!head) {
+          head = membersList.find(m => m.gender === 'male' && !m.isChild);
+        }
+        if (!head) {
+          head = membersList.find(m => !m.isChild);
+        }
+        if (!head) {
+          head = membersList[0];
+        }
+
+        // Identify spouse of head
+        let spouse = null;
+        if (head) {
+          spouse = membersList.find(m => {
+            if (m._id === head._id) return false;
+            if (head.spouseId && m._id === head.spouseId) return true;
+            if (head.spouseName && m.name && m.name.toLowerCase() === head.spouseName.toLowerCase()) return true;
+            if (m.spouseName && head.name && head.name.toLowerCase() === m.spouseName.toLowerCase()) return true;
+            return false;
+          });
+          if (!spouse && head.isMarried) {
+            spouse = membersList.find(m => m._id !== head._id && m.gender !== head.gender && m.isMarried);
+          }
+        }
+
+        // Identify children / dependents
+        const children = membersList.filter(m => {
+          if (m._id === head?._id || (spouse && m._id === spouse._id)) return false;
+          if (m.isChild) return true;
+          if (head && m.parentId && m.parentId === head._id) return true;
+          if (spouse && m.parentId && m.parentId === spouse._id) return true;
+          const age = computeAge(m.dob);
+          if (age !== null && age < 18) return true;
+          return false;
+        });
+
+        // Other household members (elderly parents, relatives, etc.)
+        const others = membersList.filter(m => {
+          if (m._id === head?._id) return false;
+          if (spouse && m._id === spouse._id) return false;
+          if (children.some(c => c._id === m._id)) return false;
+          return true;
+        });
+
+        // Household contact details
+        const primaryPhone = head?.phone || spouse?.phone || membersList.find(m => m.phone)?.phone || '';
+        const primaryAddress = head?.address || spouse?.address || membersList.find(m => m.address)?.address || '';
+        const weddingDate = head?.weddingDate || spouse?.weddingDate || '';
+        const weddingKey = head?.wedding || spouse?.wedding || '';
+
+        list.push({
+          name: famName,
+          isUnassigned: false,
+          totalCount: membersList.length,
+          head,
+          spouse,
+          children,
+          others,
+          allMembers: membersList,
+          primaryPhone,
+          primaryAddress,
+          weddingDate,
+          weddingKey
+        });
+      }
+
+      list.sort((a, b) => a.name.localeCompare(b.name));
+
+      if (unassigned.length > 0) {
+        list.push({
+          name: 'General Roster (Unassigned Household)',
+          isUnassigned: true,
+          totalCount: unassigned.length,
+          head: null,
+          spouse: null,
+          children: [],
+          others: unassigned,
+          allMembers: unassigned,
+          primaryPhone: '',
+          primaryAddress: '',
+          weddingDate: '',
+          weddingKey: ''
+        });
+      }
+
+      return list;
+    });
+
+    const householdStats = computed(() => {
+      const activeFamilies = structuredFamilies.value.filter(f => !f.isUnassigned);
+      const totalHouseholds = activeFamilies.length;
+      const totalInHouseholds = activeFamilies.reduce((sum, f) => sum + f.totalCount, 0);
+      const unassignedGroup = structuredFamilies.value.find(f => f.isUnassigned);
+      const unassignedCount = unassignedGroup ? unassignedGroup.totalCount : 0;
+      const avgSize = totalHouseholds > 0 ? (totalInHouseholds / totalHouseholds).toFixed(1) : '0';
+      return {
+        totalHouseholds,
+        totalInHouseholds,
+        unassignedCount,
+        avgSize
+      };
+    });
+
+    const addFamilyMember = (familyName) => {
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      form.value = { ...defaultForm(), familyName: familyName || '' };
+      currentTab.value = 'memberForm';
+    };
+
+    const openFamilyWhatsApp = (phone) => {
+      if (!phone) return;
+      const clean = phone.replace(/[^0-9]/g, '');
+      window.open(`https://wa.me/${clean}`, '_blank');
+    };
 
     // Selection
     const selectAll = () => {
@@ -861,8 +1016,8 @@ createApp({
       form, tplForm, wishModal, importModal, eventForm, taskForm,
       eventModalOpen, taskModalOpen, eventFilter, taskFilter,
       totalCount, activeCount, marriedCount, celebrationsCount, overdueTasksCount,
-      filteredMembers, groupedFamilies, filteredChurchEvents, filteredTasks,
-      selectAll, bulkAction, openMemberForm, saveMember, archiveMember, restoreMember,
+      filteredMembers, groupedFamilies, structuredFamilies, householdStats, filteredChurchEvents, filteredTasks,
+      selectAll, bulkAction, openMemberForm, addFamilyMember, openFamilyWhatsApp, saveMember, archiveMember, restoreMember,
       openTemplateForm, saveTemplate, deleteTemplate, insertVariable,
       openEventForm, saveEvent, deleteEvent, exportICS,
       openTaskForm, saveTask, deleteTask, toggleTaskComplete, updateTaskStatus,
@@ -870,7 +1025,7 @@ createApp({
       openImportModal, parseCSVFile, executeBulkImport,
       handlePhotoFileInput, calendarMonth, calendarMonthDays, shiftCalendarMonth, mergeMemberAction,
       saveSettings, triggerAction, exportCSV, openDirectory,
-      getAge, getInitials, avatarStyle, photoUrl, getCelebrationPill
+      getAge, computeAge, getInitials, avatarStyle, photoUrl, getCelebrationPill
     };
   }
 }).mount('#app');
