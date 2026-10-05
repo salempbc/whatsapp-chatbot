@@ -156,7 +156,31 @@ const weddingVerses = [
   },
   {
     ref: "எபேசியர் 5:33",
-    text: "எப்படியும், உங்களில் அவனவன் தன்மேல் அன்பு Berry செய்வதுபோல, தன் மனைவிமேலும் அன்பு கூரக்கடவன்; மனைவியும் புருஷனிடத்தில் பயபக்தியாயிருக்கக்கடவள்."
+    text: "எப்படியும், உங்களில் அவனவன் தன்மேல் அன்புகூருவதுபோல, தன் மனைவிமேலும் அன்புகூரக்கடவன்; மனைவியும் புருஷனிடத்தில் பயபக்தியாயிருக்கக்கடவள்."
+  }
+];
+
+/* ===== MEMORIAL & COMFORT VERSES (Tamil O.V. BSI) ===== */
+const memorialVerses = [
+  {
+    ref: "சங்கீதம் 116:15",
+    text: "கர்த்தருடைய பரிசுத்தவான்களின் மரணம் அவருடைய பார்வைக்கு அருமையானது."
+  },
+  {
+    ref: "யோவான் 14:27",
+    text: "சமாதானத்தை உங்களுக்கு வைத்துப்போகிறேன், என்னுடைய சமாதானத்தையே உங்களுக்குக் கொடுக்கிறேன்; உலகம் கொடுக்கிறபிரகாரம் நான் உங்களுக்குக் கொடுக்கிறதில்லை. உங்கள் இருதயம் கலங்காமலும் பயப்படாமலும் இருப்பதாக."
+  },
+  {
+    ref: "சங்கீதம் 34:18",
+    text: "நொறுங்குண்ட இருதயமுள்ளவர்களுக்குக் கர்த்தர் சமீபமாயிருந்து, நருங்குண்ட ஆவியுள்ளவர்களை இரட்சிக்கிறார்."
+  },
+  {
+    ref: "வெளிப்படுத்தின விசேஷம் 21:4",
+    text: "அவர்களுடைய கண்ணீர் யாவையும் தேவன் துடைப்பார்; இனி மரணமுமில்லை, துக்கமுமில்லை, அலறுதலுமில்லை, வருத்தமுமில்லை; முந்தினவைகள் ஒழிந்துபோயின என்று விளம்பினது."
+  },
+  {
+    ref: "பிலிப்பியர் 1:21",
+    text: "கிறிஸ்து எனக்கு ஜீவன், சாவு எனக்கு ஆதாயம்."
   }
 ];
 
@@ -234,6 +258,10 @@ export const getCanonicalVerse = async (eventType, member = null) => {
   }
   if (type === "wedding") {
     const item = pick(weddingVerses);
+    return { reference: item.ref, text: `${item.text} (${item.ref})` };
+  }
+  if (type === "memorial") {
+    const item = pick(memorialVerses);
     return { reference: item.ref, text: `${item.text} (${item.ref})` };
   }
 
@@ -318,10 +346,10 @@ ${yearsMarried ? `Years married: ${yearsMarried} years` : ""}
 Selected Scripture verse: "${verseText}" (Reference: ${verseRef})
 
 Strict Rules:
-1. Write ONLY in natural, fluent, elegant, authentic Tamil Christian phrasing.
+1. Write ONLY in natural, fluent, elegant, authentic Tamil Christian phrasing using traditional language faithful to the Tamil Bible Old Version (BSI - பரிசுத்த வேதாகமம் O.V.).
 2. 2 to 3 sentences maximum.
 3. Incorporate the spirit of the Scripture verse and pray for God's blessings, protection and peace.
-4. Do NOT hallucinate or quote fake Bible verses. The verse is provided above and handled separately.
+4. Do NOT hallucinate or quote fake or modern paraphrase Bible verses. The canonical verse is provided above and handled strictly from the Tamil O.V. BSI.
 5. Do NOT include English text, markdown bold headings, or conversational pleasantries (e.g. "Here is your wish:").
 6. Output ONLY the Tamil prayer blessing text.`;
 

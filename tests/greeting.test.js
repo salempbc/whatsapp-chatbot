@@ -21,7 +21,16 @@ test("AI & Scripture: getCanonicalVerse returns authentic Scripture references w
   assert.ok(elderVerse.reference.includes("சங்கீதம்") || elderVerse.reference.includes("ஏசாயா") || elderVerse.reference.includes("நீதிமொழிகள்"), "Elder verse matches curated Scripture");
 
   const weddingVerse = await getCanonicalVerse("wedding");
-  assert.ok(weddingVerse.reference.includes("ஆதியாகமம்") || weddingVerse.reference.includes("மத்தேயு") || weddingVerse.reference.includes("கொரிந்தியர்") || weddingVerse.reference.includes("கொலோசெயர்"));
+  assert.ok(
+    weddingVerse.reference.includes("ஆதியாகமம்") ||
+    weddingVerse.reference.includes("மத்தேயு") ||
+    weddingVerse.reference.includes("கொரிந்தியர்") ||
+    weddingVerse.reference.includes("கொலோசெயர்") ||
+    weddingVerse.reference.includes("சங்கீதம்") ||
+    weddingVerse.reference.includes("பிரசங்கி") ||
+    weddingVerse.reference.includes("எபேசியர்"),
+    "Wedding verse matches canonical Scripture"
+  );
 });
 
 test("AI & Scripture: Offline fallback generates valid, reverent Tamil Christian blessings", async () => {
