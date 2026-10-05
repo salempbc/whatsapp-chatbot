@@ -118,7 +118,8 @@ export const getTasks = async (options = {}) => {
   }
 
   if (search && search.trim()) {
-    const regex = new RegExp(search.trim(), "i");
+    const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
     filter.$or = [{ title: regex }, { description: regex }, { tags: regex }, { assignee: regex }];
   }
 
@@ -380,7 +381,13 @@ export const addAttachment = async (taskId, { filename, mimeType, size, data }) 
   const task = await Task.findById(taskId);
   if (!task) throw new Error("Task not found");
 
-  task.attachments.push({ filename, mimeType: mimeType || "application/octet-stream", size: size || 0, data });
+  const cleanFilename = String(filename).replace(/[/\\?%*:|"<>]/g, "_").slice(0, 200);
+  task.attachments.push({
+    filename: cleanFilename,
+    mimeType: mimeType || "application/octet-stream",
+    size: size || 0,
+    data
+  });
   await task.save();
   return task;
 };

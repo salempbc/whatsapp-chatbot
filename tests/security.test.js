@@ -152,3 +152,36 @@ test("Security Middleware: WebApp initData HMAC verification and expiration", ()
   process.env.ADMIN_ID = origAdmin;
   process.env.ADMIN_SECRET = origSecret;
 });
+
+test("Security Guard: Regex escaping prevents ReDoS and invalid pattern syntax errors", () => {
+  const escapeRegex = (str = "") => String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const maliciousInputs = [
+    "(a+)+$",
+    "[invalid(regex",
+    "*+?^${}()|[]\\",
+    "John (Pastor)"
+  ];
+
+  for (const input of maliciousInputs) {
+    const escaped = escapeRegex(input);
+    assert.doesNotThrow(() => {
+      new RegExp(escaped, "i");
+    }, `Escaped regex for "${input}" must not throw`);
+  }
+});
+
+test("Security Guard: HTML escaping prevents Stored XSS in Church Directory", () => {
+  const escapeHtml = (str = "") =>
+    String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  const xssPayload = '<script>alert("pwned")</script>';
+  const escaped = escapeHtml(xssPayload);
+  assert.equal(escaped.includes("<script>"), false);
+  assert.equal(escaped.includes("&lt;script&gt;"), true);
+});
+

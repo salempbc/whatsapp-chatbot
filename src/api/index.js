@@ -88,11 +88,23 @@ for (const verb of ["get", "post", "put", "patch", "delete"]) {
     );
 }
 
+const escapeHtml = (str = "") =>
+  String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const escapeRegex = (str = "") =>
+  String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /* Telegram Bot Webhook endpoint */
 router.post("/bot-webhook", express.json({ limit: "1mb" }), (req, res) => {
   const provided = req.get("X-Telegram-Bot-Api-Secret-Token") || "";
   const expected = getWebhookSecret();
   const ok =
+    expected.length > 0 &&
     provided.length === expected.length &&
     crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
 
@@ -115,7 +127,9 @@ const prunePhotoCache = () => {
   }
 };
 
-router.use(express.json());
+/* Support up to 15mb for base64 task attachments and member photos */
+router.use(express.json({ limit: "15mb" }));
+router.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
 /* 1. PUBLIC HEALTH & TELEMETRY */
 router.get("/ping", (req, res) => res.status(200).send("pong"));
@@ -216,7 +230,7 @@ router.get("/members", async (req, res) => {
     filter.status = status;
   }
   if (search && search.trim()) {
-    const s = search.trim();
+    const s = escapeRegex(search.trim());
     filter.$or = [
       { name: new RegExp(s, "i") },
       { familyName: new RegExp(s, "i") },
@@ -235,8 +249,12 @@ router.post("/members/check-duplicate", async (req, res) => {
 });
 
 router.post("/members", async (req, res) => {
-  if (req.body.dob) req.body.birthday = req.body.dob.substring(5);
-  if (req.body.weddingDate) req.body.wedding = req.body.weddingDate.substring(5);
+  if (typeof req.body.dob === "string" && req.body.dob.length >= 5) {
+    req.body.birthday = req.body.dob.substring(5);
+  }
+  if (typeof req.body.weddingDate === "string" && req.body.weddingDate.length >= 5) {
+    req.body.wedding = req.body.weddingDate.substring(5);
+  }
   const m = await Member.create(req.body);
   res.json(m);
 });
@@ -333,20 +351,20 @@ router.get("/directory", async (req, res) => {
 
   for (const [famName, famMembers] of Object.entries(families)) {
     html += `<div class="family-card">
-      <div class="family-title">🏡 ${famName} (${famMembers.length})</div>
+      <div class="family-title">🏡 ${escapeHtml(famName)} (${famMembers.length})</div>
       <div class="member-grid">`;
     
     for (const m of famMembers) {
       html += `<div class="member-item">
         <div style="display:flex; justify-content: space-between; align-items:center;">
-          <strong style="font-size: 16px;">${m.name}</strong>
-          ${m.role ? `<span class="role-badge">${m.role}</span>` : ""}
+          <strong style="font-size: 16px;">${escapeHtml(m.name)}</strong>
+          ${m.role ? `<span class="role-badge">${escapeHtml(m.role)}</span>` : ""}
         </div>
         <div style="font-size: 13px; color: #475569; margin-top: 6px;">
           Gender: ${m.gender === "male" ? "♂ Male" : "♀ Female"}<br>
-          ${m.dob ? `DOB: ${m.dob}<br>` : ""}
-          ${m.isMarried ? `Spouse: ${m.spouseName || "Married"}<br>` : ""}
-          ${m.weddingDate ? `Anniversary: ${m.weddingDate}` : ""}
+          ${m.dob ? `DOB: ${escapeHtml(m.dob)}<br>` : ""}
+          ${m.isMarried ? `Spouse: ${escapeHtml(m.spouseName || "Married")}<br>` : ""}
+          ${m.weddingDate ? `Anniversary: ${escapeHtml(m.weddingDate)}` : ""}
         </div>
       </div>`;
     }

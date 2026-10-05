@@ -65,6 +65,12 @@ app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
     return res.status(400).json({ error: "Malformed JSON payload" });
   }
+  if (err?.name === "CastError") {
+    return res.status(400).json({ error: "Invalid resource identifier format" });
+  }
+  if (err?.type === "entity.too.large") {
+    return res.status(413).json({ error: "Payload exceeds size limit (max 15MB)" });
+  }
   console.error("💥 [EXPRESS ERROR]:", err?.stack || err?.message || err);
   if (res.headersSent) return next(err);
   res.status(err.status || 500).json({ error: err.message || "Internal server error" });
