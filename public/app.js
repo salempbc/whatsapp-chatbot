@@ -304,6 +304,11 @@ const app = createApp({
       authModalOpen.value = true;
     };
 
+    // Navigate to /admin auto-login shortcut (cannot use window directly in Vue 3 templates)
+    const goToAdminLogin = () => {
+      window.location.href = '/admin';
+    };
+
     // User Management State (Full Access Control & CRUD)
     const authorizedUsers = ref([]);
     const superAdminId = ref('');
@@ -2093,7 +2098,7 @@ const app = createApp({
     return {
       loadData,
       isDark, toggleTheme,
-      authToken, authModalOpen, authPasscode, authError, authVerifying, verifyAndSavePasscode, logoutStandalone,
+      authToken, authModalOpen, authPasscode, authError, authVerifying, verifyAndSavePasscode, logoutStandalone, goToAdminLogin,
       currentTab, memberView, members, templates, upcomingEvents, churchEvents, tasks, churchStats, dataQuality, settings,
       search, memberFilter, sortBy, selectedIds,
       loading, saving, triggering, toastMessage, showToast, dataLoadError,
