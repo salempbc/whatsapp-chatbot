@@ -206,6 +206,15 @@ const app = createApp({
     const tplForm = ref(defaultTplForm());
 
     // Standalone Browser and Telegram Authentication
+    // IMPORTANT: In Telegram Web (weba platform), initData is populated ASYNCHRONOUSLY via
+    // postMessage AFTER app.js executes. So we must read it dynamically, not from the
+    // captured `tg` reference at module load time.
+    const getTgInitData = () => window.Telegram?.WebApp?.initData || tg.initData || '';
+    const isInTelegram = () => {
+      if (getTgInitData().length > 5) return true;
+      return window.location.hash.includes('tgWebAppData=');
+    };
+
     const getStoredToken = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const urlToken = urlParams.get('auth') || urlParams.get('token');
@@ -213,9 +222,8 @@ const app = createApp({
         localStorage.setItem('spbc_auth_token', urlToken);
         return urlToken;
       }
-      if (tg.initData && tg.initData.length > 5) {
-        return tg.initData;
-      }
+      const initData = getTgInitData();
+      if (initData && initData.length > 5) return initData;
       return localStorage.getItem('spbc_auth_token') || '';
     };
 
@@ -227,7 +235,8 @@ const app = createApp({
 
     // API Helper with network exception handling & request timeouts
     const apiCall = async (url, method = 'GET', body = null) => {
-      const token = authToken.value || getStoredToken();
+      // Always re-read initData dynamically (weba populates it after load)
+      const token = authToken.value || getTgInitData() || localStorage.getItem('spbc_auth_token') || '';
       const opts = {
         method,
         headers: { 'Authorization': `Bearer ${token}` }
@@ -255,7 +264,8 @@ const app = createApp({
       }
 
       if (res.status === 401 || res.status === 403) {
-        if (!tg.initData || tg.initData.length < 5) {
+        // Only show auth modal if truly NOT in Telegram (standalone browser with no token)
+        if (!isInTelegram()) {
           authModalOpen.value = true;
         }
       }
@@ -625,10 +635,22 @@ const app = createApp({
     };
 
     onMounted(() => {
-      if (!authToken.value && (!tg.initData || tg.initData.length < 5)) {
-        authModalOpen.value = true;
-      } else {
+      if (isInTelegram()) {
+        // In Telegram (any platform including weba): refresh token from dynamic initData,
+        // never show the auth modal, and proceed straight to loading data.
+        const initData = getTgInitData();
+        if (initData && initData.length > 5) {
+          authToken.value = initData;
+        }
+        authModalOpen.value = false;
         loadData();
+      } else if (authToken.value) {
+        // Standalone browser with a saved token (ADMIN_ID or ADMIN_SECRET)
+        authModalOpen.value = false;
+        loadData();
+      } else {
+        // No token at all — show the passcode modal
+        authModalOpen.value = true;
       }
     });
 
