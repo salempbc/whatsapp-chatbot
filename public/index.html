@@ -2727,56 +2727,51 @@
     <!-- ========================================== -->
     <!-- MODAL 4: STANDALONE ADMIN UNLOCK MODAL     -->
     <!-- ========================================== -->
-    <transition name="fade">
-      <div v-if="authModalOpen" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="w-full max-w-sm p-6 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl text-center" @click.stop>
-          <div class="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-2xl shadow-inner">
-            🔐
-          </div>
-          <div>
-            <h3 class="font-bold text-slate-900 dark:text-white text-lg">Admin Login</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">You're accessing the Salem PBC portal outside of Telegram. Enter your Admin Passcode to continue.</p>
-          </div>
-
-          <div class="space-y-2 text-left">
-            <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Admin Passcode</label>
-            <input
-              type="password"
-              v-model="authPasscode"
-              @keyup.enter="verifyAndSavePasscode"
-              placeholder="Enter your passcode..."
-              class="w-full px-3.5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-center font-mono tracking-widest"
-              autocomplete="current-password"
-            />
-          </div>
-
-          <div v-if="authError" class="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-600 dark:text-rose-400 font-semibold">
-            {{ authError }}
-          </div>
-
-          <button
-            @click="verifyAndSavePasscode"
-            :disabled="authVerifying || !authPasscode"
-            class="btn-brand w-full py-3.5 text-sm font-bold shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            <span v-if="authVerifying" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            <span>{{ authVerifying ? 'Verifying...' : '🔓 Unlock Portal' }}</span>
-          </button>
-
-          <!-- Quick-access button: opens /admin which auto-redirects with token -->
-          <button
-            @click="goToAdminLogin"
-            class="w-full py-2.5 text-sm font-semibold rounded-xl border border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
-          >
-            🔗 Use Admin Quick-Login Link
-          </button>
-
-          <p class="text-[11px] text-slate-400 leading-tight">
-            💡 <strong>Tip:</strong> Bookmark <code class="bg-slate-100 dark:bg-slate-800 px-1 rounded">/admin</code> for instant access next time — no passcode needed. When opened inside Telegram, login is automatic.
-          </p>
+    <div v-show="authModalOpen" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div class="w-full max-w-sm p-6 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl text-center" @click.stop>
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-2xl shadow-inner">
+          🔐
         </div>
+        <div>
+          <h3 class="font-bold text-slate-900 dark:text-white text-lg">Admin Login</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">You're accessing the Salem PBC portal outside of Telegram. Enter your Admin Passcode to continue.</p>
+        </div>
+
+        <div class="space-y-2 text-left">
+          <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Admin Passcode</label>
+          <input
+            type="password"
+            v-model="authPasscode"
+            @keyup.enter="verifyAndSavePasscode"
+            placeholder="Enter your passcode..."
+            class="w-full px-3.5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-center font-mono tracking-widest"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <div v-show="authError" class="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-600 dark:text-rose-400 font-semibold" v-text="authError"></div>
+
+        <button
+          @click="verifyAndSavePasscode"
+          :disabled="authVerifying || !authPasscode"
+          class="btn-brand w-full py-3.5 text-sm font-bold shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <span v-show="authVerifying" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          <span v-text="authVerifying ? 'Verifying...' : 'Unlock Portal'"></span>
+        </button>
+
+        <button
+          @click="goToAdminLogin"
+          class="w-full py-2.5 text-sm font-semibold rounded-xl border border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+        >
+          🔗 Use Admin Quick-Login Link
+        </button>
+
+        <p class="text-xs text-slate-400 leading-tight">
+          Tip: Bookmark /admin for instant access - no passcode needed. Inside Telegram, login is automatic.
+        </p>
       </div>
-    </transition>
+    </div>
 
     <!-- Floating Island Bottom Navigation (High Contrast Dark/Light Island) -->
     <nav v-if="!loading && !authModalOpen && !['memberForm', 'templateForm', 'fastEntry'].includes(currentTab)" class="fixed bottom-3 left-3 right-3 max-w-xl mx-auto bg-white/95 dark:bg-[#151c28]/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl flex justify-between p-1.5 z-50 transition-colors">
@@ -2814,6 +2809,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.3.3"></script>
+  <script src="/app.js?v=2.3.4"></script>
 </body>
 </html>
