@@ -22,7 +22,7 @@ try {
 
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=8').then((reg) => {
+    navigator.serviceWorker.register('/sw.js?v=9').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });

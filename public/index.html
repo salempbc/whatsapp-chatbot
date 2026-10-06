@@ -1613,9 +1613,9 @@
         <div v-if="!settings.customFields?.length" class="text-center py-2 text-xs text-slate-400">No custom attributes defined.</div>
       </section>
 
-      <!-- Save Settings Button -->
       <button @click="saveSettings" class="btn-brand w-full py-3.5 text-sm shadow-md" :disabled="saving">
-        {{ saving ? '⏳ Saving Preferences...' : '💾 Save All Preferences' }}
+        <span v-if="saving">⏳ Saving Preferences...</span>
+        <span v-else>💾 Save All Preferences</span>
       </button>
 
       <!-- Tools & Database Operations -->
@@ -1900,7 +1900,8 @@
           </div>
 
           <button @click="executeBulkImport" :disabled="!importModal.parsedMembers.length || importModal.importing" class="btn-brand w-full py-3.5 text-xs font-bold shadow-md">
-            {{ importModal.importing ? '⏳ Importing Members...' : '🎉 Start Import (' + importModal.parsedMembers.length + ' Members)' }}
+            <span v-if="importModal.importing">⏳ Importing Members...</span>
+            <span v-else>🎉 Start Import ({{ importModal.parsedMembers.length }} Members)</span>
           </button>
         </div>
       </div>
@@ -1969,9 +1970,9 @@
               <textarea v-model="eventForm.description" rows="2" placeholder="Sermon text, speaker, choir info..." class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none"></textarea>
             </div>
 
-            <div class="flex gap-2 pt-2">
               <button @click="saveEvent" :disabled="saving" class="btn-brand flex-1 py-3 text-xs font-bold shadow-md">
-                {{ saving ? 'Saving...' : '💾 Save Event' }}
+                <span v-if="saving">Saving...</span>
+                <span v-else>💾 Save Event</span>
               </button>
               <button v-if="eventForm._id" @click="deleteEvent(eventForm._id); eventModalOpen = false" class="px-3 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold hover:bg-rose-100 text-xs border border-rose-200 dark:border-rose-800">
                 🗑 Delete
@@ -2136,9 +2137,9 @@
             </div>
 
             <!-- Save & Delete Buttons -->
-            <div class="flex gap-2 pt-2">
               <button @click="saveTask" :disabled="saving" class="btn-brand flex-1 py-3 text-xs font-bold shadow-md">
-                {{ saving ? 'Saving...' : '💾 Save Task' }}
+                <span v-if="saving">Saving...</span>
+                <span v-else>💾 Save Task</span>
               </button>
               <button v-if="taskForm._id" @click="deleteTask(taskForm._id); taskModalOpen = false" class="px-3 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold hover:bg-rose-100 text-xs border border-rose-200 dark:border-rose-800">
                 🗑 Delete
@@ -2284,7 +2285,9 @@
                 Cancel
               </button>
               <button @click="saveUserAction" :disabled="userSaving" type="button" class="btn-brand flex-1 py-2.5 rounded-xl font-bold shadow-md">
-                {{ userSaving ? 'Saving...' : (isEditingUser ? 'Save Changes' : 'Create Leader') }}
+                <span v-if="userSaving">Saving...</span>
+                <span v-else-if="isEditingUser">Save Changes</span>
+                <span v-else>Create Leader</span>
               </button>
             </div>
           </div>
@@ -2336,7 +2339,8 @@
                 Cancel
               </button>
               <button @click="generateInviteLink(inviteRole, inviteHours)" :disabled="generatingInvite" type="button" class="btn-brand flex-1 py-2.5 rounded-xl font-bold shadow-md">
-                {{ generatingInvite ? 'Generating...' : 'Create Invite Link' }}
+                <span v-if="generatingInvite">Generating...</span>
+                <span v-else>Create Invite Link</span>
               </button>
             </div>
           </div>
@@ -2642,9 +2646,9 @@
         </div>
       </div>
 
-      <div class="flex gap-2">
         <button @click="saveMember" class="btn-brand flex-1 py-3.5 text-sm shadow-md" :disabled="saving">
-          {{ saving ? '⏳ Saving...' : '💾 Save Member Profile' }}
+          <span v-if="saving">⏳ Saving...</span>
+          <span v-else>💾 Save Member Profile</span>
         </button>
         <button v-if="form._id" @click="archiveMember(form._id)" class="px-4 py-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold hover:bg-rose-100 text-sm border border-rose-200 dark:border-rose-800">
           📦 Archive
@@ -2701,9 +2705,9 @@
         </div>
       </div>
 
-      <div class="flex gap-2.5">
         <button @click="saveTemplate" class="btn-brand flex-1 py-3.5 text-sm shadow-md" :disabled="saving">
-          {{ saving ? '⏳ Saving...' : '💾 Save Template' }}
+          <span v-if="saving">⏳ Saving...</span>
+          <span v-else>💾 Save Template</span>
         </button>
         <button v-if="tplForm._id" @click="deleteTemplate" class="px-4 py-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold hover:bg-rose-100 text-sm border border-rose-200 dark:border-rose-800">
           🗑 Delete
@@ -2760,6 +2764,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.3.8"></script>
+  <script src="/app.js?v=2.3.9"></script>
 </body>
 </html>
