@@ -22,7 +22,7 @@ try {
 
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=6').then((reg) => {
+    navigator.serviceWorker.register('/sw.js?v=7').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });
@@ -206,11 +206,9 @@ const app = createApp({
     const tplForm = ref(defaultTplForm());
 
     // Standalone Browser and Telegram Authentication
-    // IMPORTANT: In Telegram Web (weba platform / browser iframe), window.Telegram.WebApp.initData
-    // can be empty initially or populated asynchronously via postMessage. However, Telegram ALWAYS
-    // passes the initData in the URL hash under #tgWebAppData=...
+    // Robust detection across Telegram Android, iOS, Desktop, Web (weba/webk), and standalone browsers
     const getTgInitData = () => {
-      // 1. Check window.Telegram.WebApp.initData
+      // 1. Direct from window.Telegram.WebApp.initData
       const direct = window.Telegram?.WebApp?.initData || tg.initData || '';
       if (direct && direct.length > 5) return direct;
 
@@ -225,25 +223,66 @@ const app = createApp({
         }
       } catch (_) {}
 
+      // 3. Fallback: Telegram User ID from initDataUnsafe if inside Telegram
+      const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      if (uid) return String(uid);
+
       return '';
     };
 
     const isInTelegram = () => {
+      // 1. Telegram WebApp platform property (android, ios, tdesktop, macos, weba, webk)
+      const platform = window.Telegram?.WebApp?.platform;
+      if (platform && platform !== 'unknown') return true;
+
+      // 2. Direct or URL-parsed initData string
       if (getTgInitData().length > 5) return true;
+
+      // 3. User object present in Telegram context
+      if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) return true;
+
+      // 4. URL hash indicators from Telegram Web
       const hash = window.location.hash || '';
-      return hash.includes('tgWebAppData=') || hash.includes('tgWebAppVersion=');
+      if (hash.includes('tgWebAppData=') || hash.includes('tgWebAppVersion=')) return true;
+
+      // 5. Telegram WebApp version property
+      if (window.Telegram?.WebApp?.version && window.Telegram.WebApp.version.length > 0) return true;
+
+      // 6. User-Agent contains Telegram
+      if (typeof navigator !== 'undefined' && /Telegram/i.test(navigator.userAgent || '')) return true;
+
+      return false;
     };
 
     const getStoredToken = () => {
+      // 1. URL query parameter (?auth=... or ?token=...)
       const urlParams = new URLSearchParams(window.location.search);
       const urlToken = urlParams.get('auth') || urlParams.get('token');
       if (urlToken) {
         localStorage.setItem('spbc_auth_token', urlToken);
         return urlToken;
       }
+
+      // 2. Telegram WebApp initData or fallback user ID
       const initData = getTgInitData();
-      if (initData && initData.length > 5) return initData;
-      return localStorage.getItem('spbc_auth_token') || '';
+      if (initData && initData.length > 5) {
+        localStorage.setItem('spbc_auth_token', initData);
+        return initData;
+      }
+
+      // 3. Cached token in localStorage
+      const stored = localStorage.getItem('spbc_auth_token') || '';
+      if (stored) return stored;
+
+      // 4. Telegram user ID from unsafe context
+      const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      if (uid) {
+        const uidStr = String(uid);
+        localStorage.setItem('spbc_auth_token', uidStr);
+        return uidStr;
+      }
+
+      return '';
     };
 
     const authToken = ref(getStoredToken());
@@ -653,22 +692,36 @@ const app = createApp({
       }
     };
 
-    onMounted(() => {
+    onMounted(async () => {
       if (isInTelegram()) {
-        // In Telegram (any platform including weba): refresh token from dynamic initData,
-        // never show the auth modal, and proceed straight to loading data.
-        const initData = getTgInitData();
-        if (initData && initData.length > 5) {
-          authToken.value = initData;
+        // In Telegram: auth modal is strictly prohibited from opening
+        authModalOpen.value = false;
+
+        // Ensure token is retrieved from Telegram environment
+        let token = getTgInitData();
+        if (!token || token.length <= 5) {
+          // Allow Telegram SDK handshake to settle if opening via native client
+          await new Promise(r => setTimeout(r, 150));
+          token = getTgInitData();
+        }
+        if (token) {
+          authToken.value = token;
+          localStorage.setItem('spbc_auth_token', token);
+        } else {
+          const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+          if (uid) {
+            authToken.value = String(uid);
+            localStorage.setItem('spbc_auth_token', String(uid));
+          }
         }
         authModalOpen.value = false;
-        loadData();
+        await loadData();
       } else if (authToken.value) {
         // Standalone browser with a saved token (ADMIN_ID or ADMIN_SECRET)
         authModalOpen.value = false;
-        loadData();
+        await loadData();
       } else {
-        // No token at all — show the passcode modal
+        // Truly outside Telegram with no credentials - show passcode modal
         authModalOpen.value = true;
       }
     });
@@ -2139,7 +2192,7 @@ const app = createApp({
     return {
       loadData,
       isDark, toggleTheme,
-      authToken, authModalOpen, authPasscode, authError, authVerifying, verifyAndSavePasscode, logoutStandalone, goToAdminLogin,
+      authToken, authModalOpen, authPasscode, authError, authVerifying, verifyAndSavePasscode, logoutStandalone, goToAdminLogin, isInTelegram,
       currentTab, memberView, members, templates, upcomingEvents, churchEvents, tasks, churchStats, dataQuality, settings,
       search, memberFilter, sortBy, selectedIds,
       loading, saving, triggering, toastMessage, showToast, dataLoadError,

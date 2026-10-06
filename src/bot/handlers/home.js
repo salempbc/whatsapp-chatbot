@@ -144,7 +144,10 @@ export const homeScreen = () => {
   ];
 
   if (webAppUrl && webAppUrl.length > 8) {
-    keyboard.push([{ text: "🌐 Open Web Admin Dashboard", web_app: { url: webAppUrl } }]);
+    const authParam = process.env.ADMIN_ID && !webAppUrl.includes("auth=")
+      ? (webAppUrl.includes("?") ? `&auth=${process.env.ADMIN_ID}` : `?auth=${process.env.ADMIN_ID}`)
+      : "";
+    keyboard.push([{ text: "🌐 Open Web Admin Dashboard", web_app: { url: `${webAppUrl}${authParam}` } }]);
   }
 
   keyboard.push(
@@ -234,6 +237,7 @@ export const registerHome = (bot) => {
   });
 
   bot.onText(/\/menu/, openMenu);
+  bot.onText(/\/(?:admin|dashboard)/, openMenu);
 
   bot.onText(/\/help(?:\s+(.+))?/, adminOnly(async (msg, match) => {
     const rawTopic = match[1]?.trim().toLowerCase();
