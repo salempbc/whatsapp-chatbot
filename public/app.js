@@ -206,13 +206,32 @@ const app = createApp({
     const tplForm = ref(defaultTplForm());
 
     // Standalone Browser and Telegram Authentication
-    // IMPORTANT: In Telegram Web (weba platform), initData is populated ASYNCHRONOUSLY via
-    // postMessage AFTER app.js executes. So we must read it dynamically, not from the
-    // captured `tg` reference at module load time.
-    const getTgInitData = () => window.Telegram?.WebApp?.initData || tg.initData || '';
+    // IMPORTANT: In Telegram Web (weba platform / browser iframe), window.Telegram.WebApp.initData
+    // can be empty initially or populated asynchronously via postMessage. However, Telegram ALWAYS
+    // passes the initData in the URL hash under #tgWebAppData=...
+    const getTgInitData = () => {
+      // 1. Check window.Telegram.WebApp.initData
+      const direct = window.Telegram?.WebApp?.initData || tg.initData || '';
+      if (direct && direct.length > 5) return direct;
+
+      // 2. Parse from location.hash if present (#tgWebAppData=...)
+      try {
+        const hash = window.location.hash || '';
+        if (hash.includes('tgWebAppData=')) {
+          const hashClean = hash.startsWith('#') ? hash.slice(1) : hash;
+          const params = new URLSearchParams(hashClean);
+          const fromHash = params.get('tgWebAppData');
+          if (fromHash && fromHash.length > 5) return fromHash;
+        }
+      } catch (_) {}
+
+      return '';
+    };
+
     const isInTelegram = () => {
       if (getTgInitData().length > 5) return true;
-      return window.location.hash.includes('tgWebAppData=');
+      const hash = window.location.hash || '';
+      return hash.includes('tgWebAppData=') || hash.includes('tgWebAppVersion=');
     };
 
     const getStoredToken = () => {
