@@ -1,13 +1,10 @@
 // Service Worker for SPBC Church CMS Mini App (Network-First Strategy)
-const CACHE_NAME = 'spbc-cms-shell-v5';
+const CACHE_NAME = 'spbc-cms-shell-v6';
 
+// Only cache truly static, rarely-changing assets (NOT app.js or index.html)
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/app.js',
   '/vue.global.js',
-  '/tailwind.js',
-  'https://telegram.org/js/telegram-web-app.js'
+  '/tailwind.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -44,7 +41,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-First for HTML and app scripts to ensure zero stale bugs
+  // Always fetch app.js, index.html, and SW itself fresh from network — never serve stale
+  const alwaysFresh = ['/app.js', '/index.html', '/sw.js', '/admin'];
+  if (alwaysFresh.some(p => url.pathname === p || url.pathname.startsWith(p + '?'))) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Network-First for everything else, update cache on success
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {

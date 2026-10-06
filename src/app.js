@@ -65,6 +65,15 @@ app.get("/admin", (req, res) => {
   return res.redirect(`/?auth=${encodeURIComponent(adminId)}`);
 });
 
+/* Force no-cache on app.js and sw.js — these change with every deploy and must NEVER be served stale.
+   A stale app.js can cause Vue template compilation failures (raw {{ }} showing in UI). */
+app.get(['/app.js', '/sw.js'], (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 app.use(express.static(path.join(__dirname, "../public")));
 
 // Apply rate limiter specifically to /api
