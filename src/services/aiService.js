@@ -414,13 +414,15 @@ Strict Rules:
       }
     } catch (_) {}
 
+    // If GEMINI_MODEL is set to the deprecated "gemini-1.5-flash", override it with gemini-2.5-flash
+    const envModel = process.env.GEMINI_MODEL === "gemini-1.5-flash" ? "gemini-2.5-flash" : process.env.GEMINI_MODEL;
+
     const candidateModels = [
       ...discoveredModels,
-      process.env.GEMINI_MODEL,
+      envModel,
       "gemini-2.5-flash",
       "gemini-2.0-flash",
       "gemini-1.5-flash-latest",
-      "gemini-1.5-flash",
       "gemini-1.5-pro",
       "gemini-pro"
     ].filter(Boolean);
