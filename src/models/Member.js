@@ -168,7 +168,7 @@ memberSchema.index({ status: 1, isDeleted: 1 });
 /**
  * 🔒 VALIDATION LOGIC
  */
-memberSchema.pre("save", function (next) {
+memberSchema.pre("save", function () {
   // Sync isActive with lifecycle status
   if (this.status) {
     if (this.status === "active") {
@@ -185,14 +185,12 @@ memberSchema.pre("save", function (next) {
   if (this.isMarried) {
     // spouse required
     if (!this.spouseName || !this.spouseName.trim()) {
-      return next(new Error("Spouse name required for married members"));
+      throw new Error("Spouse name required for married members");
     }
 
     // gender pairing check
     if (this.gender && this.spouseGender && this.gender === this.spouseGender) {
-      return next(
-        new Error("Invalid marriage: same gender pairing not allowed")
-      );
+      throw new Error("Invalid marriage: same gender pairing not allowed");
     }
   } else {
     this.spouseName = "";
@@ -201,11 +199,9 @@ memberSchema.pre("save", function (next) {
     this.weddingDate = "";
     this.wedding = "";
   }
-
-  next();
 });
 
-memberSchema.pre("findOneAndUpdate", function (next) {
+memberSchema.pre("findOneAndUpdate", function () {
   const update = this.getUpdate();
   if (update) {
     const status = update.status || update.$set?.status;
@@ -220,7 +216,6 @@ memberSchema.pre("findOneAndUpdate", function (next) {
       }
     }
   }
-  next();
 });
 
 const Member = mongoose.models.Member || mongoose.model("Member", memberSchema);
