@@ -2379,6 +2379,74 @@ const app = createApp({
       return { label: mmdd, class: 'bg-indigo-50 text-indigo-700 font-semibold' };
     };
 
+    const getRoleBadge = (m) => {
+      if (!m) return null;
+      const roleName = (m.role || '').trim();
+      const isPastor = Boolean(m.isPastor || /pastor/i.test(roleName));
+
+      if (/associate pastor/i.test(roleName)) {
+        return {
+          label: 'Associate Pastor',
+          class: 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+        };
+      }
+      if (/pastor/i.test(roleName) || isPastor) {
+        return {
+          label: 'Pastor',
+          class: 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+        };
+      }
+      if (/treasurer/i.test(roleName)) {
+        return {
+          label: 'Treasurer',
+          class: 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+        };
+      }
+      if (/secretary/i.test(roleName)) {
+        return {
+          label: 'Secretary',
+          class: 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+        };
+      }
+      if (/elder/i.test(roleName)) {
+        return {
+          label: 'Elder',
+          class: 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+        };
+      }
+      if (/deacon/i.test(roleName)) {
+        return {
+          label: 'Deacon',
+          class: 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+        };
+      }
+      if (/worship/i.test(roleName)) {
+        return {
+          label: roleName,
+          class: 'bg-fuchsia-50 dark:bg-fuchsia-950/60 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-800'
+        };
+      }
+      if (/youth/i.test(roleName)) {
+        return {
+          label: roleName,
+          class: 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800'
+        };
+      }
+      if (/sunday school|teacher/i.test(roleName)) {
+        return {
+          label: 'Sunday School',
+          class: 'bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'
+        };
+      }
+      if (roleName && !/^member$/i.test(roleName)) {
+        return {
+          label: roleName,
+          class: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+        };
+      }
+      return null;
+    };
+
     return {
       loadData,
       isDark, toggleTheme,
@@ -2416,7 +2484,7 @@ const app = createApp({
       activeUsersCount, pendingUsersCount, suspendedUsersCount,
       openAddUserModal, openEditUserModal, onUserRoleChange, saveUserAction, deleteUserAction, toggleUserStatusAction, openInviteModal,
       loadUsers, generateInviteLink, copyInviteLink, shareInviteWhatsApp, approveUserAction, revokeUserAction,
-      getAge, computeAge, getInitials, avatarStyle, photoUrl, getCelebrationPill
+      getAge, computeAge, getInitials, avatarStyle, photoUrl, getCelebrationPill, getRoleBadge
     };
   }
 });
