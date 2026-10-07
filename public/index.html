@@ -356,8 +356,8 @@
                 {{ (m.status === 'active' || (m.isActive !== false && m.status !== 'inactive')) ? 'Active' : 'Inactive' }}
               </span>
               <span v-if="m.role" class="text-slate-500 dark:text-slate-400 font-medium">{{ m.role }}</span>
-              <span v-if="m.dob" class="text-amber-700 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60 text-[11px]">🎂 {{ m.dob.substring(5) }}</span>
-              <span v-if="m.isMarried && m.weddingDate" class="text-rose-700 dark:text-rose-300 font-semibold bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.5 rounded-md border border-rose-200 dark:border-rose-800/60 text-[11px]">💍 {{ m.weddingDate.substring(5) }}</span>
+              <span v-if="m.dob || m.birthday" class="text-amber-700 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60 text-[11px]">🎂 {{ m.dob ? m.dob.substring(5) : m.birthday }}</span>
+              <span v-if="m.isMarried && (m.weddingDate || m.wedding)" class="text-rose-700 dark:text-rose-300 font-semibold bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.5 rounded-md border border-rose-200 dark:border-rose-800/60 text-[11px]">💍 {{ m.weddingDate ? m.weddingDate.substring(5) : m.wedding }}</span>
               <span v-if="m.familyName" class="text-slate-400 dark:text-slate-500 text-[11px]">🏡 {{ m.familyName }}</span>
             </div>
           </div>
@@ -2677,7 +2677,10 @@
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Date of Birth</label>
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Date of Birth</label>
+              <span v-if="!form.dob && form.birthday" class="text-[10px] font-bold text-amber-600 dark:text-amber-400">Recorded: {{ form.birthday }}</span>
+            </div>
             <input type="date" v-model="form.dob" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none" />
           </div>
           <div>
@@ -2724,7 +2727,10 @@
         </label>
         <div v-if="form.isMarried" class="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
           <div>
-            <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Wedding Date</label>
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Wedding Date</label>
+              <span v-if="!form.weddingDate && form.wedding" class="text-[10px] font-bold text-rose-600 dark:text-rose-400">Recorded: {{ form.wedding }}</span>
+            </div>
             <input type="date" v-model="form.weddingDate" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none" />
           </div>
           <div class="grid grid-cols-2 gap-3">
@@ -2892,6 +2898,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.5.5"></script>
+  <script src="/app.js?v=2.5.6"></script>
 </body>
 </html>

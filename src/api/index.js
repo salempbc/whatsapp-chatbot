@@ -299,14 +299,21 @@ const sanitizeMemberPayload = (body = {}) => {
 
   if (typeof data.dob === "string" && data.dob.length >= 5) {
     data.birthday = data.dob.substring(5);
-  } else if (data.dob === "" || data.dob === null) {
-    data.birthday = "";
+  } else if (!data.dob) {
     data.dob = "";
+    if (typeof data.birthday !== "string" || data.birthday.length < 4) {
+      data.birthday = "";
+    }
   }
 
   if (data.isMarried) {
     if (typeof data.weddingDate === "string" && data.weddingDate.length >= 5) {
       data.wedding = data.weddingDate.substring(5);
+    } else if (!data.weddingDate) {
+      data.weddingDate = "";
+      if (typeof data.wedding !== "string" || data.wedding.length < 4) {
+        data.wedding = "";
+      }
     }
     if (!["male", "female"].includes(data.spouseGender)) {
       data.spouseGender = data.gender === "male" ? "female" : "male";

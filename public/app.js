@@ -1153,6 +1153,8 @@ const app = createApp({
         const payload = {
           ...form.value,
           name: trimmedName,
+          birthday: form.value.dob ? form.value.dob.substring(5) : (form.value.birthday || ''),
+          wedding: form.value.isMarried ? (form.value.weddingDate ? form.value.weddingDate.substring(5) : (form.value.wedding || '')) : '',
           spouseName: form.value.isMarried ? (form.value.spouseName || '').trim() : '',
           spouseGender: form.value.isMarried ? form.value.spouseGender : null,
           spouseId: form.value.isMarried && form.value.spouseId ? form.value.spouseId : null,
