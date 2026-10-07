@@ -74,7 +74,7 @@ test("Formatting: formatGreetingCard produces structured, WhatsApp-ready message
   assert.ok(card.includes("ரூபன்"), "Name included");
   assert.ok(card.includes("வேத வசனம்:"), "Scripture section present");
   assert.ok(card.includes("ஜெபமும் ஆசீர்வாதமும்:"), "Prayer section present");
-  assert.ok(card.includes("சேலம் ஆதி பாப்திஸ்து திருச்சபை (SPBC)"), "Church attribution footer present");
+  assert.ok(!card.includes("சேலம் ஆதி பாப்திஸ்து திருச்சபை (SPBC)"), "Church attribution footer omitted");
   assert.ok(!card.includes("**"), "Must NOT use markdown double asterisks in WhatsApp format");
   assert.ok(card.includes("> _"), "Scripture must use WhatsApp quote and italic markers");
 });
@@ -116,7 +116,7 @@ test("Formatting: formatGreetingCard seamlessly incorporates church message temp
   assert.ok(card.includes("வாழ்த்து:"), "Template greeting section present");
   assert.ok(card.includes("SPBC குடும்பத்தின் சார்பில்"), "Template text included");
   assert.ok(card.includes("ஜெபமும் ஆசீர்வாதமும்:"), "Prayer section present");
-  assert.ok(card.includes("சேலம் ஆதி பாப்திஸ்து திருச்சபை (SPBC)"), "Church footer present");
+  assert.ok(!card.includes("சேலம் ஆதி பாப்திஸ்து திருச்சபை (SPBC)"), "Church attribution footer omitted");
 });
 
 test("AI & Scripture: Tone styles generate distinct valid Tamil blessings", async () => {

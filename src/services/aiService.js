@@ -556,9 +556,8 @@ export const formatGreetingCard = ({
 
   const templateBlock = templateText ? `✨ *வாழ்த்து:*\n${templateText}` : "";
   const prayerBlock = prayerText ? `🙏 *ஜெபமும் ஆசீர்வாதமும்:*\n${prayerText}` : "";
-  const footer = `⛪ *சேலம் ஆதி பாப்திஸ்து திருச்சபை (SPBC)*`;
 
-  const sections = [header, scriptureBlock, templateBlock, prayerBlock, footer].filter(Boolean);
+  const sections = [header, scriptureBlock, templateBlock, prayerBlock].filter(Boolean);
   return sections.join("\n\n");
 };
 
