@@ -548,14 +548,24 @@ export const formatGreetingCard = ({
 
   let header = "";
   if (isWedding) {
-    header = `💐 **இனிய திருமண நாள் நல்வாழ்த்துகள்!** 💐\n💍 **${name}${spouse ? ` & ${spouse}` : ""}**`;
+    header = `💐 *இனிய திருமண நாள் நல்வாழ்த்துகள்!* 💐\n💍 *${name}${spouse ? ` & ${spouse}` : ""}*`;
   } else {
-    header = `🎂 **இனிய பிறந்தநாள் நல்வாழ்த்துகள்!** 🎂\n🎉 **${name}**`;
+    header = `🎂 *இனிய பிறந்தநாள் நல்வாழ்த்துகள்!* 🎂\n🎉 *${name}*`;
   }
 
-  const scriptureBlock = verseText ? `📖 **வேத வசனம்:**\n_${verseText}_` : "";
-  const templateBlock = templateText ? `✨ **வாழ்த்து:**\n${templateText}` : "";
-  const prayerBlock = prayerText ? `🙏 **ஜெபமும் ஆசீர்வாதமும்:**\n${prayerText}` : "";
+  let scriptureBlock = "";
+  if (verseText) {
+    const formattedQuote = verseText
+      .split("\n")
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => `> _${line}_`)
+      .join("\n");
+    scriptureBlock = `📖 *வேத வசனம்:*\n${formattedQuote}`;
+  }
+
+  const templateBlock = templateText ? `✨ *வாழ்த்து:*\n${templateText}` : "";
+  const prayerBlock = prayerText ? `🙏 *ஜெபமும் ஆசீர்வாதமும்:*\n${prayerText}` : "";
   const footer = `⛪ *சேலம் ஆதி பாப்திஸ்து திருச்சபை (SPBC)*`;
 
   const sections = [header, scriptureBlock, templateBlock, prayerBlock, footer].filter(Boolean);

@@ -761,7 +761,7 @@ const app = createApp({
 
     const shareInviteWhatsApp = () => {
       if (!activeInviteUrl.value) return;
-      const text = `✝️ Greetings! You are invited to join the Salem Primitive Baptist Church (SPBC) Bot as an authorized church leader.\n\nTap this link to activate your access:\n${activeInviteUrl.value}`;
+      const text = `⛪ *Salem Primitive Baptist Church (SPBC)*\n\n🕊 Greetings! You are invited to join the church administration bot as an authorized leader.\n\n🔗 *Activate Access:*\n${activeInviteUrl.value}`;
       window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
     };
 

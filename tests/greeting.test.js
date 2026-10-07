@@ -75,6 +75,8 @@ test("Formatting: formatGreetingCard produces structured, WhatsApp-ready message
   assert.ok(card.includes("வேத வசனம்:"), "Scripture section present");
   assert.ok(card.includes("ஜெபமும் ஆசீர்வாதமும்:"), "Prayer section present");
   assert.ok(card.includes("சேலம் ஆதி பாப்திஸ்து திருச்சபை (SPBC)"), "Church attribution footer present");
+  assert.ok(!card.includes("**"), "Must NOT use markdown double asterisks in WhatsApp format");
+  assert.ok(card.includes("> _"), "Scripture must use WhatsApp quote and italic markers");
 });
 
 test("Lifecycle: Greeting statuses adhere to expected administrative transitions", () => {
