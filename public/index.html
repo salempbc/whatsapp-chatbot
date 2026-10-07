@@ -2684,6 +2684,12 @@
               <span v-if="!form.dob && form.birthday" class="text-[10px] font-bold text-amber-600 dark:text-amber-400">Recorded: {{ form.birthday }}</span>
             </div>
             <input type="date" v-model="form.dob" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none" />
+            <div class="mt-1 flex items-center justify-between text-[11px]">
+              <span v-if="form.dob && getAge(form.dob) !== null" class="text-slate-400 font-medium">Age: {{ getAge(form.dob) }} yrs</span>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-slate-600 dark:text-slate-400 ml-auto">
+                <input type="checkbox" v-model="form.isChild" class="w-3.5 h-3.5 rounded text-indigo-600" /> Child / Youth (&lt;18)
+              </label>
+            </div>
           </div>
           <div>
             <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Family Group Name</label>
@@ -2769,14 +2775,6 @@
             <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Membership Date</label>
             <input type="date" v-model="form.membershipDate" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none" />
           </div>
-        </div>
-        <div class="flex items-center justify-around pt-2">
-          <label class="flex items-center gap-2 cursor-pointer font-semibold text-xs text-slate-700 dark:text-slate-300">
-            <input type="checkbox" v-model="form.isPastor" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" /> Pastor
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer font-semibold text-xs text-slate-700 dark:text-slate-300">
-            <input type="checkbox" v-model="form.isChild" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" /> Child/Youth
-          </label>
         </div>
       </div>
 
@@ -2900,6 +2898,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.5.8"></script>
+  <script src="/app.js?v=2.5.9"></script>
 </body>
 </html>

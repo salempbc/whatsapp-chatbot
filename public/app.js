@@ -1115,9 +1115,34 @@ const app = createApp({
     // Member Form
     const openMemberForm = (m = null) => {
       if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-      form.value = m ? { ...defaultForm(), ...m, customData: m.customData || {} } : defaultForm();
+      const base = m ? { ...defaultForm(), ...m, customData: m.customData || {} } : defaultForm();
+      if (base.isPastor && !base.role) {
+        base.role = 'Pastor';
+      } else if (!base.isPastor && /pastor/i.test(base.role || '')) {
+        base.isPastor = true;
+      }
+      form.value = base;
       currentTab.value = 'memberForm';
     };
+
+    // Unify Role / Designation with isPastor flag automatically
+    watch(() => form.value?.role, (newRole) => {
+      if (!form.value) return;
+      if (/pastor/i.test(newRole || '')) {
+        form.value.isPastor = true;
+      } else if (newRole && !/pastor/i.test(newRole)) {
+        form.value.isPastor = false;
+      }
+    });
+
+    // Auto-sync isChild when dob is entered
+    watch(() => form.value?.dob, (newDob) => {
+      if (!form.value || !newDob) return;
+      const age = getAge(newDob);
+      if (age !== null) {
+        form.value.isChild = age < 18;
+      }
+    });
 
     const handlePhotoFileInput = (e) => {
       const file = e.target.files?.[0];
@@ -1147,6 +1172,9 @@ const app = createApp({
           return tg.showAlert("Spouse gender must be different from member gender.");
         }
       }
+
+      const isPastor = /pastor/i.test(form.value.role || '') || Boolean(form.value.isPastor);
+      form.value.isPastor = isPastor;
 
       saving.value = true;
       try {

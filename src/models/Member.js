@@ -214,6 +214,16 @@ memberSchema.pre("save", function () {
     this.weddingDate = "";
     this.wedding = "";
   }
+  // Auto-sync isPastor and role (unify role designation with pastoral flag)
+  if (this.role !== undefined) {
+    if (/pastor/i.test(this.role || "")) {
+      this.isPastor = true;
+    } else if (this.role && !/pastor/i.test(this.role)) {
+      this.isPastor = false;
+    }
+  } else if (this.isPastor && !this.role) {
+    this.role = "Pastor";
+  }
 });
 
 memberSchema.pre("findOneAndUpdate", function () {
@@ -228,6 +238,14 @@ memberSchema.pre("findOneAndUpdate", function () {
         if (status === "archived") {
           this.set({ isDeleted: true });
         }
+      }
+    }
+    const role = update.role || update.$set?.role;
+    if (role !== undefined) {
+      if (/pastor/i.test(role || "")) {
+        this.set({ isPastor: true });
+      } else if (role && !/pastor/i.test(role)) {
+        this.set({ isPastor: false });
       }
     }
   }
