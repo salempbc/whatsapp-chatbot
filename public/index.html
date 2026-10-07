@@ -107,6 +107,49 @@
     .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
     .fade-enter-from, .fade-leave-to { opacity: 0; }
     [v-cloak] { display: none; }
+
+    /* Modern Sleek Minimal Scrollbars */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+    }
+    .dark * {
+      scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 9999px;
+      border: 1px solid transparent;
+      background-clip: padding-box;
+      transition: background-color 0.2s ease;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.45);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(99, 102, 241, 0.65);
+    }
+    ::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
+    /* Completely hide scrollbars on horizontal filter pills / chips / segment rows */
+    .no-scrollbar, .scrollbar-hide {
+      -ms-overflow-style: none !important;
+      scrollbar-width: none !important;
+    }
+    .no-scrollbar::-webkit-scrollbar, .scrollbar-hide::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-[#0c111d] text-slate-900 dark:text-slate-100 min-h-screen transition-colors duration-200">
@@ -2849,6 +2892,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.5.1"></script>
+  <script src="/app.js?v=2.5.2"></script>
 </body>
 </html>

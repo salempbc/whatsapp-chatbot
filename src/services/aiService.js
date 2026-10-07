@@ -270,24 +270,51 @@ export const getCanonicalVerse = async (eventType, member = null) => {
   return { reference: item.ref, text: `${item.text} (${item.ref})` };
 };
 
-/* Curated offline Tamil pastoral blessings by style when Gemini is disabled or unreachable */
+/* Curated offline Tamil pastoral blessings by age and style when Gemini is disabled or unreachable */
 const fallbackBlessings = {
-  pastoral: (name, isWedding, spouse) =>
-    isWedding
-      ? `கர்த்தர் உங்கள் இல்லற வாழ்க்கையை தம்முடைய விசேஷித்த கிருபையினாலும் சமாதானத்தினாலும் நிரப்பி, ஒருமனத்தோடும் அன்போடும் தொடர்ந்து ஆசீர்வதிப்பாராக.`
-      : `கர்த்தராகிய இயேசு கிறிஸ்து உங்கள் புதிய வயதிலே தம்முடைய விசேஷித்த கிருபையினாலும் வழிநடத்துதலினாலும் உங்களை ஆசீர்வதித்து காத்துக்கொள்வாராக.`,
-  heartfelt: (name, isWedding, spouse) =>
-    isWedding
-      ? `இனிய திருமண நாள் நல்வாழ்த்துகள்! தேவனுடைய மாறாத அன்பு உங்கள் குடும்பத்தில் என்றென்றும் பிரகாசித்து, பூரண மகிழ்ச்சியைத் தருவதாக.`
-      : `இனிய பிறந்தநாள் நல்வாழ்த்துகள்! ஆண்டவர் உமது இருதயத்தின் நல்ல வாஞ்சைகளை நிறைவேற்றி, புது பலத்தோடு உங்களை வழிநடத்துவாராக.`,
+  pastoral: (name, isWedding, spouse, ageCategory = "adult") => {
+    if (isWedding) {
+      return `கர்த்தர் உங்கள் இல்லற வாழ்க்கையை தம்முடைய விசேஷித்த கிருபையினாலும் சமாதானத்தினாலும் நிரப்பி, ஒருமனத்தோடும் அன்போடும் தொடர்ந்து ஆசீர்வதிப்பாராக.`;
+    }
+    if (ageCategory === "child") {
+      return `கர்த்தராகிய இயேசு கிறிஸ்து இந்த அருமையான பிள்ளையை ஆசீர்வதித்து, ஞானத்திலும் அறிவிலும் தேவ கிருபையிலும் மேன்மேலும் வளரச் செய்வாராக.`;
+    }
+    if (ageCategory === "youth") {
+      return `கர்த்தராகிய இயேசு கிறிஸ்து உங்கள் இளமைப் பிராயத்தை ஆசீர்வதித்து, உமது வழிகளையெல்லாம் செவ்வைப்படுத்தி, கர்த்தருடைய ஊழியத்திலும் வாழ்க்கையிலும் திடநம்பிக்கையோடு வழிநடத்துவாராக.`;
+    }
+    if (ageCategory === "elder") {
+      return `கர்த்தர் உங்கள் முதிர்வயதிலும் உங்களைத் தாங்கி, தம்முடைய மாறாத சமாதானத்தினாலும் நற்சுகத்தினாலும் நிறைத்து, பேரின்பத்தோடு காத்துக்கொள்வாராக.`;
+    }
+    return `கர்த்தராகிய இயேசு கிறிஸ்து உங்கள் புதிய வயதிலே தம்முடைய விசேஷித்த கிருபையினாலும் வழிநடத்துதலினாலும் உங்களை ஆசீர்வதித்து காத்துக்கொள்வாராக.`;
+  },
+  heartfelt: (name, isWedding, spouse, ageCategory = "adult") => {
+    if (isWedding) {
+      return `இனிய திருமண நாள் நல்வாழ்த்துகள்! தேவனுடைய மாறாத அன்பு உங்கள் குடும்பத்தில் என்றென்றும் பிரகாசித்து, பூரண மகிழ்ச்சியைத் தருவதாக.`;
+    }
+    if (ageCategory === "child") {
+      return `இனிய பிறந்தநாள் நல்வாழ்த்துகள் செல்லமே! தேவனுடைய ஆசீர்வாதமும் அன்பும் உன் வாழ்க்கையில் எப்போதும் நிறைந்து வழிவதாக.`;
+    }
+    if (ageCategory === "youth") {
+      return `இனிய பிறந்தநாள் நல்வாழ்த்துகள்! ஆண்டவர் உமது எதிர்காலக் கனவுகளையும் நல்வாஞ்சைகளையும் நிறைவேற்றி, புதிய உயரங்களுக்கு உங்களை வழிநடத்துவாராக.`;
+    }
+    if (ageCategory === "elder") {
+      return `இனிய பிறந்தநாள் நல்வாழ்த்துகள்! தேவன் உங்களை ஆரோக்கியத்தோடும் குடும்ப சந்தோஷத்தோடும் நிறைத்து, ஆசீர்வதிப்பாராக.`;
+    }
+    return `இனிய பிறந்தநாள் நல்வாழ்த்துகள்! ஆண்டவர் உமது இருதயத்தின் நல்ல வாஞ்சைகளை நிறைவேற்றி, புது பலத்தோடு உங்களை வழிநடத்துவாராக.`;
+  },
   short: (name, isWedding, spouse) =>
     isWedding
       ? `திருமண நாள் வாழ்த்துகள்! கர்த்தரின் ஆசீர்வாதமும் சமாதானமும் உங்கள் குடும்பத்தோடு இருப்பதாக.`
       : `இனிய பிறந்தநாள் வாழ்த்துகள்! கர்த்தர் உங்களை நிறைவாய் ஆசீர்வதிப்பாராக.`,
-  formal: (name, isWedding, spouse) =>
-    isWedding
-      ? `சேலம் ஆதி பாப்திஸ்து திருச்சபையின் சார்பாக அன்பு நிறைந்த திருமண நாள் நல்வாழ்த்துகளைத் தெரிவித்துக் கொள்கிறோம். கர்த்தர் தாமே உங்கள் குடும்பத்தை ஆசீர்வதிப்பாராக.`
-      : `சேலம் ஆதி பாப்திஸ்து திருச்சபையின் சார்பாக இனிய பிறந்தநாள் வாழ்த்துகள். தேவன் உம்மை எல்லாத் தீங்கிற்கும் விலக்கிக் காப்பாராக.`
+  formal: (name, isWedding, spouse, ageCategory = "adult") => {
+    if (isWedding) {
+      return `சேலம் ஆதி பாப்திஸ்து திருச்சபையின் சார்பாக அன்பு நிறைந்த திருமண நாள் நல்வாழ்த்துகளைத் தெரிவித்துக் கொள்கிறோம். கர்த்தர் தாமே உங்கள் குடும்பத்தை ஆசீர்வதிப்பாராக.`;
+    }
+    if (ageCategory === "child") {
+      return `சேலம் ஆதி பாப்திஸ்து திருச்சபையின் சார்பாக அருமைப் பிள்ளைக்கு இனிய பிறந்தநாள் வாழ்த்துகள். கர்த்தர் தாமே பிள்ளையை நல்வழியில் நடத்தி ஆசீர்வதிப்பாராக.`;
+    }
+    return `சேலம் ஆதி பாப்திஸ்து திருச்சபையின் சார்பாக இனிய பிறந்தநாள் வாழ்த்துகள். தேவன் உம்மை எல்லாத் தீங்கிற்கும் விலக்கிக் காப்பாராக.`
+  }
 };
 
 /**
@@ -305,8 +332,17 @@ export const generateGreetingPrayer = async ({
   const memberName = member?.name || "அன்பான விசுவாசி";
   const spouseName = member?.spouseName || "";
   const currentYear = new Date().getFullYear();
+  const age = isWedding ? null : getAge(member?.dob);
+  const yearsMarried = isWedding ? getAge(member?.weddingDate) : null;
 
-  const cacheKey = `ai_prayer:${member?._id || memberName}:${eventType}:${style}:${currentYear}`;
+  let ageCategory = "adult";
+  if (!isWedding) {
+    if (member?.isChild || (age !== null && age < 13)) ageCategory = "child";
+    else if (age !== null && age <= 25) ageCategory = "youth";
+    else if (age !== null && age >= 60) ageCategory = "elder";
+  }
+
+  const cacheKey = `ai_prayer:${member?._id || memberName}:${eventType}:${style}:${ageCategory}:${currentYear}`;
 
   // Check persistent cache (if MongoDB connected and not force-regenerating)
   if (!forceNew && mongoose.connection && mongoose.connection.readyState === 1) {
@@ -326,18 +362,22 @@ export const generateGreetingPrayer = async ({
   }
   if (!apiKey) {
     const fallbackFn = fallbackBlessings[style] || fallbackBlessings.pastoral;
-    return fallbackFn(memberName, isWedding, spouseName);
+    return fallbackFn(memberName, isWedding, spouseName, ageCategory);
   }
 
   try {
-    const age = isWedding ? null : getAge(member?.dob);
-    const yearsMarried = isWedding ? getAge(member?.weddingDate) : null;
-
     const styleInstructions = {
       pastoral: "Warm, reverent pastoral blessing from a church shepherd. Focused on God's grace, peace and spiritual strength.",
       heartfelt: "Deeply affectionate, warm Christian blessing celebrating the gift of life/marriage.",
       short: "Concise, elegant, 1-2 sentences Christian blessing.",
       formal: "Respectful, dignified traditional church greeting."
+    };
+
+    const ageGuidance = {
+      child: "The celebrant is a young child. Focus prayer on growing in wisdom, divine protection, obedience, and being a blessing to parents and church.",
+      youth: "The celebrant is a youth/young adult. Focus prayer on standing strong in faith, guidance in education/career, purity, and courage.",
+      elder: "The celebrant is a senior citizen/elder. Focus prayer on fruitfulness in old age, good health, peace, being a spiritual pillar, and God's sustaining grace.",
+      adult: "The celebrant is an adult member. Focus prayer on God's hand upon their labor, spiritual growth, peace, and family blessings."
     };
 
     const prompt = `You are an authorized, respected pastor of Salem Primitive Baptist Church (SPBC).
@@ -346,56 +386,72 @@ Write a beautiful, personalized Christian blessing/prayer in traditional, gramma
 Occasion: ${isWedding ? "Wedding Anniversary (திருமண நாள்)" : "Birthday (பிறந்தநாள்)"}
 Style requested: ${styleInstructions[style] || styleInstructions.pastoral}
 Celebrant name: ${memberName}
-${isWedding ? `Spouse name: ${spouseName || "அவர்கள்"}` : `Age/Category: ${age ? `${age} years` : member?.isChild ? "Child" : "Adult"}`}
+${isWedding ? `Spouse name: ${spouseName || "அவர்கள்"}` : `Age/Category: ${age ? `${age} years (${ageCategory})` : ageCategory}`}
+${!isWedding ? `Age group pastoral focus: ${ageGuidance[ageCategory]}` : ""}
 ${yearsMarried ? `Years married: ${yearsMarried} years` : ""}
 Selected Scripture verse: "${verseText}" (Reference: ${verseRef})
 
 Strict Rules:
 1. Write ONLY in natural, fluent, elegant, authentic Tamil Christian phrasing using traditional language faithful to the Tamil Bible Old Version (BSI - பரிசுத்த வேதாகமம் O.V.).
 2. 2 to 3 sentences maximum.
-3. Incorporate the spirit of the Scripture verse and pray for God's blessings, protection and peace.
-4. Do NOT hallucinate or quote fake or modern paraphrase Bible verses. The canonical verse is provided above and handled strictly from the Tamil O.V. BSI.
-5. Do NOT include English text, markdown bold headings, or conversational pleasantries (e.g. "Here is your wish:").
-6. Output ONLY the Tamil prayer blessing text.`;
+3. Tailor the blessing appropriately to the celebrant's age/stage of life.
+4. Incorporate the spirit of the Scripture verse and pray for God's blessings, protection and peace.
+5. Do NOT hallucinate or quote fake or modern paraphrase Bible verses. The canonical verse is provided above and handled strictly from the Tamil O.V. BSI.
+6. Do NOT include English text, markdown bold headings, or conversational pleasantries (e.g. "Here is your wish:").
+7. Output ONLY the Tamil prayer blessing text.`;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 9000);
+    const candidateModels = [
+      process.env.GEMINI_MODEL,
+      "gemini-2.5-flash",
+      "gemini-1.5-flash"
+    ].filter(Boolean);
 
-    const modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash";
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.6,
-            maxOutputTokens: 250
+    for (const modelName of candidateModels) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 9000);
+
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey.trim())}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.6,
+                maxOutputTokens: 250
+              }
+            }),
+            signal: controller.signal
           }
-        }),
-        signal: controller.signal
-      }
-    );
+        );
 
-    clearTimeout(timeout);
+        clearTimeout(timeout);
 
-    if (response.ok) {
-      const data = await response.json();
-      const generated = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (generated && generated.trim().length > 10) {
-        const cleaned = normalize(generated);
-        // Persist to AICache
-        try {
-          await AICache.findOneAndUpdate(
-            { input: cacheKey },
-            { output: cleaned, createdAt: new Date() },
-            { upsert: true }
-          );
-        } catch (e) {
-          // ignore cache write error
+        if (response.ok) {
+          const data = await response.json();
+          const generated = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (generated && generated.trim().length > 10) {
+            const cleaned = normalize(generated);
+            // Persist to AICache
+            try {
+              await AICache.findOneAndUpdate(
+                { input: cacheKey },
+                { output: cleaned, createdAt: new Date() },
+                { upsert: true }
+              );
+            } catch (e) {
+              // ignore cache write error
+            }
+            return cleaned;
+          }
+        } else {
+          const errBody = await response.text().catch(() => "");
+          console.warn(`⚠️ Gemini model ${modelName} returned status ${response.status}: ${errBody.slice(0, 150)}`);
         }
-        return cleaned;
+      } catch (callErr) {
+        console.warn(`⚠️ Gemini model ${modelName} attempt error:`, callErr.message);
       }
     }
   } catch (err) {
@@ -403,7 +459,7 @@ Strict Rules:
   }
 
   const fallbackFn = fallbackBlessings[style] || fallbackBlessings.pastoral;
-  return fallbackFn(memberName, isWedding, spouseName);
+  return fallbackFn(memberName, isWedding, spouseName, ageCategory);
 };
 
 /**

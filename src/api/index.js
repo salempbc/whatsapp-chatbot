@@ -762,15 +762,36 @@ router.post("/actions/test-gemini", async (req, res) => {
       return res.status(400).json({ success: false, error: "No Gemini API key provided or saved." });
     }
 
-    const { GoogleGenAI } = await import("@google/genai");
-    const ai = new GoogleGenAI({ apiKey: keyToTest.trim() });
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: "Respond with the single word: Connected"
-    });
+    const testModels = ["gemini-2.5-flash", "gemini-1.5-flash"];
+    let lastErr = null;
+    for (const model of testModels) {
+      try {
+        const resp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(keyToTest.trim())}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "Respond only with: Connected" }] }],
+              generationConfig: { maxOutputTokens: 10 }
+            })
+          }
+        );
 
-    const reply = response.text ? response.text.trim() : "Connected";
-    res.json({ success: true, message: `Connected to Gemini 2.5 Flash! (${reply})` });
+        if (resp.ok) {
+          const data = await resp.json();
+          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Connected";
+          return res.json({ success: true, message: `Connected to Google Gemini (${model})! Reply: ${reply}` });
+        } else {
+          const errData = await resp.json().catch(() => ({}));
+          lastErr = errData.error?.message || `HTTP ${resp.status} ${resp.statusText}`;
+        }
+      } catch (callErr) {
+        lastErr = callErr.message;
+      }
+    }
+
+    res.status(400).json({ success: false, error: lastErr || "Failed to connect to Google Gemini API." });
   } catch (err) {
     console.error("Gemini test connection failed:", err.message);
     res.status(400).json({ success: false, error: err.message || "Failed to connect to Gemini." });

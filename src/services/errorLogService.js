@@ -21,7 +21,11 @@ export const sanitizeContext = (obj, depth = 0) => {
     "auth",
     "cookie",
     "session",
-    "credential"
+    "credential",
+    "apikey",
+    "api_key",
+    "gemini",
+    "key"
   ];
 
   const sanitized = {};
