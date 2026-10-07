@@ -248,6 +248,28 @@ export const ensureMemberStatusIntegrity = async () => {
         }
       }
     );
+
+    // Normalize any legacy dates
+    const all = await Member.find({
+      $or: [
+        { wedding: { $regex: /^\d{4}-\d{2}-\d{2}$/ } },
+        { dob: { $regex: /^\d{4}-\d{2}-\d{2}$/ }, birthday: { $exists: false } }
+      ]
+    }).lean();
+
+    for (const m of all) {
+      const update = {};
+      if (typeof m.wedding === "string" && m.wedding.length === 10) {
+        update.weddingDate = m.wedding;
+        update.wedding = m.wedding.substring(5);
+      }
+      if (typeof m.dob === "string" && m.dob.length >= 5 && (!m.birthday || m.birthday.length !== 5)) {
+        update.birthday = m.dob.substring(5);
+      }
+      if (Object.keys(update).length > 0) {
+        await Member.updateOne({ _id: m._id }, { $set: update });
+      }
+    }
   } catch (err) {
     console.warn("⚠️ [MemberService] Status integrity check notice:", err?.message || err);
   }

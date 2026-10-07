@@ -182,7 +182,22 @@ memberSchema.pre("save", function () {
     }
   }
 
+  // Auto-sync birthday from dob
+  if (typeof this.dob === "string" && this.dob.length >= 5) {
+    this.birthday = this.dob.substring(5);
+  } else if (!this.dob && (!this.birthday || this.birthday.length < 4)) {
+    this.birthday = "";
+  }
+
   if (this.isMarried) {
+    if (typeof this.wedding === "string" && this.wedding.length === 10) {
+      if (!this.weddingDate) this.weddingDate = this.wedding;
+      this.wedding = this.wedding.substring(5);
+    }
+    if (typeof this.weddingDate === "string" && this.weddingDate.length >= 5) {
+      this.wedding = this.weddingDate.substring(5);
+    }
+
     // spouse required
     if (!this.spouseName || !this.spouseName.trim()) {
       throw new Error("Spouse name required for married members");
