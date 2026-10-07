@@ -1130,10 +1130,10 @@ router.post("/actions/trigger-today", async (req, res) => {
   }
 });
 
-/* Live AI & Template Wish Preview & Regenerate */
+/* Live Wish Preview & Regenerate */
 router.post("/actions/preview-wish", async (req, res) => {
   try {
-    const { memberId, type = "birthday", style = "pastoral", forceNew = false } = req.body || {};
+    const { memberId, type = "birthday" } = req.body || {};
     if (!memberId) return res.status(400).json({ error: "memberId is required" });
 
     const member = await Member.findById(memberId);
@@ -1142,23 +1142,11 @@ router.post("/actions/preview-wish", async (req, res) => {
     const verseObj = await getCanonicalVerse(type, member);
     const templateMsg = await generateTemplateMessage(member, type);
 
-    await purgeCorruptedAICache().catch(() => {});
-
-    const prayer = await generateGreetingPrayer({
-      member,
-      eventType: type,
-      style: style || "pastoral",
-      verseText: verseObj.text,
-      verseRef: verseObj.reference,
-      forceNew: Boolean(forceNew)
-    });
-
     const preview = formatGreetingCard({
       eventType: type,
       member,
       verseText: verseObj.text,
       verseRef: verseObj.reference,
-      prayerText: prayer,
       templateText: templateMsg
     });
 
@@ -1166,8 +1154,7 @@ router.post("/actions/preview-wish", async (req, res) => {
       success: true,
       preview,
       photo: member.photo || null,
-      verse: verseObj,
-      style: style || "pastoral"
+      verse: verseObj
     });
   } catch (err) {
     console.error("❌ preview-wish error:", err);

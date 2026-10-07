@@ -1943,27 +1943,16 @@
               <h3 class="font-bold text-slate-900 dark:text-white text-base">Live Wish Dispatcher</h3>
             </div>
             <div class="flex items-center gap-2">
-              <button type="button" @click="wishModal.open = false; currentTab = 'settings'" class="text-[11px] font-bold px-2 py-0.5 rounded-full border transition-all" :class="settings.geminiApiKey ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400'">
-                {{ settings.geminiApiKey ? '✨ Gemini Active' : '⚙️ Setup Gemini Key' }}
-              </button>
               <button @click="wishModal.open = false" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
             </div>
           </div>
 
           <div v-if="wishModal.loading" class="text-center py-10 space-y-2">
             <div class="animate-spin text-2xl">⏳</div>
-            <p class="text-sm text-slate-500 dark:text-slate-400 font-semibold">Generating AI Verse & Wish...</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 font-semibold">Preparing Greeting Card...</p>
           </div>
 
           <div v-else class="space-y-3">
-            <!-- Tone Selection Pills -->
-            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
-              <span class="text-slate-400 font-bold text-[10px] uppercase">Tone:</span>
-              <button type="button" @click="regenerateWish('pastoral')" :class="wishModal.style === 'pastoral' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium'" class="px-2.5 py-1 rounded-lg transition-all">🕊 Pastoral</button>
-              <button type="button" @click="regenerateWish('heartfelt')" :class="wishModal.style === 'heartfelt' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium'" class="px-2.5 py-1 rounded-lg transition-all">❤️ Heartfelt</button>
-              <button type="button" @click="regenerateWish('short')" :class="wishModal.style === 'short' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium'" class="px-2.5 py-1 rounded-lg transition-all">⚡ Short</button>
-              <button type="button" @click="regenerateWish('formal')" :class="wishModal.style === 'formal' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium'" class="px-2.5 py-1 rounded-lg transition-all">🏛 Formal</button>
-            </div>
 
             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-2">
               <div class="flex items-center gap-2.5 pb-2 border-b border-slate-200 dark:border-slate-800">
@@ -2898,6 +2887,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.6.0"></script>
+  <script src="/app.js?v=2.6.1"></script>
 </body>
 </html>

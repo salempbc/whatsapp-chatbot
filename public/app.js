@@ -2101,7 +2101,7 @@ const app = createApp({
         if (res && res.preview) {
           wishModal.value.text = res.preview;
           if (res.photo) wishModal.value.photo = res.photo;
-          showToast("✨ Fresh pastoral blessing generated!");
+          showToast("✨ Fresh greeting card generated!");
         } else {
           showToast("⚠️ Could not generate fresh wish");
         }

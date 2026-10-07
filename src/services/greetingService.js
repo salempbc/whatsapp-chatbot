@@ -1,7 +1,7 @@
 import Member from "../models/Member.js";
 import GreetingLog, { GREETING_STATUS } from "../models/GreetingLog.js";
 import { getTodayKey, getTomorrowKey, getTodayEvents, generateTemplateMessage } from "./eventService.js";
-import { getCanonicalVerse, generateGreetingPrayer, formatGreetingCard } from "./aiService.js";
+import { getCanonicalVerse, formatGreetingCard } from "./aiService.js";
 
 /**
  * Prepares and generates greeting records for today's celebrants idempotently.
@@ -25,20 +25,12 @@ export const prepareTodayGreetings = async () => {
 
     if (!log) {
       const verseObj = await getCanonicalVerse("birthday", m);
-      const prayer = await generateGreetingPrayer({
-        member: m,
-        eventType: "birthday",
-        style: "pastoral",
-        verseText: verseObj.text,
-        verseRef: verseObj.reference
-      });
       const templateMsg = await generateTemplateMessage(m, "birthday");
       const formatted = formatGreetingCard({
         eventType: "birthday",
         member: m,
         verseText: verseObj.text,
         verseRef: verseObj.reference,
-        prayerText: prayer,
         templateText: templateMsg
       });
 
@@ -73,20 +65,12 @@ export const prepareTodayGreetings = async () => {
 
     if (!log) {
       const verseObj = await getCanonicalVerse("wedding", m);
-      const prayer = await generateGreetingPrayer({
-        member: m,
-        eventType: "wedding",
-        style: "pastoral",
-        verseText: verseObj.text,
-        verseRef: verseObj.reference
-      });
       const templateMsg = await generateTemplateMessage(m, "wedding");
       const formatted = formatGreetingCard({
         eventType: "wedding",
         member: m,
         verseText: verseObj.text,
         verseRef: verseObj.reference,
-        prayerText: prayer,
         templateText: templateMsg
       });
 
@@ -122,17 +106,14 @@ export const regenerateGreeting = async (logId, { style, verseReference, verseTe
 
   const member = await Member.findById(log.memberId);
   const targetStyle = style || log.style || "pastoral";
-  const targetRef = verseReference || log.verseReference;
-  const targetVerse = verseText || log.verseText;
+  let targetRef = verseReference || log.verseReference;
+  let targetVerse = verseText || log.verseText;
 
-  const prayer = await generateGreetingPrayer({
-    member: member || { name: log.memberName, spouseName: log.spouseName },
-    eventType: log.type,
-    style: targetStyle,
-    verseText: targetVerse,
-    verseRef: targetRef,
-    forceNew: true
-  });
+  if (!targetVerse) {
+    const fresh = await getCanonicalVerse(log.type, member || { name: log.memberName });
+    targetRef = fresh.reference;
+    targetVerse = fresh.text;
+  }
 
   const templateMsg = member ? await generateTemplateMessage(member, log.type) : "";
 
@@ -141,7 +122,6 @@ export const regenerateGreeting = async (logId, { style, verseReference, verseTe
     member: member || { name: log.memberName, spouseName: log.spouseName },
     verseText: targetVerse,
     verseRef: targetRef,
-    prayerText: prayer,
     templateText: templateMsg
   });
 
