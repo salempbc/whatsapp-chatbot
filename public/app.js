@@ -80,6 +80,7 @@ const app = createApp({
       sending: false,
       member: null,
       type: 'birthday',
+      style: 'pastoral',
       text: '',
       photo: null
     });
@@ -1863,23 +1864,50 @@ const app = createApp({
     };
 
     // Live AI Wish Preview & Sender Modal
-    const openWishModal = async (member, type = 'birthday') => {
+    const openWishModal = async (member, type = 'birthday', style = 'pastoral') => {
       wishModal.value = {
         open: true,
         loading: true,
         sending: false,
         member,
         type,
+        style,
         text: '',
         photo: member.photo || null
       };
 
       try {
-        const res = await apiCall('/actions/preview-wish', 'POST', { memberId: member._id, type });
+        const res = await apiCall('/actions/preview-wish', 'POST', {
+          memberId: member._id,
+          type,
+          style,
+          forceNew: true
+        });
         wishModal.value.text = res.preview;
         wishModal.value.photo = res.photo;
       } catch (err) {
         wishModal.value.text = `இனிய ${type === 'birthday' ? 'பிறந்தநாள்' : 'திருமண நாள்'} வாழ்த்துகள், ${member.name}!`;
+      } finally {
+        wishModal.value.loading = false;
+      }
+    };
+
+    const regenerateWish = async (newStyle) => {
+      const style = newStyle || wishModal.value.style || 'pastoral';
+      wishModal.value.style = style;
+      wishModal.value.loading = true;
+      try {
+        const res = await apiCall('/actions/preview-wish', 'POST', {
+          memberId: wishModal.value.member?._id,
+          type: wishModal.value.type,
+          style,
+          forceNew: true
+        });
+        wishModal.value.text = res.preview;
+        if (res.photo) wishModal.value.photo = res.photo;
+        showToast("✨ Fresh wish generated!");
+      } catch (err) {
+        showToast("Failed to regenerate wish");
       } finally {
         wishModal.value.loading = false;
       }
@@ -2193,7 +2221,7 @@ const app = createApp({
       expandedAttachments, toggleAttachmentsExpanded, handleTaskAttachmentUpload, deleteTaskAttachmentAction,
       toggleTaskPinAction, loadTasks, addTagToForm, removeTagFromForm, addSubtaskToForm, removeSubtaskFromForm,
       formatEstimate, formatRelativeDue, allTags, progressPercentage,
-      openWishModal, copyWishToClipboard, openWhatsAppWish,
+      openWishModal, regenerateWish, copyWishToClipboard, openWhatsAppWish,
       openImportModal, parseCSVFile, executeBulkImport,
       handlePhotoFileInput, calendarMonth, calendarMonthDays, shiftCalendarMonth, mergeMemberAction,
       fastForm, retainHousehold, fastSessionMembers, fastSaving, existingFamilies, existingRoles,

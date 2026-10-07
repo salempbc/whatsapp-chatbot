@@ -1,6 +1,6 @@
 import Member from "../models/Member.js";
 import GreetingLog, { GREETING_STATUS } from "../models/GreetingLog.js";
-import { getTodayKey, getTomorrowKey, getTodayEvents } from "./eventService.js";
+import { getTodayKey, getTomorrowKey, getTodayEvents, generateTemplateMessage } from "./eventService.js";
 import { getCanonicalVerse, generateGreetingPrayer, formatGreetingCard } from "./aiService.js";
 
 /**
@@ -32,12 +32,14 @@ export const prepareTodayGreetings = async () => {
         verseText: verseObj.text,
         verseRef: verseObj.reference
       });
+      const templateMsg = await generateTemplateMessage(m, "birthday");
       const formatted = formatGreetingCard({
         eventType: "birthday",
         member: m,
         verseText: verseObj.text,
         verseRef: verseObj.reference,
-        prayerText: prayer
+        prayerText: prayer,
+        templateText: templateMsg
       });
 
       log = await GreetingLog.create({
@@ -78,12 +80,14 @@ export const prepareTodayGreetings = async () => {
         verseText: verseObj.text,
         verseRef: verseObj.reference
       });
+      const templateMsg = await generateTemplateMessage(m, "wedding");
       const formatted = formatGreetingCard({
         eventType: "wedding",
         member: m,
         verseText: verseObj.text,
         verseRef: verseObj.reference,
-        prayerText: prayer
+        prayerText: prayer,
+        templateText: templateMsg
       });
 
       log = await GreetingLog.create({
@@ -126,15 +130,19 @@ export const regenerateGreeting = async (logId, { style, verseReference, verseTe
     eventType: log.type,
     style: targetStyle,
     verseText: targetVerse,
-    verseRef: targetRef
+    verseRef: targetRef,
+    forceNew: true
   });
+
+  const templateMsg = member ? await generateTemplateMessage(member, log.type) : "";
 
   const formatted = formatGreetingCard({
     eventType: log.type,
     member: member || { name: log.memberName, spouseName: log.spouseName },
     verseText: targetVerse,
     verseRef: targetRef,
-    prayerText: prayer
+    prayerText: prayer,
+    templateText: templateMsg
   });
 
   log.style = targetStyle;

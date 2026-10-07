@@ -523,6 +523,16 @@
         </button>
       </div>
 
+      <!-- Subtab Switcher: Celebrations vs Message Templates -->
+      <div class="flex p-1 bg-slate-100 dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-slate-800">
+        <button type="button" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-white dark:bg-[#151c28] text-indigo-600 dark:text-indigo-400 shadow-sm">
+          🎂 Upcoming Celebrations ({{ (upcomingEvents.birthdays?.length || 0) + (upcomingEvents.weddings?.length || 0) }})
+        </button>
+        <button type="button" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200" @click="currentTab = 'templates'">
+          📝 Message Templates ({{ templates.length }})
+        </button>
+      </div>
+
       <!-- Birthdays Section -->
       <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
@@ -595,13 +605,26 @@
     <!-- ========================================== -->
     <main v-if="currentTab === 'templates'" class="space-y-4">
       <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-xl font-bold text-slate-900 dark:text-white">Message Templates</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Wording & placeholders for automated wishes</p>
+        <div class="flex items-center gap-2">
+          <button @click="currentTab = 'upcoming'" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 flex items-center justify-center font-bold text-sm" title="Back to Celebrations">←</button>
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Message Templates Studio</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ templates.length }} active church templates stored</p>
+          </div>
         </div>
         <button @click="openTemplateForm()" class="btn-brand px-3.5 py-2.5 text-sm flex items-center gap-1.5 shadow-sm">
           <span>➕</span>
           <span>New</span>
+        </button>
+      </div>
+
+      <!-- Subtab Switcher: Celebrations vs Message Templates -->
+      <div class="flex p-1 bg-slate-100 dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-slate-800">
+        <button type="button" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200" @click="currentTab = 'upcoming'">
+          🎂 Upcoming Celebrations ({{ (upcomingEvents.birthdays?.length || 0) + (upcomingEvents.weddings?.length || 0) }})
+        </button>
+        <button type="button" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-white dark:bg-[#151c28] text-indigo-600 dark:text-indigo-400 shadow-sm">
+          📝 Message Templates ({{ templates.length }})
         </button>
       </div>
 
@@ -1580,6 +1603,20 @@
         </label>
       </section>
 
+      <!-- Message Templates Studio Direct Card -->
+      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm cursor-pointer hover:border-indigo-500/50 transition-all" @click="currentTab = 'templates'">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg">📝</div>
+            <div>
+              <div class="font-bold text-slate-900 dark:text-white text-sm">Message Templates Studio</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">{{ templates.length }} active templates for birthdays & weddings</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Manage →</span>
+        </div>
+      </section>
+
       <!-- Broadcast Schedule -->
       <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
         <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Daily Schedule (IST)</h3>
@@ -1591,6 +1628,23 @@
         <div class="flex items-center justify-between py-1">
           <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">Admin Night Reminder</span>
           <input type="time" v-model="settings.reminderTime" class="w-32 py-1.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-bold text-center focus:outline-none" @change="showToast('Reminder time updated')" />
+        </div>
+      </section>
+
+      <!-- AI Generative Wishing Config -->
+      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">AI Pastoral Prayers & Wishing</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Google Gemini API key for live prayer blessing generation</p>
+          </div>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :class="settings.geminiApiKey ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'">
+            {{ settings.geminiApiKey ? 'API Configured' : 'Offline Pastoral Engine' }}
+          </span>
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Gemini API Key (Optional)</label>
+          <input type="password" v-model="settings.geminiApiKey" placeholder="Leave blank to use curated offline pastoral blessings" class="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
       </section>
 
@@ -1838,6 +1892,15 @@
           </div>
 
           <div v-else class="space-y-3">
+            <!-- Tone Selection Pills -->
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
+              <span class="text-slate-400 font-bold text-[10px] uppercase">Tone:</span>
+              <button type="button" @click="regenerateWish('pastoral')" :class="wishModal.style === 'pastoral' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium'" class="px-2.5 py-1 rounded-lg transition-all">🕊 Pastoral</button>
+              <button type="button" @click="regenerateWish('heartfelt')" :class="wishModal.style === 'heartfelt' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium'" class="px-2.5 py-1 rounded-lg transition-all">❤️ Heartfelt</button>
+              <button type="button" @click="regenerateWish('short')" :class="wishModal.style === 'short' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium'" class="px-2.5 py-1 rounded-lg transition-all">⚡ Short</button>
+              <button type="button" @click="regenerateWish('formal')" :class="wishModal.style === 'formal' ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium'" class="px-2.5 py-1 rounded-lg transition-all">🏛 Formal</button>
+            </div>
+
             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-2">
               <div class="flex items-center gap-2.5 pb-2 border-b border-slate-200 dark:border-slate-800">
                 <div class="w-8 h-8 rounded-xl font-bold text-white text-xs flex items-center justify-center flex-shrink-0" :style="avatarStyle(wishModal.member?.name)">
@@ -1845,10 +1908,10 @@
                 </div>
                 <div>
                   <div class="font-bold text-slate-900 dark:text-white text-xs">{{ wishModal.member?.name }}</div>
-                  <div class="text-[10px] text-slate-400">Telegram Mock Preview</div>
+                  <div class="text-[10px] text-slate-400">WhatsApp / Telegram Ready Preview</div>
                 </div>
               </div>
-              <textarea v-model="wishModal.text" rows="7" class="w-full text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-sans bg-transparent resize-none focus:outline-none"></textarea>
+              <textarea v-model="wishModal.text" rows="8" class="w-full text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-sans bg-transparent resize-none focus:outline-none"></textarea>
             </div>
 
             <div class="flex flex-col gap-2">
@@ -1856,8 +1919,9 @@
                 <span>📲 Open in WhatsApp</span>
               </button>
               <div class="flex gap-2">
-                <button @click="openWishModal(wishModal.member, wishModal.type)" class="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-200 dark:border-slate-700">
-                  🔄 Re-roll AI
+                <button type="button" @click="regenerateWish()" class="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                  <span>🔄</span>
+                  <span>Regenerate Wish</span>
                 </button>
                 <button @click="copyWishToClipboard" class="btn-brand flex-1 py-2.5 text-xs font-bold shadow-md flex items-center justify-center gap-1.5">
                   <span>📋 Copy Message</span>
@@ -2753,7 +2817,7 @@
         <span>Reports</span>
       </button>
 
-      <button class="flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-bold transition-all" :class="currentTab === 'upcoming' ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'" @click="currentTab = 'upcoming'">
+      <button class="flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-bold transition-all" :class="['upcoming', 'templates'].includes(currentTab) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'" @click="currentTab = 'upcoming'">
         <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15.546c-.523 0-1.046.151-1.5.454a2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-1.5-.454M9 6v2m3-2v2m3-2v2M9 3h.01M12 3h.01M15 3h.01M21 21v-7a2 2 0 00-2-2H5a2 2 0 00-2 2v7h16z"></path></svg>
         <span>Wishes</span>
       </button>
@@ -2766,6 +2830,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.4.0"></script>
+  <script src="/app.js?v=2.5.0"></script>
 </body>
 </html>

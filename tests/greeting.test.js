@@ -96,3 +96,38 @@ test("Tamil Unicode: Text normalization preserves Tamil combining diacritics and
   const cleaned = normalize(sample);
   assert.equal(cleaned, "கர்த்தர்\nஉன்னை ஆசீர்வதிப்பாராக!");
 });
+
+test("Formatting: formatGreetingCard seamlessly incorporates church message templates", () => {
+  const card = formatGreetingCard({
+    eventType: "birthday",
+    member: { name: "சகோ. யோவான்" },
+    verseText: "கர்த்தர் உன்னை எல்லாத் தீங்குக்கும் விலக்கிக் காப்பார் (சங்கீதம் 121:7)",
+    verseRef: "சங்கீதம் 121:7",
+    prayerText: "கர்த்தர் தாமே உங்கள் குடும்பத்தை ஆசீர்வதிப்பாராக.",
+    templateText: "இன்று பிறந்த நாளை காணும் சகோதரர் யோவான், SPBC குடும்பத்தின் சார்பில் அன்புடன் வாழ்த்துகிறோம்."
+  });
+
+  assert.ok(card.includes("இனிய பிறந்தநாள் நல்வாழ்த்துகள்!"), "Header present");
+  assert.ok(card.includes("சகோ. யோவான்"), "Name included");
+  assert.ok(card.includes("வேத வசனம்:"), "Scripture section present");
+  assert.ok(card.includes("வாழ்த்து:"), "Template greeting section present");
+  assert.ok(card.includes("SPBC குடும்பத்தின் சார்பில்"), "Template text included");
+  assert.ok(card.includes("ஜெபமும் ஆசீர்வாதமும்:"), "Prayer section present");
+  assert.ok(card.includes("சேலம் ஆதி பாப்திஸ்து திருச்சபை (SPBC)"), "Church footer present");
+});
+
+test("AI & Scripture: Tone styles generate distinct valid Tamil blessings", async () => {
+  const member = { name: "ரோஸ்லின்", isChild: false };
+  const styles = ["pastoral", "heartfelt", "short", "formal"];
+
+  for (const style of styles) {
+    const text = await generateGreetingPrayer({
+      member,
+      eventType: "birthday",
+      style,
+      forceNew: true
+    });
+    assert.ok(text && text.length > 10, `Style ${style} must produce non-empty blessing`);
+    assert.match(text, /[\u0B80-\u0BFF]/, `Style ${style} must produce Tamil text`);
+  }
+});

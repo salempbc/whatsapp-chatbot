@@ -13,7 +13,12 @@ import { exportMembersToCSV } from "../services/exportService.js";
 import { getSetting, setSetting } from "../models/Settings.js";
 import { restartScheduler, triggerNow } from "../scheduler/dailyJob.js";
 import { sendAdminMessage } from "../bot/index.js";
-import { getUpcomingEvents } from "../services/eventService.js";
+import { getUpcomingEvents, generateTemplateMessage } from "../services/eventService.js";
+import {
+  getCanonicalVerse,
+  generateGreetingPrayer,
+  formatGreetingCard
+} from "../services/aiService.js";
 import {
   prepareTodayGreetings,
   regenerateGreeting,
@@ -704,13 +709,23 @@ router.get("/settings", async (req, res) => {
   const sendTime = await getSetting("sendTime", "06:00");
   const reminderTime = await getSetting("reminderTime", "20:00");
   const customFields = await getSetting("customFields", []);
-  res.json({ sendTime, reminderTime, customFields });
+  const enableBirthdays = await getSetting("enableBirthdays", true);
+  const enableWeddings = await getSetting("enableWeddings", true);
+  const geminiApiKey = await getSetting("geminiApiKey", "");
+  res.json({
+    sendTime,
+    reminderTime,
+    customFields,
+    enableBirthdays,
+    enableWeddings,
+    geminiApiKey: geminiApiKey ? "configured" : ""
+  });
 });
 
 const isHHMM = (v) => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
 router.post("/settings", async (req, res) => {
-  const { sendTime, reminderTime, customFields } = req.body;
+  const { sendTime, reminderTime, customFields, enableBirthdays, enableWeddings, geminiApiKey } = req.body;
 
   if (sendTime !== undefined && !isHHMM(sendTime)) {
     return res.status(400).json({ error: "sendTime must be HH:MM (24-hour)" });
@@ -725,6 +740,11 @@ router.post("/settings", async (req, res) => {
   if (sendTime) await setSetting("sendTime", sendTime);
   if (reminderTime) await setSetting("reminderTime", reminderTime);
   if (customFields) await setSetting("customFields", customFields);
+  if (enableBirthdays !== undefined) await setSetting("enableBirthdays", Boolean(enableBirthdays));
+  if (enableWeddings !== undefined) await setSetting("enableWeddings", Boolean(enableWeddings));
+  if (geminiApiKey !== undefined && geminiApiKey !== "configured") {
+    await setSetting("geminiApiKey", geminiApiKey.trim());
+  }
 
   await restartScheduler();
   res.json({ success: true });
@@ -916,6 +936,49 @@ router.post("/actions/trigger-today", async (req, res) => {
     const count = await triggerNow();
     res.json({ success: true, count });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* Live AI & Template Wish Preview & Regenerate */
+router.post("/actions/preview-wish", async (req, res) => {
+  try {
+    const { memberId, type = "birthday", style = "pastoral", forceNew = false } = req.body || {};
+    if (!memberId) return res.status(400).json({ error: "memberId is required" });
+
+    const member = await Member.findById(memberId);
+    if (!member) return res.status(404).json({ error: "Member not found" });
+
+    const verseObj = await getCanonicalVerse(type, member);
+    const templateMsg = await generateTemplateMessage(member, type);
+
+    const prayer = await generateGreetingPrayer({
+      member,
+      eventType: type,
+      style: style || "pastoral",
+      verseText: verseObj.text,
+      verseRef: verseObj.reference,
+      forceNew: Boolean(forceNew)
+    });
+
+    const preview = formatGreetingCard({
+      eventType: type,
+      member,
+      verseText: verseObj.text,
+      verseRef: verseObj.reference,
+      prayerText: prayer,
+      templateText: templateMsg
+    });
+
+    res.json({
+      success: true,
+      preview,
+      photo: member.photo || null,
+      verse: verseObj,
+      style: style || "pastoral"
+    });
+  } catch (err) {
+    console.error("❌ preview-wish error:", err);
     res.status(500).json({ error: err.message });
   }
 });

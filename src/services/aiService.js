@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import EventVerse from "../models/EventVerse.js";
 import AICache from "../models/aiCache.js";
+import { getSetting } from "../models/Settings.js";
 import { fetchVerseText } from "../bot/handlers/bible.js";
 
 /* ===============================
@@ -297,7 +298,8 @@ export const generateGreetingPrayer = async ({
   eventType = "birthday",
   style = "pastoral",
   verseText = "",
-  verseRef = ""
+  verseRef = "",
+  forceNew = false
 }) => {
   const isWedding = eventType === "wedding";
   const memberName = member?.name || "அன்பான விசுவாசி";
@@ -306,8 +308,8 @@ export const generateGreetingPrayer = async ({
 
   const cacheKey = `ai_prayer:${member?._id || memberName}:${eventType}:${style}:${currentYear}`;
 
-  // Check persistent cache (if MongoDB connected)
-  if (mongoose.connection && mongoose.connection.readyState === 1) {
+  // Check persistent cache (if MongoDB connected and not force-regenerating)
+  if (!forceNew && mongoose.connection && mongoose.connection.readyState === 1) {
     try {
       const cached = await AICache.findOne({ input: cacheKey });
       if (cached && cached.output) {
@@ -318,7 +320,10 @@ export const generateGreetingPrayer = async ({
     }
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  let apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey && mongoose.connection && mongoose.connection.readyState === 1) {
+    apiKey = await getSetting("geminiApiKey", null).catch(() => null);
+  }
   if (!apiKey) {
     const fallbackFn = fallbackBlessings[style] || fallbackBlessings.pastoral;
     return fallbackFn(memberName, isWedding, spouseName);
@@ -409,7 +414,8 @@ export const formatGreetingCard = ({
   member,
   verseText,
   verseRef,
-  prayerText
+  prayerText,
+  templateText
 }) => {
   const isWedding = eventType === "wedding";
   const name = member?.name || "";
@@ -423,10 +429,11 @@ export const formatGreetingCard = ({
   }
 
   const scriptureBlock = verseText ? `📖 **வேத வசனம்:**\n_${verseText}_` : "";
+  const templateBlock = templateText ? `✨ **வாழ்த்து:**\n${templateText}` : "";
   const prayerBlock = prayerText ? `🙏 **ஜெபமும் ஆசீர்வாதமும்:**\n${prayerText}` : "";
   const footer = `⛪ *சேலம் ஆதி பாப்திஸ்து திருச்சபை (SPBC)*`;
 
-  const sections = [header, scriptureBlock, prayerBlock, footer].filter(Boolean);
+  const sections = [header, scriptureBlock, templateBlock, prayerBlock, footer].filter(Boolean);
   return sections.join("\n\n");
 };
 
@@ -450,7 +457,8 @@ export const enhanceTamil = async (text, context = {}) => {
       member,
       verseText: verseObj.text,
       verseRef: verseObj.reference,
-      prayerText: prayer
+      prayerText: prayer,
+      templateText: text
     });
   } catch (err) {
     return text;

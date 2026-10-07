@@ -57,7 +57,7 @@ const getAge = (dob) => {
 };
 
 /* ================= DESIGNATION ================= */
-const getDesignation = (m) => {
+export const getDesignation = (m) => {
   const age = getAge(m.dob);
 
   if (m.isChild) return m.gender === "male" ? "மகன்" : "மகள்";
@@ -222,19 +222,17 @@ const processConditionals = (str, ctx) => {
   return res;
 };
 
-/* ================= BUILD ================= */
-export const buildMessages = async ({ birthdays, weddings }) => {
-  const results = [];
+/* ================= TEMPLATE MESSAGE GENERATOR ================= */
+export const generateTemplateMessage = async (m, type = "birthday", templateContent = null) => {
+  let text = templateContent;
+  if (!text) {
+    text = await pickTemplate(type, type === "birthday" ? "b_tpl" : "w_tpl");
+  }
 
-  const bTpl = await pickTemplate("birthday", "b_tpl");
-  const wTpl = await pickTemplate("wedding", "w_tpl");
-
-  /* ===== BIRTHDAY ===== */
-  for (const m of birthdays) {
+  if (type === "birthday") {
     const age = getAge(m.dob);
     const suffix = (m.isChild || (age !== null && age < 25)) ? (m.gender === "male" ? "👦" : "👧") : "🎉🎂💐";
 
-    let text = bTpl || "{designation} {name} {suffix}";
     let nameAccusative = m.name;
     if (age !== null && age < 30) {
       nameAccusative = m.name + " -ஐ";
@@ -244,7 +242,7 @@ export const buildMessages = async ({ birthdays, weddings }) => {
 
     const customVars = (m.customData && typeof m.customData === "object") ? m.customData : {};
 
-    text = processConditionals(text, {
+    return processConditionals(text || "{designation} {name} {suffix}", {
       ...customVars,
       designation: getDesignation(m),
       name: nameAccusative,
@@ -252,7 +250,47 @@ export const buildMessages = async ({ birthdays, weddings }) => {
       suffix: suffix,
       age: age
     });
+  } else {
+    // wedding
+    const spouseDoc = m.spouseName
+      ? await Member.findOne({ name: m.spouseName, isDeleted: { $ne: true } })
+      : null;
 
+    const spouseDesig = spouseDoc
+      ? getDesignation(spouseDoc)
+      : (m.spouseGender === "male" ? "சகோதரன்" : "சகோதரி");
+
+    const mDesig = getDesignation(m);
+    const sName = m.spouseName ? `${spouseDesig} ${m.spouseName}` : (m.spouseGender === "male" ? "அவர் கணவர்" : "அவர் மனைவி");
+
+    const husband = m.gender === "male"
+      ? `${mDesig} ${m.name}`
+      : sName;
+
+    const wife = m.gender === "female"
+      ? `${mDesig} ${m.name}`
+      : sName;
+
+    const years = getAge(m.weddingDate);
+    const customVars = (m.customData && typeof m.customData === "object") ? m.customData : {};
+
+    return processConditionals(text || "{husband} & {wife}", {
+      ...customVars,
+      husband: husband,
+      wife: wife,
+      years: years,
+      age: years
+    });
+  }
+};
+
+/* ================= BUILD ================= */
+export const buildMessages = async ({ birthdays, weddings }) => {
+  const results = [];
+
+  /* ===== BIRTHDAY ===== */
+  for (const m of birthdays) {
+    let text = await generateTemplateMessage(m, "birthday");
     text = await enhanceTamil(text, {
       type: "birthday",
       member: m
@@ -265,41 +303,9 @@ export const buildMessages = async ({ birthdays, weddings }) => {
     });
   }
 
-
   /* ===== WEDDING ===== */
   for (const m of weddings) {
-    const spouseDoc = m.spouseName
-      ? await Member.findOne({ name: m.spouseName, isDeleted: { $ne: true } })
-      : null;
-
-    const spouseDesig = spouseDoc
-      ? getDesignation(spouseDoc)
-      : (m.spouseGender === "male" ? "சகோதரன்" : "சகோதரி");
-
-    const mDesig = getDesignation(m);
-
-    const sName = m.spouseName ? `${spouseDesig} ${m.spouseName}` : (m.spouseGender === "male" ? "அவர் கணவர்" : "அவர் மனைவி");
-    
-    const husband = m.gender === "male"
-      ? `${mDesig} ${m.name}`
-      : sName;
-
-    const wife = m.gender === "female"
-      ? `${mDesig} ${m.name}`
-      : sName;
-
-    const years = getAge(m.weddingDate);
-
-    const customVars = (m.customData && typeof m.customData === "object") ? m.customData : {};
-    let text = wTpl || "{husband} {wife}";
-    text = processConditionals(text, {
-      ...customVars,
-      husband: husband,
-      wife: wife,
-      years: years,
-      age: years
-    });
-
+    let text = await generateTemplateMessage(m, "wedding");
     text = await enhanceTamil(text, {
       type: "wedding",
       member: m
