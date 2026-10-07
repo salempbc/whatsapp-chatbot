@@ -882,7 +882,14 @@ router.post("/actions/test-gemini", async (req, res) => {
         const listData = await listResp.json();
         if (Array.isArray(listData.models)) {
           availableModels = listData.models
-            .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+            .filter((m) => {
+              const name = (m.name || "").toLowerCase();
+              return m.supportedGenerationMethods?.includes("generateContent")
+                && !name.includes("tts")
+                && !name.includes("embedding")
+                && !name.includes("image")
+                && !name.includes("gemma");
+            })
             .map((m) => m.name.replace(/^models\//, ""));
         }
       }
@@ -890,12 +897,11 @@ router.post("/actions/test-gemini", async (req, res) => {
 
     // 2. Candidate priority list merged with discovered models
     const candidates = [
-      ...availableModels,
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-      "gemini-1.5-flash-latest",
-      "gemini-1.5-pro",
-      "gemini-pro"
+      "gemini-flash-lite-latest",
+      "gemini-3.8-flash",
+      "gemini-flash-latest",
+      "gemini-2.5-flash-lite",
+      ...availableModels
     ];
     const uniqueCandidates = [...new Set(candidates)];
 

@@ -430,23 +430,31 @@ export const generateGreetingPrayer = async ({
         const listData = await listResp.json();
         if (Array.isArray(listData.models)) {
           discoveredModels = listData.models
-            .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+            .filter((m) => {
+              const name = (m.name || "").toLowerCase();
+              return m.supportedGenerationMethods?.includes("generateContent")
+                && !name.includes("tts")
+                && !name.includes("embedding")
+                && !name.includes("image")
+                && !name.includes("gemma");
+            })
             .map((m) => m.name.replace(/^models\//, ""));
         }
       }
     } catch (_) {}
 
-    // If GEMINI_MODEL is set to the deprecated "gemini-1.5-flash", override it with gemini-2.5-flash
-    const envModel = process.env.GEMINI_MODEL === "gemini-1.5-flash" ? "gemini-2.5-flash" : process.env.GEMINI_MODEL;
+    // If GEMINI_MODEL is set to a deprecated model, override with latest flash
+    const envModel = (process.env.GEMINI_MODEL && !/1\.5|2\.5-flash$/i.test(process.env.GEMINI_MODEL))
+      ? process.env.GEMINI_MODEL
+      : null;
 
     const candidateModels = [
-      ...discoveredModels,
       envModel,
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-      "gemini-1.5-flash-latest",
-      "gemini-1.5-pro",
-      "gemini-pro"
+      "gemini-flash-lite-latest",
+      "gemini-3.8-flash",
+      "gemini-flash-latest",
+      "gemini-2.5-flash-lite",
+      ...discoveredModels
     ].filter(Boolean);
 
     const uniqueModels = [...new Set(candidateModels)];
@@ -454,7 +462,7 @@ export const generateGreetingPrayer = async ({
     for (const modelName of uniqueModels) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 9000);
+        const timeout = setTimeout(() => controller.abort(), 12000);
 
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey.trim())}`,

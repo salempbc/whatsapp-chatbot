@@ -449,7 +449,7 @@ const app = createApp({
       try {
         if (typeof AbortController !== 'undefined') {
           const controller = new AbortController();
-          timeoutId = setTimeout(() => controller.abort(), 20000);
+          timeoutId = setTimeout(() => controller.abort(), 30000);
           opts.signal = controller.signal;
         }
         res = await fetch(`/api${url}`, opts);
@@ -2098,11 +2098,15 @@ const app = createApp({
           style,
           forceNew: true
         });
-        wishModal.value.text = res.preview;
-        if (res.photo) wishModal.value.photo = res.photo;
-        showToast("✨ Fresh wish generated!");
+        if (res && res.preview) {
+          wishModal.value.text = res.preview;
+          if (res.photo) wishModal.value.photo = res.photo;
+          showToast("✨ Fresh pastoral blessing generated!");
+        } else {
+          showToast("⚠️ Could not generate fresh wish");
+        }
       } catch (err) {
-        showToast("Failed to regenerate wish");
+        showToast("⚠️ " + (err.message || "Failed to regenerate wish"));
       } finally {
         wishModal.value.loading = false;
       }
