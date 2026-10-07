@@ -124,8 +124,21 @@ export const getErrorLogs = async ({
     ErrorLog.countDocuments({ resolved: false })
   ]);
 
+  const cleanLogs = logs.map(l => {
+    let ep = l.endpoint || "";
+    if (ep.startsWith("http://") || ep.startsWith("https://")) {
+      try {
+        const u = new URL(ep);
+        ep = u.pathname || "/";
+      } catch (_) {
+        ep = ep.split("#")[0].split("?")[0] || ep;
+      }
+    }
+    return { ...l, endpoint: ep };
+  });
+
   return {
-    logs,
+    logs: cleanLogs,
     total,
     unresolvedCount,
     page: p,

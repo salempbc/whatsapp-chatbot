@@ -181,10 +181,23 @@ router.get("/diagnostics", async (req, res) => {
 router.post("/client-error", async (req, res) => {
   try {
     const { message, stack, info, userAgent, url } = req.body || {};
+    const msgStr = typeof message === "string" ? message : (message?.message || String(message || ""));
+    if (msgStr.includes("WebAppMethodUnsupported")) {
+      return res.json({ success: true, ignored: true });
+    }
+    let cleanEndpoint = "webapp:client";
+    if (url) {
+      try {
+        const parsed = new URL(url);
+        cleanEndpoint = parsed.pathname || "/";
+      } catch (_) {
+        cleanEndpoint = String(url).split("#")[0].split("?")[0] || "webapp:client";
+      }
+    }
     await captureError({
-      error: { message: message || "Unknown WebApp client error", stack: stack || "" },
+      error: { message: msgStr || "Unknown WebApp client error", stack: stack || "" },
       source: "client",
-      endpoint: url || "webapp:browser",
+      endpoint: cleanEndpoint,
       statusCode: 500,
       userId: req.headers["x-telegram-user-id"] || "client-user",
       context: { info, userAgent, url }

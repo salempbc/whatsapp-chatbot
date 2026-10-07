@@ -2447,6 +2447,20 @@ const app = createApp({
       return null;
     };
 
+    const formatEndpoint = (ep) => {
+      if (!ep) return '';
+      try {
+        if (ep.startsWith('http://') || ep.startsWith('https://')) {
+          const u = new URL(ep);
+          return u.pathname || '/';
+        }
+      } catch (_) {}
+      if (ep.includes('#tgWebAppData') || ep.includes('?')) {
+        return ep.split('#')[0].split('?')[0] || ep;
+      }
+      return ep.length > 35 ? ep.substring(0, 32) + '...' : ep;
+    };
+
     return {
       loadData,
       isDark, toggleTheme,
@@ -2484,7 +2498,7 @@ const app = createApp({
       activeUsersCount, pendingUsersCount, suspendedUsersCount,
       openAddUserModal, openEditUserModal, onUserRoleChange, saveUserAction, deleteUserAction, toggleUserStatusAction, openInviteModal,
       loadUsers, generateInviteLink, copyInviteLink, shareInviteWhatsApp, approveUserAction, revokeUserAction,
-      getAge, computeAge, getInitials, avatarStyle, photoUrl, getCelebrationPill, getRoleBadge
+      getAge, computeAge, getInitials, avatarStyle, photoUrl, getCelebrationPill, getRoleBadge, formatEndpoint
     };
   }
 });
@@ -2492,15 +2506,17 @@ const app = createApp({
 // Telemetry: report errors from client to server database for CMS inspection
 const sendClientError = (err, info = '') => {
   try {
+    const msg = err?.message || String(err || '');
+    if (msg.includes('WebAppMethodUnsupported')) return;
     fetch('/api/client-error', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: err?.message || String(err),
+        message: msg,
         stack: err?.stack || '',
         info,
         userAgent: navigator.userAgent,
-        url: window.location.href
+        url: window.location.pathname || '/'
       })
     }).catch(() => {});
   } catch (_) {}

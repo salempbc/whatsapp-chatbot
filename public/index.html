@@ -1524,38 +1524,39 @@
           <div
             v-for="err in errorLogs"
             :key="err._id"
-            class="p-3 rounded-xl border transition-all text-xs space-y-2"
+            class="p-3 rounded-xl border transition-all text-xs space-y-2 min-w-0 overflow-hidden"
             :class="err.resolved
               ? 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-75'
               : 'bg-white dark:bg-[#1a2232] border-rose-200/80 dark:border-rose-900/40 shadow-xs'"
           >
             <!-- Header Row -->
-            <div class="flex items-start justify-between gap-2">
-              <div class="flex items-center gap-2 flex-wrap">
+            <div class="flex items-start justify-between gap-2 min-w-0">
+              <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0 flex-1">
                 <span
-                  class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider"
+                  class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider flex-shrink-0"
                   :class="{
                     'bg-sky-500/15 text-sky-600 dark:text-sky-400': err.source === 'telegram',
                     'bg-amber-500/15 text-amber-600 dark:text-amber-400': err.source === 'express',
                     'bg-purple-500/15 text-purple-600 dark:text-purple-400': err.source === 'scheduler',
+                    'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400': err.source === 'client',
                     'bg-rose-500/15 text-rose-600 dark:text-rose-400': err.source === 'system'
                   }"
                 >
                   {{ err.source }}
                 </span>
-                <span v-if="err.endpoint" class="font-mono text-[11px] font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                  {{ err.endpoint }}
+                <span v-if="err.endpoint" class="font-mono text-[11px] font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded max-w-[180px] sm:max-w-xs md:max-w-sm truncate inline-block align-middle" :title="err.endpoint">
+                  {{ formatEndpoint(err.endpoint) }}
                 </span>
-                <span v-if="err.statusCode" class="text-[10px] font-bold text-slate-500">
+                <span v-if="err.statusCode" class="text-[10px] font-bold text-slate-500 flex-shrink-0">
                   HTTP {{ err.statusCode }}
                 </span>
-                <span class="text-[10px] text-slate-400 font-medium">
+                <span class="text-[10px] text-slate-400 font-medium flex-shrink-0">
                   {{ new Date(err.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }} IST
                 </span>
               </div>
 
               <!-- Quick Action Pills -->
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5 flex-shrink-0">
                 <button
                   @click="copyErrorDetails(err)"
                   class="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] flex items-center gap-1 transition-all"
@@ -1582,35 +1583,35 @@
             </div>
 
             <!-- Error Message -->
-            <div class="font-bold text-slate-900 dark:text-white leading-snug">
+            <div class="font-bold text-slate-900 dark:text-white leading-snug break-words">
               {{ err.message }}
             </div>
 
             <!-- Metadata info -->
-            <div class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
-              <span v-if="err.userName || (err.userId && err.userId !== 'anonymous')">
+            <div class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 min-w-0 flex-wrap">
+              <span v-if="err.userName || (err.userId && err.userId !== 'anonymous')" class="truncate max-w-[200px]">
                 👤 User: <b class="text-slate-700 dark:text-slate-300">{{ err.userName || err.userId }}</b>
               </span>
-              <span v-if="err.resolved" class="text-emerald-600 dark:text-emerald-400 font-bold">
+              <span v-if="err.resolved" class="text-emerald-600 dark:text-emerald-400 font-bold flex-shrink-0">
                 ✓ Resolved by {{ err.resolvedBy || 'Admin' }}
               </span>
               <button
                 @click="toggleErrorExpanded(err._id)"
-                class="ml-auto text-indigo-600 dark:text-indigo-400 hover:underline font-bold text-[10px]"
+                class="ml-auto text-indigo-600 dark:text-indigo-400 hover:underline font-bold text-[10px] flex-shrink-0"
               >
                 {{ expandedErrorId === err._id ? '▲ Hide Stack & Context' : '▼ View Stack & Details' }}
               </button>
             </div>
 
             <!-- Expandable Stack Trace & Context -->
-            <div v-if="expandedErrorId === err._id" class="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-              <div v-if="err.stack">
+            <div v-if="expandedErrorId === err._id" class="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2 min-w-0 overflow-hidden">
+              <div v-if="err.stack" class="min-w-0">
                 <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Stack Trace</div>
-                <pre class="p-2.5 rounded-lg bg-slate-950 text-rose-300 font-mono text-[10px] overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-44">{{ err.stack }}</pre>
+                <pre class="p-2.5 rounded-lg bg-slate-950 text-rose-300 font-mono text-[10px] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-44">{{ err.stack }}</pre>
               </div>
-              <div v-if="err.context && Object.keys(err.context).length > 0">
+              <div v-if="err.context && Object.keys(err.context).length > 0" class="min-w-0">
                 <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Execution Context</div>
-                <pre class="p-2 rounded-lg bg-slate-900 text-slate-300 font-mono text-[10px] overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-32">{{ JSON.stringify(err.context, null, 2) }}</pre>
+                <pre class="p-2 rounded-lg bg-slate-900 text-slate-300 font-mono text-[10px] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-32">{{ JSON.stringify(err.context, null, 2) }}</pre>
               </div>
             </div>
           </div>
@@ -2899,6 +2900,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.5.7"></script>
+  <script src="/app.js?v=2.5.8"></script>
 </body>
 </html>
