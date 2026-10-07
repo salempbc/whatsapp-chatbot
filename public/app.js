@@ -1,24 +1,159 @@
 const { createApp, ref, computed, onMounted, watch, onErrorCaptured } = window.Vue || Vue || {};
 
-const tg = window.Telegram?.WebApp || {
-  expand: () => {},
-  ready: () => {},
-  initData: "",
-  HapticFeedback: {
-    impactOccurred: () => {},
-    notificationOccurred: () => {},
-    selectionChanged: () => {}
+const rawTg = window.Telegram?.WebApp;
+
+const isTgVersionAtLeast = (ver) => {
+  try {
+    return Boolean(rawTg?.isVersionAtLeast?.(ver));
+  } catch (_) {
+    return false;
+  }
+};
+
+const safeHaptic = {
+  impactOccurred: (style) => {
+    try {
+      if (isTgVersionAtLeast('6.1') && typeof rawTg?.HapticFeedback?.impactOccurred === 'function') {
+        rawTg.HapticFeedback.impactOccurred(style);
+      }
+    } catch (_) {}
   },
-  BackButton: { show: () => {}, hide: () => {} },
-  onEvent: () => {},
-  showAlert: (msg) => alert(msg),
-  showConfirm: (msg, cb) => cb(confirm(msg))
+  notificationOccurred: (type) => {
+    try {
+      if (isTgVersionAtLeast('6.1') && typeof rawTg?.HapticFeedback?.notificationOccurred === 'function') {
+        rawTg.HapticFeedback.notificationOccurred(type);
+      }
+    } catch (_) {}
+  },
+  selectionChanged: () => {
+    try {
+      if (isTgVersionAtLeast('6.1') && typeof rawTg?.HapticFeedback?.selectionChanged === 'function') {
+        rawTg.HapticFeedback.selectionChanged();
+      }
+    } catch (_) {}
+  }
+};
+
+const safeBackButton = {
+  show: () => {
+    try {
+      if (isTgVersionAtLeast('6.1') && typeof rawTg?.BackButton?.show === 'function') {
+        rawTg.BackButton.show();
+      }
+    } catch (_) {}
+  },
+  hide: () => {
+    try {
+      if (isTgVersionAtLeast('6.1') && typeof rawTg?.BackButton?.hide === 'function') {
+        rawTg.BackButton.hide();
+      }
+    } catch (_) {}
+  },
+  onClick: (cb) => {
+    try {
+      if (isTgVersionAtLeast('6.1') && typeof rawTg?.BackButton?.onClick === 'function') {
+        rawTg.BackButton.onClick(cb);
+      }
+    } catch (_) {}
+  },
+  offClick: (cb) => {
+    try {
+      if (isTgVersionAtLeast('6.1') && typeof rawTg?.BackButton?.offClick === 'function') {
+        rawTg.BackButton.offClick(cb);
+      }
+    } catch (_) {}
+  }
+};
+
+const safeAlert = (msg) => {
+  try {
+    if (isTgVersionAtLeast('6.2') && typeof rawTg?.showAlert === 'function') {
+      return rawTg.showAlert(msg);
+    }
+  } catch (_) {}
+  alert(msg);
+};
+
+const safeConfirm = (msg, cb) => {
+  try {
+    if (isTgVersionAtLeast('6.2') && typeof rawTg?.showConfirm === 'function') {
+      return rawTg.showConfirm(msg, cb);
+    }
+  } catch (_) {}
+  const confirmed = confirm(msg);
+  if (typeof cb === 'function') cb(confirmed);
+  return confirmed;
+};
+
+// Resilient Telegram bridge with graceful degradation across all platforms
+const tg = {
+  get initData() { return rawTg?.initData || ''; },
+  get initDataUnsafe() { return rawTg?.initDataUnsafe || {}; },
+  get colorScheme() { return rawTg?.colorScheme || 'light'; },
+  get themeParams() { return rawTg?.themeParams || {}; },
+  get platform() { return rawTg?.platform || 'unknown'; },
+  get version() { return rawTg?.version || '6.0'; },
+  isVersionAtLeast: (ver) => isTgVersionAtLeast(ver),
+  expand: () => { try { rawTg?.expand?.(); } catch (_) {} },
+  ready: () => { try { rawTg?.ready?.(); } catch (_) {} },
+  close: () => { try { rawTg?.close?.(); } catch (_) {} },
+  setHeaderColor: (color) => {
+    try {
+      if (isTgVersionAtLeast('6.1')) rawTg?.setHeaderColor?.(color);
+    } catch (_) {}
+  },
+  setBackgroundColor: (color) => {
+    try {
+      if (isTgVersionAtLeast('6.1')) rawTg?.setBackgroundColor?.(color);
+    } catch (_) {}
+  },
+  setBottomBarColor: (color) => {
+    try {
+      if (isTgVersionAtLeast('7.10')) rawTg?.setBottomBarColor?.(color);
+    } catch (_) {}
+  },
+  HapticFeedback: safeHaptic,
+  BackButton: safeBackButton,
+  showAlert: safeAlert,
+  showConfirm: safeConfirm,
+  onEvent: (eventType, eventHandler) => {
+    try {
+      if (typeof rawTg?.onEvent === 'function') {
+        rawTg.onEvent(eventType, eventHandler);
+      }
+    } catch (_) {}
+  },
+  offEvent: (eventType, eventHandler) => {
+    try {
+      if (typeof rawTg?.offEvent === 'function') {
+        rawTg.offEvent(eventType, eventHandler);
+      }
+    } catch (_) {}
+  },
+  openLink: (url, options) => {
+    try {
+      if (rawTg?.openLink) {
+        rawTg.openLink(url, options);
+        return;
+      }
+    } catch (_) {}
+    window.open(url, '_blank');
+  },
+  openTelegramLink: (url) => {
+    try {
+      if (isTgVersionAtLeast('6.1') && rawTg?.openTelegramLink) {
+        rawTg.openTelegramLink(url);
+        return;
+      }
+    } catch (_) {}
+    window.open(url, '_blank');
+  }
 };
 
 try {
   tg.expand();
   tg.ready();
-} catch (e) {}
+} catch (_) {}
 
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
   window.addEventListener('load', () => {
@@ -2283,6 +2418,11 @@ const sendClientError = (err, info = '') => {
 
 // Resilient Vue global error handler to prevent blank screen failures
 app.config.errorHandler = (err, instance, info) => {
+  const errMsg = err?.message || String(err);
+  if (errMsg.includes('WebAppMethodUnsupported')) {
+    console.warn("ℹ️ Ignored unsupported Telegram client feature:", errMsg);
+    return;
+  }
   console.error("💥 [VUE ERROR]:", err, info);
   sendClientError(err, `Vue errorHandler (${info})`);
   try {
@@ -2293,11 +2433,22 @@ app.config.errorHandler = (err, instance, info) => {
 };
 
 window.addEventListener("unhandledrejection", (event) => {
+  const reasonMsg = event?.reason?.message || String(event?.reason);
+  if (reasonMsg.includes('WebAppMethodUnsupported')) {
+    console.warn("ℹ️ Ignored unsupported Telegram client feature:", reasonMsg);
+    event.preventDefault();
+    return;
+  }
   console.error("💥 [UNHANDLED REJECTION in WebApp]:", event.reason);
   sendClientError(event.reason, "unhandledrejection");
 });
 
 window.addEventListener("error", (event) => {
+  const errMsg = event?.error?.message || event?.message || String(event?.error);
+  if (errMsg.includes('WebAppMethodUnsupported')) {
+    console.warn("ℹ️ Ignored unsupported Telegram client feature:", errMsg);
+    return;
+  }
   console.error("💥 [GLOBAL ERROR in WebApp]:", event.error);
   sendClientError(event.error || event.message, "global error");
   // Guarantee preloader does not trap user on runtime errors
