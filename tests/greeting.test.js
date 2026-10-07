@@ -5,7 +5,8 @@ import {
   getCanonicalVerse,
   generateGreetingPrayer,
   formatGreetingCard,
-  normalize
+  normalize,
+  isValidTamilPrayer
 } from "../src/services/aiService.js";
 import { GREETING_STATUS } from "../src/models/GreetingLog.js";
 
@@ -130,4 +131,20 @@ test("AI & Scripture: Tone styles generate distinct valid Tamil blessings", asyn
     assert.ok(text && text.length > 10, `Style ${style} must produce non-empty blessing`);
     assert.match(text, /[\u0B80-\u0BFF]/, `Style ${style} must produce Tamil text`);
   }
+});
+
+test("AI Quality Gate: isValidTamilPrayer rejects prompt template leaks and accepts valid blessings", () => {
+  const leakedSample = `* Persona: Authorized, respected pastor of Salem Primitive Baptist Church (SPBC).
+* Task: Write a beautiful, personalized Christian blessing/prayer in traditional, grammatically sound Tamil for a WhatsApp group.
+* Occasion: Birthday.
+* Celebrant: Lemuel Selvam (9 years old).
+* Constraints: Only natural, fluent, elegant, authentic Tamil Christian phrasing.
+* Core Blessing: May`;
+
+  assert.equal(isValidTamilPrayer(leakedSample), false, "Must reject leaked prompt/CoT dumping");
+  assert.equal(isValidTamilPrayer(""), false, "Must reject empty text");
+  assert.equal(isValidTamilPrayer("Hello happy birthday to you!"), false, "Must reject English text");
+
+  const genuineTamilPrayer = "கர்த்தராகிய இயேசு கிறிஸ்து இந்த அருமையான பிள்ளையை ஆசீர்வதித்து, ஞானத்திலும் அறிவிலும் தேவ கிருபையிலும் மேன்மேலும் வளரச் செய்வாராக.";
+  assert.equal(isValidTamilPrayer(genuineTamilPrayer), true, "Must accept authentic Tamil Christian prayer");
 });

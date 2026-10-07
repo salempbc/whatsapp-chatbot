@@ -17,7 +17,8 @@ import { getUpcomingEvents, generateTemplateMessage } from "../services/eventSer
 import {
   getCanonicalVerse,
   generateGreetingPrayer,
-  formatGreetingCard
+  formatGreetingCard,
+  purgeCorruptedAICache
 } from "../services/aiService.js";
 import {
   prepareTodayGreetings,
@@ -1134,6 +1135,8 @@ router.post("/actions/preview-wish", async (req, res) => {
 
     const verseObj = await getCanonicalVerse(type, member);
     const templateMsg = await generateTemplateMessage(member, type);
+
+    await purgeCorruptedAICache().catch(() => {});
 
     const prayer = await generateGreetingPrayer({
       member,

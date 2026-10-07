@@ -318,6 +318,47 @@ const fallbackBlessings = {
 };
 
 /**
+ * Strict quality gate: verifies that the blessing is genuine Tamil Christian prayer
+ * and not an English planning dump or leaked prompt template.
+ */
+export const isValidTamilPrayer = (text) => {
+  if (!text || typeof text !== "string") return false;
+  const trimmed = text.trim();
+  if (trimmed.length < 15) return false;
+
+  // Reject leaked prompt keywords or CoT planning tokens
+  if (/\b(Persona|Task|Occasion|Theme|Scripture|Constraints|Greeting|Core Blessing|Celebrant|Strict Rules)\b/i.test(trimmed)) {
+    return false;
+  }
+
+  // Count Tamil Unicode characters vs English characters
+  const tamilChars = (trimmed.match(/[\u0B80-\u0BFF]/g) || []).length;
+  const latinChars = (trimmed.match(/[a-zA-Z]/g) || []).length;
+
+  // A valid Tamil prayer must be predominantly Tamil text and have virtually no English prose
+  if (tamilChars < 20 || latinChars > 12) {
+    return false;
+  }
+  return true;
+};
+
+/**
+ * Purge any historical corrupted/prompt-leaked cache entries from MongoDB
+ */
+export const purgeCorruptedAICache = async () => {
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
+    try {
+      await AICache.deleteMany({
+        $or: [
+          { output: { $regex: "Persona|Task|Constraints|Occasion|Celebrant|Core Blessing", $options: "i" } },
+          { output: { $not: /[\u0B80-\u0BFF]/ } }
+        ]
+      });
+    } catch (_) {}
+  }
+};
+
+/**
  * Generate pastoral prayer / greeting with Gemini AI with caching and fallback
  */
 export const generateGreetingPrayer = async ({
@@ -349,7 +390,11 @@ export const generateGreetingPrayer = async ({
     try {
       const cached = await AICache.findOne({ input: cacheKey });
       if (cached && cached.output) {
-        return cached.output;
+        if (isValidTamilPrayer(cached.output)) {
+          return cached.output;
+        }
+        // Evict corrupted / leaked prompt cache from database
+        await AICache.deleteOne({ _id: cached._id }).catch(() => {});
       }
     } catch (err) {
       // Non-fatal cache lookup failure
@@ -366,39 +411,16 @@ export const generateGreetingPrayer = async ({
   }
 
   try {
-    const styleInstructions = {
-      pastoral: "Warm, reverent pastoral blessing from a church shepherd. Focused on God's grace, peace and spiritual strength.",
-      heartfelt: "Deeply affectionate, warm Christian blessing celebrating the gift of life/marriage.",
-      short: "Concise, elegant, 1-2 sentences Christian blessing.",
-      formal: "Respectful, dignified traditional church greeting."
-    };
+    const systemPrompt = "You are an authorized pastor of Salem Primitive Baptist Church (SPBC). You compose concise pastoral prayers strictly in authentic, reverent Tamil (BSI Old Version style). Never output English, markdown headings, reasoning, bullet points, or prompt text. Output strictly 2-3 sentences of genuine Tamil prayer.";
 
-    const ageGuidance = {
-      child: "The celebrant is a young child. Focus prayer on growing in wisdom, divine protection, obedience, and being a blessing to parents and church.",
-      youth: "The celebrant is a youth/young adult. Focus prayer on standing strong in faith, guidance in education/career, purity, and courage.",
-      elder: "The celebrant is a senior citizen/elder. Focus prayer on fruitfulness in old age, good health, peace, being a spiritual pillar, and God's sustaining grace.",
-      adult: "The celebrant is an adult member. Focus prayer on God's hand upon their labor, spiritual growth, peace, and family blessings."
-    };
+    const userPrompt = `சபை உறுப்பினர் வாழ்த்துக்கான சுருக்கமான ஜெப ஆசீர்வாதம்:
+நிகழ்வு: ${isWedding ? "திருமண நாள் (Wedding Anniversary)" : "பிறந்தநாள் (Birthday)"}
+பெயர்: ${memberName} ${spouseName ? `& ${spouseName}` : ""}
+பிரிவு: ${ageCategory === "child" ? "சிறுபிள்ளை (மகன்/மகள்)" : (ageCategory === "youth" ? "வாலிபர்" : (ageCategory === "elder" ? "முதியவர்" : "விசுவாசி"))}
+வேத வசனம்: "${verseText}" (${verseRef})
 
-    const prompt = `You are an authorized, respected pastor of Salem Primitive Baptist Church (SPBC).
-Write a beautiful, personalized Christian blessing/prayer in traditional, grammatically sound Tamil for a church WhatsApp group.
-
-Occasion: ${isWedding ? "Wedding Anniversary (திருமண நாள்)" : "Birthday (பிறந்தநாள்)"}
-Style requested: ${styleInstructions[style] || styleInstructions.pastoral}
-Celebrant name: ${memberName}
-${isWedding ? `Spouse name: ${spouseName || "அவர்கள்"}` : `Age/Category: ${age ? `${age} years (${ageCategory})` : ageCategory}`}
-${!isWedding ? `Age group pastoral focus: ${ageGuidance[ageCategory]}` : ""}
-${yearsMarried ? `Years married: ${yearsMarried} years` : ""}
-Selected Scripture verse: "${verseText}" (Reference: ${verseRef})
-
-Strict Rules:
-1. Write ONLY in natural, fluent, elegant, authentic Tamil Christian phrasing using traditional language faithful to the Tamil Bible Old Version (BSI - பரிசுத்த வேதாகமம் O.V.).
-2. 2 to 3 sentences maximum.
-3. Tailor the blessing appropriately to the celebrant's age/stage of life.
-4. Incorporate the spirit of the Scripture verse and pray for God's blessings, protection and peace.
-5. Do NOT hallucinate or quote fake or modern paraphrase Bible verses. The canonical verse is provided above and handled strictly from the Tamil O.V. BSI.
-6. Do NOT include English text, markdown bold headings, or conversational pleasantries (e.g. "Here is your wish:").
-7. Output ONLY the Tamil prayer blessing text.`;
+வேண்டுதல்:
+மேலே உள்ள வேத வசனத்தின் அடிப்படையில், 2 அல்லது 3 வாக்கியங்களில் நிறைவான ஆசீர்வாத ஜெபத்தை தூய தமிழில் மட்டுமே எழுதவும். எக்காரணத்தைக் கொண்டும் ஆங்கிலத்திலோ அல்லது குறிப்புகளாகவோ எழுதக்கூடாது.`;
 
     // 1. Try to discover supported models for this key dynamically
     let discoveredModels = [];
@@ -440,10 +462,13 @@ Strict Rules:
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
+              systemInstruction: {
+                parts: [{ text: systemPrompt }]
+              },
+              contents: [{ parts: [{ text: userPrompt }] }],
               generationConfig: {
-                temperature: 0.6,
-                maxOutputTokens: 250
+                temperature: 0.4,
+                maxOutputTokens: 600
               }
             }),
             signal: controller.signal
@@ -454,10 +479,21 @@ Strict Rules:
 
         if (response.ok) {
           const data = await response.json();
-          const generated = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (generated && generated.trim().length > 10) {
+          const candidate = data.candidates?.[0];
+          const parts = candidate?.content?.parts || [];
+          // Filter out CoT reasoning/thought parts from newer Gemini models
+          const nonThought = parts.find(p => !p.thought && typeof p.text === "string" && p.text.trim()) || parts[parts.length - 1];
+          let generated = nonThought?.text || "";
+
+          // Clean stray quotes and formatting
+          generated = generated
+            .replace(/^["'`]+|["'`]+$/g, "")
+            .replace(/\*\s*(Persona|Task|Occasion|Theme|Scripture|Constraints|Greeting|Core Blessing)[^\n]*\n?/gi, "")
+            .trim();
+
+          if (isValidTamilPrayer(generated)) {
             const cleaned = normalize(generated);
-            // Persist to AICache
+            // Persist valid prayer to AICache
             try {
               await AICache.findOneAndUpdate(
                 { input: cacheKey },
@@ -468,6 +504,8 @@ Strict Rules:
               // ignore cache write error
             }
             return cleaned;
+          } else {
+            console.warn(`⚠️ Rejected AI generation from ${modelName} due to quality/prompt leak check:`, generated.slice(0, 100));
           }
         } else {
           const errBody = await response.text().catch(() => "");
