@@ -150,3 +150,22 @@ test("AI Quality Gate: isValidTamilPrayer rejects prompt template leaks and acce
   const genuineTamilPrayer = "கர்த்தராகிய இயேசு கிறிஸ்து இந்த அருமையான பிள்ளையை ஆசீர்வதித்து, ஞானத்திலும் அறிவிலும் தேவ கிருபையிலும் மேன்மேலும் வளரச் செய்வாராக.";
   assert.equal(isValidTamilPrayer(genuineTamilPrayer), true, "Must accept authentic Tamil Christian prayer");
 });
+
+test("Tamil Bible XML: Exact word-for-word scripture matches Tamil Bible.xml without mutation", async () => {
+  const { getVerseFromXML } = await import("../src/services/tamilBibleService.js");
+
+  const ps127 = getVerseFromXML("சங்கீதம் 127:3");
+  assert.equal(
+    ps127,
+    "இதோ, பிள்ளைகள் கர்த்தரால் வரும் சுதந்தரம், கர்ப்பத்தின் கனி அவரால் கிடைக்கும் பலன்.",
+    "Psalm 127:3 must match exact Tamil Bible.xml text"
+  );
+
+  const prov22 = getVerseFromXML("நீதிமொழிகள் 22:6");
+  assert.equal(
+    prov22,
+    "பிள்ளையானவன் நடக்கவேண்டிய வழியிலே அவனை நடத்து; அவன் முதிர்வயதிலும் அதை விடாதிருப்பான்.",
+    "Proverbs 22:6 must match exact Tamil Bible.xml text"
+  );
+});
+
