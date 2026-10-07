@@ -400,13 +400,34 @@ Strict Rules:
 6. Do NOT include English text, markdown bold headings, or conversational pleasantries (e.g. "Here is your wish:").
 7. Output ONLY the Tamil prayer blessing text.`;
 
+    // 1. Try to discover supported models for this key dynamically
+    let discoveredModels = [];
+    try {
+      const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey.trim())}`);
+      if (listResp.ok) {
+        const listData = await listResp.json();
+        if (Array.isArray(listData.models)) {
+          discoveredModels = listData.models
+            .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+            .map((m) => m.name.replace(/^models\//, ""));
+        }
+      }
+    } catch (_) {}
+
     const candidateModels = [
+      ...discoveredModels,
       process.env.GEMINI_MODEL,
       "gemini-2.5-flash",
-      "gemini-1.5-flash"
+      "gemini-2.0-flash",
+      "gemini-1.5-flash-latest",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-pro"
     ].filter(Boolean);
 
-    for (const modelName of candidateModels) {
+    const uniqueModels = [...new Set(candidateModels)];
+
+    for (const modelName of uniqueModels) {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 9000);

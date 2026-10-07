@@ -762,12 +762,39 @@ router.post("/actions/test-gemini", async (req, res) => {
       return res.status(400).json({ success: false, error: "No Gemini API key provided or saved." });
     }
 
-    const testModels = ["gemini-2.5-flash", "gemini-1.5-flash"];
+    const cleanKey = keyToTest.trim();
+
+    // 1. First, query Google's ModelService to see which models this key has access to
+    let availableModels = [];
+    try {
+      const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`);
+      if (listResp.ok) {
+        const listData = await listResp.json();
+        if (Array.isArray(listData.models)) {
+          availableModels = listData.models
+            .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+            .map((m) => m.name.replace(/^models\//, ""));
+        }
+      }
+    } catch (_) {}
+
+    // 2. Candidate priority list merged with discovered models
+    const candidates = [
+      ...availableModels,
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash-latest",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-pro"
+    ];
+    const uniqueCandidates = [...new Set(candidates)];
+
     let lastErr = null;
-    for (const model of testModels) {
+    for (const model of uniqueCandidates) {
       try {
         const resp = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(keyToTest.trim())}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
