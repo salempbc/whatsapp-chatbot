@@ -22,7 +22,7 @@ try {
 
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=10').then((reg) => {
+    navigator.serviceWorker.register('/sw.js?v=12').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });
@@ -144,8 +144,10 @@ const app = createApp({
       reminderTime: '20:00',
       enableBirthdays: true,
       enableWeddings: true,
-      customFields: []
+      customFields: [],
+      geminiApiKey: ''
     });
+    const testingGemini = ref(false);
 
     // Search, Filter & Sort State
     const search = ref('');
@@ -676,7 +678,15 @@ const app = createApp({
 
         members.value = Array.isArray(mRes) ? mRes : (mRes?.members || []);
         templates.value = Array.isArray(tRes) ? tRes : [];
-        settings.value = sRes || { sendTime: '06:00', reminderTime: '20:00', customFields: [] };
+        settings.value = {
+          sendTime: '06:00',
+          reminderTime: '20:00',
+          enableBirthdays: true,
+          enableWeddings: true,
+          customFields: [],
+          geminiApiKey: '',
+          ...(sRes || {})
+        };
         upcomingEvents.value = uRes || { birthdays: [], weddings: [] };
         churchEvents.value = Array.isArray(eRes) ? eRes : [];
         tasks.value = Array.isArray(taskRes) ? taskRes : [];
@@ -2028,6 +2038,20 @@ const app = createApp({
       }
     };
 
+    const testGeminiKey = async () => {
+      testingGemini.value = true;
+      try {
+        const res = await apiCall('/actions/test-gemini', 'POST', { apiKey: settings.value.geminiApiKey });
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        showToast('✅ ' + (res.message || 'Gemini API Connected!'));
+      } catch (err) {
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+        showToast('❌ ' + (err.message || 'Gemini connection failed'));
+      } finally {
+        testingGemini.value = false;
+      }
+    };
+
     const triggerAction = async (act) => {
       triggering.value = true;
       try {
@@ -2226,7 +2250,7 @@ const app = createApp({
       handlePhotoFileInput, calendarMonth, calendarMonthDays, shiftCalendarMonth, mergeMemberAction,
       fastForm, retainHousehold, fastSessionMembers, fastSaving, existingFamilies, existingRoles,
       handleAgeEstimateChange, setFastPrefix, setFastRole, resetFastForm, openFastEntry, saveFastMember,
-      saveSettings, triggerAction, exportCSV, openDirectory,
+      saveSettings, testGeminiKey, testingGemini, triggerAction, exportCSV, openDirectory,
       errorLogs, errorStats, errorLoading, errorFilter, errorSearch, expandedErrorId,
       loadErrorLogs, resolveErrorLogAction, deleteErrorLogAction, clearResolvedErrorsAction, toggleErrorExpanded, copyErrorDetails,
       authorizedUsers, superAdminId, currentUser, activeInviteUrl, generatingInvite,

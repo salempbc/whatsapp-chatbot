@@ -1580,8 +1580,39 @@
     <main v-if="currentTab === 'settings'" class="space-y-5">
       <div>
         <h2 class="text-xl font-bold text-slate-900 dark:text-white">System Settings</h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Automation controls, custom fields & backups</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">AI Pastoral Prayers, automation controls, & backups</p>
       </div>
+
+      <!-- AI Generative Wishing Config (Featured at top) -->
+      <section class="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/70 to-purple-50/50 dark:from-indigo-950/40 dark:to-purple-950/20 border-2 border-indigo-200 dark:border-indigo-800 space-y-3.5 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-sm">✨</div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">AI Pastoral Prayers & Wishing</h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Google Gemini API key for dynamic Tamil pastoral blessings</p>
+            </div>
+          </div>
+          <span class="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider" :class="settings.geminiApiKey ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'">
+            {{ settings.geminiApiKey ? '● Gemini Connected' : '○ Curated Offline Mode' }}
+          </span>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">Google Gemini API Key (100% Free)</label>
+          <div class="flex gap-2">
+            <input type="password" v-model="settings.geminiApiKey" placeholder="Paste your Gemini AI Studio API key here (AIzaSy...)" class="flex-1 py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" />
+            <button type="button" @click="testGeminiKey" :disabled="testingGemini" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-all flex-shrink-0 disabled:opacity-50">
+              <span v-if="testingGemini">⏳ Testing...</span>
+              <span v-else>⚡ Test Key</span>
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center justify-between">
+            <span>Leave blank anytime to use built-in curated pastoral church blessings without an API key.</span>
+            <button type="button" @click="saveSettings" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline ml-2">Quick Save Key</button>
+          </p>
+        </div>
+      </section>
 
       <!-- Feature Automation Toggles -->
       <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
@@ -1628,23 +1659,6 @@
         <div class="flex items-center justify-between py-1">
           <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">Admin Night Reminder</span>
           <input type="time" v-model="settings.reminderTime" class="w-32 py-1.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-bold text-center focus:outline-none" @change="showToast('Reminder time updated')" />
-        </div>
-      </section>
-
-      <!-- AI Generative Wishing Config -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">AI Pastoral Prayers & Wishing</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Google Gemini API key for live prayer blessing generation</p>
-          </div>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" :class="settings.geminiApiKey ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'">
-            {{ settings.geminiApiKey ? 'API Configured' : 'Offline Pastoral Engine' }}
-          </span>
-        </div>
-        <div>
-          <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Gemini API Key (Optional)</label>
-          <input type="password" v-model="settings.geminiApiKey" placeholder="Leave blank to use curated offline pastoral blessings" class="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
       </section>
 
@@ -1883,7 +1897,12 @@
               <span class="text-xl">✨</span>
               <h3 class="font-bold text-slate-900 dark:text-white text-base">Live Wish Dispatcher</h3>
             </div>
-            <button @click="wishModal.open = false" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
+            <div class="flex items-center gap-2">
+              <button type="button" @click="wishModal.open = false; currentTab = 'settings'" class="text-[11px] font-bold px-2 py-0.5 rounded-full border transition-all" :class="settings.geminiApiKey ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400'">
+                {{ settings.geminiApiKey ? '✨ Gemini Active' : '⚙️ Setup Gemini Key' }}
+              </button>
+              <button @click="wishModal.open = false" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
+            </div>
           </div>
 
           <div v-if="wishModal.loading" class="text-center py-10 space-y-2">
@@ -2830,6 +2849,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.5.0"></script>
+  <script src="/app.js?v=2.5.1"></script>
 </body>
 </html>

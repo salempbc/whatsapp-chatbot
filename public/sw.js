@@ -1,5 +1,5 @@
 // Service Worker for SPBC Church CMS Mini App (Network-First Strategy)
-const CACHE_NAME = 'spbc-cms-shell-v11';
+const CACHE_NAME = 'spbc-cms-shell-v12';
 
 // Only cache truly static, rarely-changing assets (NOT app.js or index.html)
 const STATIC_ASSETS = [

@@ -750,6 +750,33 @@ router.post("/settings", async (req, res) => {
   res.json({ success: true });
 });
 
+/* Test Gemini API Key connectivity directly */
+router.post("/actions/test-gemini", async (req, res) => {
+  try {
+    const { apiKey } = req.body || {};
+    let keyToTest = apiKey;
+    if (!keyToTest || keyToTest === "configured") {
+      keyToTest = await getSetting("geminiApiKey", process.env.GEMINI_API_KEY || "");
+    }
+    if (!keyToTest) {
+      return res.status(400).json({ success: false, error: "No Gemini API key provided or saved." });
+    }
+
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey: keyToTest.trim() });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: "Respond with the single word: Connected"
+    });
+
+    const reply = response.text ? response.text.trim() : "Connected";
+    res.json({ success: true, message: `Connected to Gemini 2.5 Flash! (${reply})` });
+  } catch (err) {
+    console.error("Gemini test connection failed:", err.message);
+    res.status(400).json({ success: false, error: err.message || "Failed to connect to Gemini." });
+  }
+});
+
 /* Upcoming Celebrations */
 router.get("/upcoming", async (req, res) => {
   try {
