@@ -221,3 +221,34 @@ export const mergeMembers = async (targetId, sourceId, performedBy = "admin") =>
 export const softDeleteMember = async (id) => {
   return await archiveMember(id);
 };
+
+/**
+ * Self-healing data integrity ensuring all existing members have valid status and isActive flags
+ */
+export const ensureMemberStatusIntegrity = async () => {
+  try {
+    await Member.updateMany(
+      { status: { $exists: false }, isActive: false },
+      { $set: { status: "inactive" } }
+    );
+    await Member.updateMany(
+      {
+        $or: [
+          { isActive: { $exists: false } },
+          { status: { $exists: false } },
+          { status: null }
+        ],
+        isActive: { $ne: false }
+      },
+      {
+        $set: {
+          isActive: true,
+          status: "active",
+          isDeleted: false
+        }
+      }
+    );
+  } catch (err) {
+    console.warn("⚠️ [MemberService] Status integrity check notice:", err?.message || err);
+  }
+};

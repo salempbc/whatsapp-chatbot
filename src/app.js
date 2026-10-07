@@ -14,6 +14,7 @@ import apiRouter from "./api/index.js";
 import { connectDB } from "./config/db.js";
 import { initLogger } from "./config/logger.js";
 import { loadAuthorizedUsersCache } from "./services/userService.js";
+import { ensureMemberStatusIntegrity } from "./services/memberService.js";
 import { captureError } from "./services/errorLogService.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -125,6 +126,7 @@ let server;
 connectDB()
   .then(async () => {
     await loadAuthorizedUsersCache();
+    await ensureMemberStatusIntegrity();
     initTelegram();
     startScheduler();
     server = app.listen(PORT, () => console.log(`🌍 Web Server & API listening on port ${PORT}`));

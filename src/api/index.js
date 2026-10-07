@@ -270,7 +270,15 @@ router.get("/members", async (req, res) => {
   }
 
   const members = await Member.find(filter).sort({ name: 1 }).lean();
-  res.json(members);
+  const normalized = members.map((m) => {
+    const isAct = m.status ? m.status === "active" : m.isActive !== false;
+    return {
+      ...m,
+      isActive: isAct,
+      status: m.status || (isAct ? "active" : "inactive")
+    };
+  });
+  res.json(normalized);
 });
 
 router.post("/members/check-duplicate", async (req, res) => {
