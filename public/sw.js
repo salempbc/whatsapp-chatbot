@@ -1,5 +1,5 @@
 // Service Worker for SPBC Church CMS Mini App (Network-First Strategy)
-const CACHE_NAME = 'spbc-cms-shell-v12';
+const CACHE_NAME = 'spbc-cms-shell-v13';
 
 // Only cache truly static, rarely-changing assets (NOT app.js or index.html)
 const STATIC_ASSETS = [
@@ -34,6 +34,16 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Ignore non-http/https schemes (e.g. chrome-extension://, moz-extension://)
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
+
+  // Only handle GET requests in service worker cache
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   const url = new URL(event.request.url);
 
   // Never intercept API, auth, or diagnostic calls
@@ -57,8 +67,8 @@ self.addEventListener('fetch', (event) => {
         if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+            cache.put(event.request, responseToCache).catch(() => {});
+          }).catch(() => {});
         }
         return networkResponse;
       })

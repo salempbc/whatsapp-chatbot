@@ -110,24 +110,29 @@ const memberSchema = new mongoose.Schema(
 
     spouseName: {
       type: String,
-      trim: true
+      trim: true,
+      default: ""
     },
 
     spouseGender: {
       type: String,
-      enum: ["male", "female"]
+      enum: ["male", "female", null],
+      default: null,
+      set: (v) => (v === "" || !v ? null : v)
     },
 
     spouseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Member",
-      default: null
+      default: null,
+      set: (v) => (v === "" || !v ? null : v)
     },
 
     parentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Member",
-      default: null
+      default: null,
+      set: (v) => (v === "" || !v ? null : v)
     },
 
     weddingDate: {
@@ -179,7 +184,7 @@ memberSchema.pre("save", function (next) {
 
   if (this.isMarried) {
     // spouse required
-    if (!this.spouseName) {
+    if (!this.spouseName || !this.spouseName.trim()) {
       return next(new Error("Spouse name required for married members"));
     }
 
@@ -189,6 +194,12 @@ memberSchema.pre("save", function (next) {
         new Error("Invalid marriage: same gender pairing not allowed")
       );
     }
+  } else {
+    this.spouseName = "";
+    this.spouseGender = null;
+    this.spouseId = null;
+    this.weddingDate = "";
+    this.wedding = "";
   }
 
   next();

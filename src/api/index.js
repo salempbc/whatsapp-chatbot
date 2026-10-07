@@ -278,39 +278,120 @@ router.post("/members/check-duplicate", async (req, res) => {
   res.json({ duplicates });
 });
 
+const sanitizeMemberPayload = (body = {}) => {
+  const data = { ...body };
+  delete data._id;
+  delete data.__v;
+  delete data.createdAt;
+  delete data.updatedAt;
+
+  if (typeof data.name === "string") {
+    data.name = data.name.trim();
+  }
+
+  if (typeof data.dob === "string" && data.dob.length >= 5) {
+    data.birthday = data.dob.substring(5);
+  } else if (data.dob === "" || data.dob === null) {
+    data.birthday = "";
+    data.dob = "";
+  }
+
+  if (data.isMarried) {
+    if (typeof data.weddingDate === "string" && data.weddingDate.length >= 5) {
+      data.wedding = data.weddingDate.substring(5);
+    }
+    if (!["male", "female"].includes(data.spouseGender)) {
+      data.spouseGender = data.gender === "male" ? "female" : "male";
+    }
+  } else {
+    data.isMarried = false;
+    data.spouseName = "";
+    data.spouseGender = null;
+    data.spouseId = null;
+    data.weddingDate = "";
+    data.wedding = "";
+  }
+
+  if (!data.spouseId || data.spouseId === "" || !mongoose.Types.ObjectId.isValid(data.spouseId)) {
+    data.spouseId = null;
+  }
+  if (!data.parentId || data.parentId === "" || !mongoose.Types.ObjectId.isValid(data.parentId)) {
+    data.parentId = null;
+  }
+
+  return data;
+};
+
 router.post("/members", async (req, res) => {
-  if (typeof req.body.dob === "string" && req.body.dob.length >= 5) {
-    req.body.birthday = req.body.dob.substring(5);
+  try {
+    const cleanData = sanitizeMemberPayload(req.body);
+    if (!cleanData.name) {
+      return res.status(400).json({ error: "Full Name is required." });
+    }
+
+    const existing = await Member.findOne({ name: cleanData.name }).lean();
+    if (existing) {
+      return res.status(400).json({
+        error: `A member named "${cleanData.name}" already exists in church records.`
+      });
+    }
+
+    const m = await Member.create(cleanData);
+    res.json(m);
+  } catch (err) {
+    console.error("💥 [Member POST Error]:", err);
+    if (err.code === 11000) {
+      return res.status(400).json({ error: "A member with this name already exists in records." });
+    }
+    if (err.name === "ValidationError") {
+      const messages = Object.values(err.errors || {}).map((e) => e.message).join(", ");
+      return res.status(400).json({ error: messages || err.message || "Validation failed creating member profile." });
+    }
+    res.status(400).json({ error: err.message || "Failed to create member." });
   }
-  if (typeof req.body.weddingDate === "string" && req.body.weddingDate.length >= 5) {
-    req.body.wedding = req.body.weddingDate.substring(5);
-  }
-  const m = await Member.create(req.body);
-  res.json(m);
 });
 
 router.put("/members/:id", async (req, res) => {
-  const m = await Member.findById(req.params.id);
-  if (!m) return res.status(404).json({ error: "Member not found" });
+  try {
+    const m = await Member.findById(req.params.id);
+    if (!m) return res.status(404).json({ error: "Member not found" });
 
-  if (req.body.dob !== undefined) {
-    req.body.birthday = req.body.dob ? req.body.dob.substring(5) : "";
-  }
-  if (req.body.weddingDate !== undefined) {
-    req.body.wedding = req.body.weddingDate ? req.body.weddingDate.substring(5) : "";
-  }
+    const cleanData = sanitizeMemberPayload(req.body);
 
-  if (req.body.status && req.body.status !== m.status) {
-    if (!validateStatusTransition(m.status, req.body.status)) {
-      return res.status(400).json({
-        error: `Invalid status transition from '${m.status}' to '${req.body.status}'`
-      });
+    if (cleanData.status && cleanData.status !== m.status) {
+      if (!validateStatusTransition(m.status, cleanData.status)) {
+        return res.status(400).json({
+          error: `Invalid status transition from '${m.status}' to '${cleanData.status}'`
+        });
+      }
     }
-  }
 
-  Object.assign(m, req.body);
-  await m.save();
-  res.json(m);
+    if (cleanData.name && cleanData.name !== m.name) {
+      const existing = await Member.findOne({
+        name: cleanData.name,
+        _id: { $ne: m._id }
+      }).lean();
+      if (existing) {
+        return res.status(400).json({
+          error: `A member named "${cleanData.name}" already exists in church records.`
+        });
+      }
+    }
+
+    Object.assign(m, cleanData);
+    await m.save();
+    res.json(m);
+  } catch (err) {
+    console.error("💥 [Member PUT Error]:", err);
+    if (err.code === 11000) {
+      return res.status(400).json({ error: "A member with this name already exists in records." });
+    }
+    if (err.name === "ValidationError") {
+      const messages = Object.values(err.errors || {}).map((e) => e.message).join(", ");
+      return res.status(400).json({ error: messages || err.message || "Validation failed saving member profile." });
+    }
+    res.status(400).json({ error: err.message || "Failed to update member." });
+  }
 });
 
 router.post("/members/:id/archive", async (req, res) => {

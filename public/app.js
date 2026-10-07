@@ -157,7 +157,7 @@ try {
 
 if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=12').then((reg) => {
+    navigator.serviceWorker.register('/sw.js?v=13').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });
@@ -1137,12 +1137,32 @@ const app = createApp({
     };
 
     const saveMember = async () => {
-      if (!form.value.name) return tg.showAlert("Full Name is required!");
+      const trimmedName = (form.value.name || '').trim();
+      if (!trimmedName) return tg.showAlert("Full Name is required!");
+      if (form.value.isMarried) {
+        if (!form.value.spouseName || !form.value.spouseName.trim()) {
+          return tg.showAlert("Spouse name is required when Married is enabled.");
+        }
+        if (form.value.gender && form.value.spouseGender && form.value.gender === form.value.spouseGender) {
+          return tg.showAlert("Spouse gender must be different from member gender.");
+        }
+      }
+
       saving.value = true;
       try {
+        const payload = {
+          ...form.value,
+          name: trimmedName,
+          spouseName: form.value.isMarried ? (form.value.spouseName || '').trim() : '',
+          spouseGender: form.value.isMarried ? form.value.spouseGender : null,
+          spouseId: form.value.isMarried && form.value.spouseId ? form.value.spouseId : null,
+          parentId: form.value.parentId ? form.value.parentId : null,
+          weddingDate: form.value.isMarried ? form.value.weddingDate : ''
+        };
+
         if (!form.value._id) {
           // Pre-save duplicate collision inspection
-          const dupRes = await apiCall('/members/check-duplicate', 'POST', form.value).catch(() => ({ duplicates: [] }));
+          const dupRes = await apiCall('/members/check-duplicate', 'POST', payload).catch(() => ({ duplicates: [] }));
           if (dupRes.duplicates && dupRes.duplicates.length > 0) {
             const firstDup = dupRes.duplicates[0];
             const proceed = confirm(`⚠️ Warning: Potential duplicate detected with "${firstDup.name}" (${firstDup.reason}).\n\nDo you want to proceed and save this new member profile?`);
@@ -1152,7 +1172,7 @@ const app = createApp({
             }
           }
         }
-        await apiCall(form.value._id ? `/members/${form.value._id}` : '/members', form.value._id ? 'PUT' : 'POST', form.value);
+        await apiCall(form.value._id ? `/members/${form.value._id}` : '/members', form.value._id ? 'PUT' : 'POST', payload);
         await loadData();
         currentTab.value = 'members';
         showToast("Profile saved successfully");
