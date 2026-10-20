@@ -311,10 +311,11 @@ test("Integration: homeScreen dynamically configures WebApp URL without generati
     delete process.env.RENDER_EXTERNAL_URL;
     const screenWithUrl = homeScreen();
     const webAppRow = screenWithUrl.keyboard.find(row => row.some(b => b.web_app));
-    assert.ok(webAppRow, "Keyboard must include WebApp button when WEBAPP_URL is set");
-    assert.ok(
-      webAppRow[0].web_app.url.startsWith("https://spbc-staging.onrender.com"),
-      "WebApp URL must start with configured host"
+    const parsedUrl = new URL(webAppRow[0].web_app.url);
+    assert.equal(
+      parsedUrl.origin,
+      "https://spbc-staging.onrender.com",
+      "WebApp URL must match configured origin"
     );
 
     // 2. With no URL configured

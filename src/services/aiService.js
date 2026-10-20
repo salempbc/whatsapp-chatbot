@@ -229,7 +229,8 @@ export const getCanonicalVerse = async (eventType, member = null) => {
   // 1. Check custom database event verses (if MongoDB is connected)
   if (mongoose.connection && mongoose.connection.readyState === 1) {
     try {
-      const customVerses = await EventVerse.find({ type });
+      const cleanType = typeof type === "string" ? type.trim() : String(type || "");
+      const customVerses = await EventVerse.find({ type: cleanType });
       if (customVerses && customVerses.length > 0) {
         const chosen = pick(customVerses);
         const text = await fetchVerseText(chosen.reference);

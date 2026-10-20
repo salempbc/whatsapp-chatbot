@@ -95,8 +95,9 @@ export const getErrorLogs = async ({
 } = {}) => {
   const query = {};
 
-  if (source && source !== "all") {
-    query.source = source;
+  const cleanSource = typeof source === "string" ? source.trim() : "";
+  if (cleanSource && cleanSource !== "all") {
+    query.source = cleanSource;
   }
 
   if (resolved === "true" || resolved === true) {
@@ -105,8 +106,8 @@ export const getErrorLogs = async ({
     query.resolved = false;
   }
 
-  if (search) {
-    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (search && typeof search === "string" && search.trim()) {
+    const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     query.$or = [
       { message: { $regex: escaped, $options: "i" } },
       { endpoint: { $regex: escaped, $options: "i" } },
@@ -151,11 +152,13 @@ export const getErrorLogs = async ({
  * Mark an error as resolved
  */
 export const resolveErrorLog = async (id, resolvedBy = "Admin") => {
+  const cleanId = typeof id === "string" ? id.trim() : String(id || "");
+  if (!cleanId || cleanId.length !== 24) return null;
   return await ErrorLog.findByIdAndUpdate(
-    id,
+    cleanId,
     {
       resolved: true,
-      resolvedBy,
+      resolvedBy: typeof resolvedBy === "string" ? resolvedBy : "Admin",
       resolvedAt: new Date()
     },
     { new: true }
@@ -166,7 +169,9 @@ export const resolveErrorLog = async (id, resolvedBy = "Admin") => {
  * Delete a specific error log
  */
 export const deleteErrorLog = async (id) => {
-  return await ErrorLog.findByIdAndDelete(id);
+  const cleanId = typeof id === "string" ? id.trim() : String(id || "");
+  if (!cleanId || cleanId.length !== 24) return null;
+  return await ErrorLog.findByIdAndDelete(cleanId);
 };
 
 /**

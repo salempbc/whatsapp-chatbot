@@ -84,7 +84,8 @@ const setMeta = async (key, value) => {
 };
 
 const pickTemplate = async (type, key) => {
-  const templates = await Template.find({ type });
+  const cleanType = typeof type === "string" ? type.trim() : String(type || "");
+  const templates = await Template.find({ type: cleanType });
 
   if (!templates.length) return null;
 

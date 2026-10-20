@@ -36,8 +36,40 @@ app.get("/ping", (req, res) => res.status(200).send("pong"));
 app.use(compression());
 app.use(cors());
 
-// Helmet for security headers (CSP disabled to allow Vue/Tailwind/Telegram CDNs)
-app.use(helmet({ contentSecurityPolicy: false, xFrameOptions: false }));
+// Helmet for security headers with Content Security Policy and iframe compatibility for Telegram WebApp
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://unpkg.com", "https://telegram.org"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https://telegram.org", "https://*.telegram.org", "https://api.telegram.org"],
+      frameAncestors: ["'self'", "https://web.telegram.org", "https://*.telegram.org", "https://telegram.org"]
+    }
+  },
+  xFrameOptions: false
+}));
+
+// Recursive sanitizer to strip MongoDB query operator keys starting with '$' or containing '.'
+const sanitizeMongoInput = (obj) => {
+  if (!obj || typeof obj !== "object") return;
+  for (const key of Object.keys(obj)) {
+    if (key.startsWith("$") || key.includes(".")) {
+      delete obj[key];
+    } else if (typeof obj[key] === "object" && obj[key] !== null) {
+      sanitizeMongoInput(obj[key]);
+    }
+  }
+};
+
+app.use((req, res, next) => {
+  if (req.body) sanitizeMongoInput(req.body);
+  if (req.query) sanitizeMongoInput(req.query);
+  if (req.params) sanitizeMongoInput(req.params);
+  next();
+});
 
 // Rate limiter for API routes to prevent DDoS / Spam
 const apiLimiter = rateLimit({
@@ -49,6 +81,15 @@ const apiLimiter = rateLimit({
      already protected by the webhook secret, so throttling it only drops
      legitimate messages. */
   skip: (req) => req.path === "/bot-webhook",
+  message: { error: "Too many requests, please try again later." }
+});
+
+// Rate limiter for SPA page fallback routes
+const pageLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { error: "Too many requests, please try again later." }
 });
 
@@ -80,7 +121,7 @@ app.use(express.static(path.join(__dirname, "../public")));
 // Apply rate limiter specifically to /api
 app.use("/api", apiLimiter, apiRouter);
 
-app.get("*", (req, res) => {
+app.get("*", pageLimiter, (req, res) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 

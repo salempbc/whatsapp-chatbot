@@ -144,6 +144,14 @@ const prunePhotoCache = () => {
 router.use(express.json({ limit: "15mb" }));
 router.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
+/* Validate all :id route parameters as valid 24-character hexadecimal ObjectIds */
+router.param("id", (req, res, next, id) => {
+  if (!id || typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id.trim())) {
+    return res.status(400).json({ error: "Invalid resource identifier format" });
+  }
+  next();
+});
+
 /* 1. PUBLIC HEALTH & TELEMETRY */
 router.get("/ping", (req, res) => res.status(200).send("pong"));
 
@@ -270,10 +278,10 @@ router.get("/members", async (req, res) => {
   if (includeArchived !== "true") {
     filter.isDeleted = { $ne: true };
   }
-  if (status && status !== "all") {
-    filter.status = status;
+  if (typeof status === "string" && status.trim() && status !== "all") {
+    filter.status = status.trim();
   }
-  if (search && search.trim()) {
+  if (typeof search === "string" && search.trim()) {
     const s = escapeRegex(search.trim());
     filter.$or = [
       { name: new RegExp(s, "i") },
@@ -307,7 +315,9 @@ const sanitizeMemberPayload = (body = {}) => {
   delete data.createdAt;
   delete data.updatedAt;
 
-  if (typeof data.name === "string") {
+  if (typeof data.name !== "string" || !data.name.trim()) {
+    data.name = "";
+  } else {
     data.name = data.name.trim();
   }
 
@@ -354,14 +364,15 @@ const sanitizeMemberPayload = (body = {}) => {
 router.post("/members", async (req, res) => {
   try {
     const cleanData = sanitizeMemberPayload(req.body);
-    if (!cleanData.name) {
+    if (!cleanData.name || typeof cleanData.name !== "string") {
       return res.status(400).json({ error: "Full Name is required." });
     }
 
-    const existing = await Member.findOne({ name: cleanData.name }).lean();
+    const cleanMemberName = cleanData.name.trim();
+    const existing = await Member.findOne({ name: cleanMemberName }).lean();
     if (existing) {
       return res.status(400).json({
-        error: `A member named "${cleanData.name}" already exists in church records.`
+        error: `A member named "${cleanMemberName}" already exists in church records.`
       });
     }
 
@@ -395,14 +406,15 @@ router.put("/members/:id", async (req, res) => {
       }
     }
 
-    if (cleanData.name && cleanData.name !== m.name) {
+    if (typeof cleanData.name === "string" && cleanData.name.trim() && cleanData.name.trim() !== m.name) {
+      const nameToCheck = cleanData.name.trim();
       const existing = await Member.findOne({
-        name: cleanData.name,
+        name: nameToCheck,
         _id: { $ne: m._id }
       }).lean();
       if (existing) {
         return res.status(400).json({
-          error: `A member named "${cleanData.name}" already exists in church records.`
+          error: `A member named "${nameToCheck}" already exists in church records.`
         });
       }
     }
@@ -434,11 +446,13 @@ router.post("/members/:id/restore", async (req, res) => {
 });
 
 router.post("/members/merge", async (req, res) => {
-  const { targetId, sourceId } = req.body;
-  if (!targetId || !sourceId) {
-    return res.status(400).json({ error: "targetId and sourceId are required" });
+  const { targetId, sourceId } = req.body || {};
+  const cleanTargetId = typeof targetId === "string" ? targetId.trim() : String(targetId || "");
+  const cleanSourceId = typeof sourceId === "string" ? sourceId.trim() : String(sourceId || "");
+  if (!cleanTargetId || !cleanSourceId || !mongoose.Types.ObjectId.isValid(cleanTargetId) || !mongoose.Types.ObjectId.isValid(cleanSourceId)) {
+    return res.status(400).json({ error: "Valid targetId and sourceId are required" });
   }
-  const result = await mergeMembers(targetId, sourceId, req.user?.id ? `tg:${req.user.id}` : "admin");
+  const result = await mergeMembers(cleanTargetId, cleanSourceId, req.user?.id ? `tg:${req.user.id}` : "admin");
   res.json({ success: true, ...result });
 });
 
@@ -554,9 +568,16 @@ router.post("/members/import", async (req, res) => {
       customData: item.customData || {}
     };
 
+    if (!item.name || typeof item.name !== "string" || !item.name.trim()) {
+      skipped++;
+      continue;
+    }
+    const cleanName = item.name.trim();
+    payload.name = cleanName;
+
     await Member.findOneAndUpdate(
-      { name: payload.name },
-      payload,
+      { name: cleanName },
+      { $set: payload },
       { upsert: true, new: true, runValidators: true }
     );
     created++;
@@ -583,7 +604,17 @@ router.post("/members/bulk", async (req, res) => {
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
       return res.status(400).json({ error: "Invalid payload" });
     }
-    await Member.updateMany({ _id: { $in: ids } }, { $set: payload }, { runValidators: true });
+    const allowedFields = ["status", "role", "ministry", "address", "familyName", "isMarried", "isChild", "isPastor", "customData"];
+    const sanitizedSet = {};
+    for (const key of allowedFields) {
+      if (payload[key] !== undefined) {
+        sanitizedSet[key] = payload[key];
+      }
+    }
+    if (Object.keys(sanitizedSet).length === 0) {
+      return res.status(400).json({ error: "No valid fields to update" });
+    }
+    await Member.updateMany({ _id: { $in: ids } }, { $set: sanitizedSet }, { runValidators: true });
   } else {
     return res.status(400).json({ error: "Unknown action" });
   }
@@ -596,11 +627,11 @@ router.post("/members/bulk", async (req, res) => {
 router.get("/events", async (req, res) => {
   const { startDate, endDate, category } = req.query;
   const filter = { status: { $ne: "cancelled" } };
-  if (startDate && endDate) {
-    filter.startDate = { $gte: startDate, $lte: endDate };
+  if (typeof startDate === "string" && typeof endDate === "string" && startDate.trim() && endDate.trim()) {
+    filter.startDate = { $gte: startDate.trim(), $lte: endDate.trim() };
   }
-  if (category && category !== "all") {
-    filter.category = category;
+  if (typeof category === "string" && category.trim() && category !== "all") {
+    filter.category = category.trim();
   }
   const events = await ChurchEvent.find(filter).sort({ startDate: 1, startTime: 1 }).lean();
   res.json(events);
@@ -634,7 +665,15 @@ router.get("/events/export/ics", async (req, res) => {
 /* ========================================================= */
 router.get("/tasks", async (req, res) => {
   const { status, category, priority, tag, search, sortField, sortOrder } = req.query;
-  const tasks = await getTasks({ status, category, priority, tag, search, sortField, sortOrder });
+  const tasks = await getTasks({
+    status: typeof status === "string" ? status.trim() : undefined,
+    category: typeof category === "string" ? category.trim() : undefined,
+    priority: typeof priority === "string" ? priority.trim() : undefined,
+    tag: typeof tag === "string" ? tag.trim() : undefined,
+    search: typeof search === "string" ? search.trim() : undefined,
+    sortField: typeof sortField === "string" ? sortField.trim() : "manual",
+    sortOrder: typeof sortOrder === "string" ? sortOrder.trim() : "asc"
+  });
   res.json(tasks);
 });
 
@@ -800,7 +839,17 @@ router.post("/templates", async (req, res) => {
 });
 
 router.put("/templates/:id", async (req, res) => {
-  const t = await Template.findByIdAndUpdate(req.params.id, req.body, {
+  const cleanId = typeof req.params.id === "string" ? req.params.id.trim() : String(req.params.id || "");
+  if (!mongoose.Types.ObjectId.isValid(cleanId)) {
+    return res.status(400).json({ error: "Invalid template ID" });
+  }
+  const { title, text, type } = req.body || {};
+  const updateFields = {};
+  if (typeof title === "string") updateFields.title = title;
+  if (typeof text === "string") updateFields.text = text;
+  if (typeof type === "string") updateFields.type = type;
+
+  const t = await Template.findByIdAndUpdate(cleanId, { $set: updateFields }, {
     new: true,
     runValidators: true
   });
@@ -809,7 +858,11 @@ router.put("/templates/:id", async (req, res) => {
 });
 
 router.delete("/templates/:id", async (req, res) => {
-  const t = await Template.findByIdAndDelete(req.params.id);
+  const cleanId = typeof req.params.id === "string" ? req.params.id.trim() : String(req.params.id || "");
+  if (!mongoose.Types.ObjectId.isValid(cleanId)) {
+    return res.status(400).json({ error: "Invalid template ID" });
+  }
+  const t = await Template.findByIdAndDelete(cleanId);
   if (!t) return res.status(404).json({ error: "Template not found" });
   res.json({ success: true });
 });
@@ -1134,16 +1187,20 @@ router.post("/actions/trigger-today", async (req, res) => {
 router.post("/actions/preview-wish", async (req, res) => {
   try {
     const { memberId, type = "birthday" } = req.body || {};
-    if (!memberId) return res.status(400).json({ error: "memberId is required" });
+    const cleanMemberId = typeof memberId === "string" ? memberId.trim() : String(memberId || "");
+    if (!cleanMemberId || !mongoose.Types.ObjectId.isValid(cleanMemberId)) {
+      return res.status(400).json({ error: "Valid memberId is required" });
+    }
 
-    const member = await Member.findById(memberId);
+    const member = await Member.findById(cleanMemberId);
     if (!member) return res.status(404).json({ error: "Member not found" });
 
-    const verseObj = await getCanonicalVerse(type, member);
-    const templateMsg = await generateTemplateMessage(member, type);
+    const cleanType = typeof type === "string" ? type.trim() : "birthday";
+    const verseObj = await getCanonicalVerse(cleanType, member);
+    const templateMsg = await generateTemplateMessage(member, cleanType);
 
     const preview = formatGreetingCard({
-      eventType: type,
+      eventType: cleanType,
       member,
       verseText: verseObj.text,
       verseRef: verseObj.reference,
@@ -1168,7 +1225,13 @@ router.post("/actions/preview-wish", async (req, res) => {
 router.get("/errors", requirePermission("view_analytics"), async (req, res) => {
   try {
     const { source, resolved, search, page, limit } = req.query;
-    const result = await getErrorLogs({ source, resolved, search, page, limit });
+    const result = await getErrorLogs({
+      source: typeof source === "string" ? source.trim() : undefined,
+      resolved: typeof resolved === "string" ? resolved.trim() : undefined,
+      search: typeof search === "string" ? search.trim() : undefined,
+      page,
+      limit
+    });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

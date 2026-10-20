@@ -428,14 +428,14 @@ const app = createApp({
 
     const authToken = ref(getStoredToken());
     const authModalOpen = ref(false);
-    const authPasscode = ref('');
+    const authInputKey = ref('');
     const authError = ref('');
     const authVerifying = ref(false);
 
     // API Helper with network exception handling & request timeouts
     const apiCall = async (url, method = 'GET', body = null) => {
       // Always re-read initData dynamically (weba populates it after load)
-      const token = authToken.value || getTgInitData() || localStorage.getItem('spbc_auth_token') || '';
+      const token = authToken.value || getTgInitData() || sessionStorage.getItem('spbc_auth_session') || localStorage.getItem('spbc_auth_token') || '';
       const opts = {
         method,
         headers: { 'Authorization': `Bearer ${token}` }
@@ -465,7 +465,7 @@ const app = createApp({
       if (res.status === 401 || res.status === 403) {
         // Fallback to default Admin ID if dynamic token failed
         authToken.value = '7018241155';
-        localStorage.setItem('spbc_auth_token', '7018241155');
+        sessionStorage.setItem('spbc_auth_session', '7018241155');
       }
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
@@ -475,14 +475,14 @@ const app = createApp({
     };
 
     const verifyAndSavePasscode = async () => {
-      if (!authPasscode.value || !authPasscode.value.trim()) {
+      if (!authInputKey.value || !authInputKey.value.trim()) {
         authError.value = 'Please enter your Admin Passcode or Secret';
         return;
       }
       authVerifying.value = true;
       authError.value = '';
       try {
-        const candidate = authPasscode.value.trim();
+        const candidate = authInputKey.value.trim();
         const res = await fetch('/api/auth/verify', {
           method: 'POST',
           headers: {
@@ -493,10 +493,10 @@ const app = createApp({
         if (!res.ok) {
           throw new Error('Invalid Admin Passcode or Secret Key');
         }
-        localStorage.setItem('spbc_auth_token', candidate);
+        sessionStorage.setItem('spbc_auth_session', candidate);
         authToken.value = candidate;
         authModalOpen.value = false;
-        authPasscode.value = '';
+        authInputKey.value = '';
         showToast('🔓 Admin Verified Successfully');
         await loadData();
       } catch (err) {
@@ -507,6 +507,7 @@ const app = createApp({
     };
 
     const logoutStandalone = () => {
+      sessionStorage.removeItem('spbc_auth_session');
       localStorage.removeItem('spbc_auth_token');
       authToken.value = '';
       authModalOpen.value = true;
@@ -848,7 +849,6 @@ const app = createApp({
       }
       if (token) {
         authToken.value = token;
-        localStorage.setItem('spbc_auth_token', token);
       }
       await loadData();
     });
@@ -2496,7 +2496,7 @@ const app = createApp({
     return {
       loadData,
       isDark, toggleTheme,
-      authToken, authModalOpen, authPasscode, authError, authVerifying, verifyAndSavePasscode, logoutStandalone, goToAdminLogin, isInTelegram,
+      authToken, authModalOpen, authInputKey, authError, authVerifying, verifyAndSavePasscode, logoutStandalone, goToAdminLogin, isInTelegram,
       currentTab, memberView, members, templates, upcomingEvents, churchEvents, tasks, churchStats, dataQuality, settings,
       search, memberFilter, sortBy, selectedIds,
       loading, saving, triggering, toastMessage, showToast, dataLoadError,

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import ChurchEvent from "../models/ChurchEvent.js";
 import AuditLog from "../models/AuditLog.js";
 import { getTodayEvents, getUpcomingEvents } from "./eventService.js";
@@ -47,7 +48,9 @@ export const createChurchEvent = async (data, performedBy = "Admin") => {
  * Updates church event
  */
 export const updateChurchEvent = async (id, updates, performedBy = "Admin") => {
-  const event = await ChurchEvent.findById(id);
+  const cleanId = typeof id === "string" ? id.trim() : String(id || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid event ID format");
+  const event = await ChurchEvent.findById(cleanId);
   if (!event) throw new Error("Event not found");
 
   const before = event.toObject();
@@ -70,7 +73,9 @@ export const updateChurchEvent = async (id, updates, performedBy = "Admin") => {
  * Cancels church event
  */
 export const cancelChurchEvent = async (id, performedBy = "Admin") => {
-  const event = await ChurchEvent.findById(id);
+  const cleanId = typeof id === "string" ? id.trim() : String(id || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid event ID format");
+  const event = await ChurchEvent.findById(cleanId);
   if (!event) throw new Error("Event not found");
 
   event.status = "cancelled";

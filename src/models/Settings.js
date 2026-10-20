@@ -10,13 +10,15 @@ const settingsSchema = new mongoose.Schema({
 const Settings = mongoose.model("Settings", settingsSchema);
 
 export const getSetting = async (key, defaultValue = null) => {
-  const doc = await Settings.findOne({ key });
+  const cleanKey = typeof key === "string" ? key.trim() : String(key || "");
+  const doc = await Settings.findOne({ key: cleanKey });
   return doc ? doc.value : defaultValue;
 };
 
 export const setSetting = async (key, value) => {
+  const cleanKey = typeof key === "string" ? key.trim() : String(key || "");
   await Settings.findOneAndUpdate(
-    { key },
+    { key: cleanKey },
     { value },
     { upsert: true, new: true }
   );

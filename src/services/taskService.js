@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Task from "../models/Task.js";
 import AuditLog from "../models/AuditLog.js";
 
@@ -94,31 +95,37 @@ export const getTasks = async (options = {}) => {
     .toISOString()
     .slice(0, 10);
 
-  if (status === "active" || status === "pending") {
+  const cleanStatus = typeof status === "string" ? status.trim() : "";
+  const cleanCategory = typeof category === "string" ? category.trim() : "";
+  const cleanPriority = typeof priority === "string" ? priority.trim() : "";
+  const cleanTag = typeof tag === "string" ? tag.trim() : "";
+  const cleanSearch = typeof search === "string" ? search.trim() : "";
+
+  if (cleanStatus === "active" || cleanStatus === "pending") {
     filter.status = { $in: ["todo", "in_progress", "waiting"] };
-  } else if (status === "completed") {
+  } else if (cleanStatus === "completed") {
     filter.status = "completed";
-  } else if (status === "overdue") {
+  } else if (cleanStatus === "overdue") {
     filter.status = { $in: ["todo", "in_progress", "waiting"] };
     filter.dueDate = { $ne: "", $lt: todayStr };
-  } else if (status && status !== "all") {
-    filter.status = status;
+  } else if (cleanStatus && cleanStatus !== "all") {
+    filter.status = cleanStatus;
   }
 
-  if (category && category !== "all") {
-    filter.category = category;
+  if (cleanCategory && cleanCategory !== "all") {
+    filter.category = cleanCategory;
   }
 
-  if (priority && priority !== "all") {
-    filter.priority = priority;
+  if (cleanPriority && cleanPriority !== "all") {
+    filter.priority = cleanPriority;
   }
 
-  if (tag && tag !== "all") {
-    filter.tags = tag;
+  if (cleanTag && cleanTag !== "all") {
+    filter.tags = cleanTag;
   }
 
-  if (search && search.trim()) {
-    const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (cleanSearch) {
+    const escaped = cleanSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const regex = new RegExp(escaped, "i");
     filter.$or = [{ title: regex }, { description: regex }, { tags: regex }, { assignee: regex }];
   }
@@ -218,7 +225,9 @@ export const createTask = async (data, performedBy = "Admin") => {
  * Updates a task
  */
 export const updateTask = async (id, updates, performedBy = "Admin") => {
-  const task = await Task.findById(id);
+  const cleanId = typeof id === "string" ? id.trim() : String(id || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid task ID format");
+  const task = await Task.findById(cleanId);
   if (!task) throw new Error("Task not found");
 
   const before = task.toObject();
@@ -268,7 +277,9 @@ export const updateTask = async (id, updates, performedBy = "Admin") => {
  * Deletes a task
  */
 export const deleteTask = async (id, performedBy = "Admin") => {
-  const task = await Task.findByIdAndDelete(id);
+  const cleanId = typeof id === "string" ? id.trim() : String(id || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid task ID format");
+  const task = await Task.findByIdAndDelete(cleanId);
   if (!task) throw new Error("Task not found");
 
   await AuditLog.create({
@@ -287,7 +298,9 @@ export const deleteTask = async (id, performedBy = "Admin") => {
  * Toggles task complete status
  */
 export const toggleTaskComplete = async (id, performedBy = "Admin") => {
-  const task = await Task.findById(id);
+  const cleanId = typeof id === "string" ? id.trim() : String(id || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid task ID format");
+  const task = await Task.findById(cleanId);
   if (!task) throw new Error("Task not found");
 
   const wasCompleted = task.status === "completed" || task.completed === true;
@@ -309,7 +322,9 @@ export const toggleTaskComplete = async (id, performedBy = "Admin") => {
  * Toggles task pinned status
  */
 export const toggleTaskPin = async (id, performedBy = "Admin") => {
-  const task = await Task.findById(id);
+  const cleanId = typeof id === "string" ? id.trim() : String(id || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid task ID format");
+  const task = await Task.findById(cleanId);
   if (!task) throw new Error("Task not found");
 
   task.pinned = !task.pinned;
@@ -322,7 +337,9 @@ export const toggleTaskPin = async (id, performedBy = "Admin") => {
  */
 export const addSubtask = async (taskId, text) => {
   if (!text || !text.trim()) throw new Error("Subtask text required");
-  const task = await Task.findById(taskId);
+  const cleanId = typeof taskId === "string" ? taskId.trim() : String(taskId || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid task ID format");
+  const task = await Task.findById(cleanId);
   if (!task) throw new Error("Task not found");
 
   task.subtasks.push({ text: text.trim(), done: false });
@@ -331,7 +348,9 @@ export const addSubtask = async (taskId, text) => {
 };
 
 export const toggleSubtask = async (taskId, subtaskId) => {
-  const task = await Task.findById(taskId);
+  const cleanId = typeof taskId === "string" ? taskId.trim() : String(taskId || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid task ID format");
+  const task = await Task.findById(cleanId);
   if (!task) throw new Error("Task not found");
 
   const sub = task.subtasks.id(subtaskId);
@@ -343,7 +362,9 @@ export const toggleSubtask = async (taskId, subtaskId) => {
 };
 
 export const deleteSubtask = async (taskId, subtaskId) => {
-  const task = await Task.findById(taskId);
+  const cleanId = typeof taskId === "string" ? taskId.trim() : String(taskId || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid task ID format");
+  const task = await Task.findById(cleanId);
   if (!task) throw new Error("Task not found");
 
   task.subtasks.pull(subtaskId);
@@ -356,7 +377,9 @@ export const deleteSubtask = async (taskId, subtaskId) => {
  */
 export const addNote = async (taskId, { text, author = "Admin" }) => {
   if (!text || !text.trim()) throw new Error("Note text required");
-  const task = await Task.findById(taskId);
+  const cleanId = typeof taskId === "string" ? taskId.trim() : String(taskId || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid task ID format");
+  const task = await Task.findById(cleanId);
   if (!task) throw new Error("Task not found");
 
   task.notes.push({ text: text.trim(), author });
@@ -365,7 +388,9 @@ export const addNote = async (taskId, { text, author = "Admin" }) => {
 };
 
 export const deleteNote = async (taskId, noteId) => {
-  const task = await Task.findById(taskId);
+  const cleanId = typeof taskId === "string" ? taskId.trim() : String(taskId || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid task ID format");
+  const task = await Task.findById(cleanId);
   if (!task) throw new Error("Task not found");
 
   task.notes.pull(noteId);

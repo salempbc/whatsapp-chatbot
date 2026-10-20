@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Member from "../models/Member.js";
 import AuditLog from "../models/AuditLog.js";
 
@@ -79,7 +80,9 @@ export const validateStatusTransition = (currentStatus, newStatus) => {
  * Soft delete / archive member
  */
 export const archiveMember = async (id, performedBy = "Admin") => {
-  const member = await Member.findById(id);
+  const cleanId = typeof id === "string" ? id.trim() : String(id || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid member ID format");
+  const member = await Member.findById(cleanId);
   if (!member) throw new Error("Member not found");
 
   const before = member.toObject();
@@ -104,7 +107,9 @@ export const archiveMember = async (id, performedBy = "Admin") => {
  * Restore archived member
  */
 export const restoreMember = async (id, performedBy = "Admin") => {
-  const member = await Member.findById(id);
+  const cleanId = typeof id === "string" ? id.trim() : String(id || "");
+  if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) throw new Error("Invalid member ID format");
+  const member = await Member.findById(cleanId);
   if (!member) throw new Error("Member not found");
 
   const before = member.toObject();
@@ -170,9 +175,16 @@ export const ensureSpouse = async (member) => {
 export const mergeMembers = async (targetId, sourceId, performedBy = "admin") => {
   if (targetId === sourceId) throw new Error("Cannot merge a member into themselves.");
 
+  const cleanTargetId = typeof targetId === "string" ? targetId.trim() : String(targetId || "");
+  const cleanSourceId = typeof sourceId === "string" ? sourceId.trim() : String(sourceId || "");
+
+  if (!mongoose.Types.ObjectId.isValid(cleanTargetId) || !mongoose.Types.ObjectId.isValid(cleanSourceId)) {
+    throw new Error("Invalid member ID format.");
+  }
+
   const [target, source] = await Promise.all([
-    Member.findById(targetId),
-    Member.findById(sourceId)
+    Member.findById(cleanTargetId),
+    Member.findById(cleanSourceId)
   ]);
 
   if (!target || !source) throw new Error("One or both members not found.");
