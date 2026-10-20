@@ -2,7 +2,7 @@
 
 ## 1. System Context & Top-Level Diagram
 
-The application operates as a single-process service hosted on Render (or Railway/container platforms) combining an embedded **Express REST server**, a **grammY/Telegram Bot webhook/polling engine**, a **node-cron background scheduler**, and an integrated **Vue 3 Single Page Application (Telegram Mini App)**.
+The application operates as a single-process service hosted on Render (or modern container platforms) combining an embedded **Express REST server**, a **Telegram Bot webhook/polling engine**, a **node-cron background scheduler**, and an integrated **Vue 3 Single Page Application (Telegram Mini App)**.
 
 ```mermaid
 flowchart TD

@@ -24,9 +24,8 @@ console.log("🚀 Starting application...");
 
 const app = express();
 
-/* Railway/Heroku-style single proxy in front of the app. Without this,
-   express-rate-limit v7 refuses to trust X-Forwarded-For and every request
-   looks like it comes from the same proxy IP. */
+/* Standard reverse proxy setup. Trust the first hop (Render / cloud edge proxy)
+   so express-rate-limit correctly resolves client IP from X-Forwarded-For. */
 app.set("trust proxy", 1);
 
 // Lightweight health check for uptime pingers (cron-job.org)
@@ -186,7 +185,7 @@ const shutdown = async (signal) => {
 
   console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
 
-  /* Platforms SIGKILL after a grace period (~30s on Railway). Exit on our own
+  /* Cloud platforms SIGKILL after a grace period (~30s). Exit on our own
      terms first so we never die halfway through closing the DB connection. */
   const hardExit = setTimeout(() => {
     console.error("⚠️ Graceful shutdown timed out after 20s, exiting now.");
@@ -215,7 +214,7 @@ const shutdown = async (signal) => {
   process.exit(0);
 };
 
-// Listen for Railway / PM2 / Docker termination signals
+// Listen for process termination signals (SIGTERM / SIGINT)
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT",  () => shutdown("SIGINT"));
 

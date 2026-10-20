@@ -1,6 +1,6 @@
 # Deployment & Operational Guide
 
-## 1. Hosting Environment (Render / Railway / Docker)
+## 1. Hosting Environment (Render / Docker)
 
 The application is architected as a single-runtime Node.js service requiring minimal memory footprint (< 150 MB RSS) and zero external queue dependencies.
 
