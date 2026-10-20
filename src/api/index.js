@@ -905,7 +905,7 @@ router.post("/settings", async (req, res) => {
   if (customFields) await setSetting("customFields", customFields);
   if (enableBirthdays !== undefined) await setSetting("enableBirthdays", Boolean(enableBirthdays));
   if (enableWeddings !== undefined) await setSetting("enableWeddings", Boolean(enableWeddings));
-  if (geminiApiKey !== undefined && geminiApiKey !== "configured") {
+  if (geminiApiKey !== undefined && typeof geminiApiKey === "string" && geminiApiKey !== "configured") {
     await setSetting("geminiApiKey", geminiApiKey.trim());
   }
 
