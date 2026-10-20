@@ -20,6 +20,17 @@ export const shiftMonth = (mm, delta) => {
 
 export const deriveMMDD = (dateStr) => (dateStr ? dateStr.slice(5) : undefined);
 
+export const stripHtml = (input) => {
+  if (!input) return "";
+  let clean = input;
+  let previous;
+  do {
+    previous = clean;
+    clean = clean.replace(/<[^>]*>/g, "");
+  } while (clean !== previous);
+  return clean;
+};
+
 /**
  * Renders a {text, keyboard} screen in place when a messageId is available
  * (i.e. we're reacting to a button tap), falling back to a fresh message
@@ -42,7 +53,7 @@ export const renderScreen = async (bot, chatId, messageId, screen) => {
       if (/can't parse entities/i.test(err.message)) {
         parseFailed = true;
         try {
-          const plainText = screen.text.replace(/<[^>]*>/g, "");
+          const plainText = stripHtml(screen.text);
           await bot.editMessageText(plainText, { chat_id: chatId, message_id: messageId, reply_markup: opts.reply_markup });
           return;
         } catch (_) {}
@@ -51,14 +62,14 @@ export const renderScreen = async (bot, chatId, messageId, screen) => {
     }
   }
 
-  const textToSend = parseFailed ? screen.text.replace(/<[^>]*>/g, "") : screen.text;
+  const textToSend = parseFailed ? stripHtml(screen.text) : screen.text;
   const sendOpts = parseFailed ? { reply_markup: opts.reply_markup } : opts;
 
   try {
     await bot.sendMessage(chatId, textToSend, sendOpts);
   } catch (err) {
     if (/can't parse entities/i.test(err.message)) {
-      const plainText = screen.text.replace(/<[^>]*>/g, "");
+      const plainText = stripHtml(screen.text);
       await bot.sendMessage(chatId, plainText, { reply_markup: opts.reply_markup }).catch((e) => console.error("renderScreen fallback failed:", e.message));
     } else {
       console.error("renderScreen sendMessage failed:", err.message);
