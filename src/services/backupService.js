@@ -8,7 +8,7 @@ import mongoose from "mongoose";
  * Creates a gzipped JSON archive containing full documents from all primary church collections.
  * Completely free, does not rely on mongodump binary, and works directly inside Node.js.
  */
-export const createDatabaseDump = async () => {
+export const createDatabaseDump = async (targetDir = null) => {
   const db = mongoose.connection.db;
   if (!db) {
     throw new Error("MongoDB database connection is not active.");
@@ -36,7 +36,11 @@ export const createDatabaseDump = async () => {
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const fileName = `spbc_backup_${db.databaseName}_${timestamp}.json.gz`;
-  const filePath = path.join(os.tmpdir(), fileName);
+  const outputDir = targetDir || os.tmpdir();
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+  const filePath = path.join(outputDir, fileName);
 
   fs.writeFileSync(filePath, compressed);
 

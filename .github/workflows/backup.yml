@@ -15,12 +15,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install MongoDB Database Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mongodb-database-tools
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
 
-      - name: Create Gzipped Database Dump
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Gzipped Database Dump
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
         run: |
@@ -30,13 +34,11 @@ jobs:
           fi
           BACKUP_DATE=$(date +'%Y-%m-%d_%H%M%S')
           echo "BACKUP_DATE=$BACKUP_DATE" >> $GITHUB_ENV
-          mkdir -p backups
-          mongodump --uri="$MONGO_URI" --archive="backups/spbc_backup_${BACKUP_DATE}.archive.gz" --gzip
-          echo "✅ Backup archive created successfully."
+          node scripts/run_backup.js
 
       - name: Upload Backup Artifact (30-day retention)
         uses: actions/upload-artifact@v4
         with:
           name: spbc-database-backup-${{ env.BACKUP_DATE }}
-          path: backups/*.archive.gz
+          path: backups/*.json.gz
           retention-days: 30

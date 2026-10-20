@@ -11,3 +11,5 @@ to-do-list/**/.env.local
 todo-app/**/node_modules
 todo-app/**/.next
 todo-app/**/.env.local
+backups/
+*.gz
