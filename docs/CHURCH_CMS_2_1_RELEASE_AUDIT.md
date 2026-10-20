@@ -233,7 +233,7 @@ Ensure the staging environment has isolated credentials:
 - `BOT_TOKEN`: A dedicated staging bot token from [@BotFather](https://t.me/BotFather) (e.g. `@spbc_staging_bot`).
 - `ADMIN_ID`: Numeric Telegram user ID of the staging administrator.
 - `ADMIN_SECRET`: A secure 32+ character hex string for diagnostics and web verification.
-- `WEBAPP_URL`: HTTPS URL of the staging instance (e.g., `https://spbc-staging.onrender.com`).
+- `WEBAPP_URL`: HTTPS URL of the staging instance (e.g., `https://spbc-bot.onrender.com`).
 - `GEMINI_API_KEY`: Staging Google Gemini API key.
 
 ### Step 2: Database Preparation & Index Verification
@@ -249,12 +249,12 @@ Before booting the staging instance:
 1. Deploy code to staging container / Render staging service.
 2. Query health endpoint:
    ```bash
-   curl -I https://spbc-staging.onrender.com/ping
+   curl -I https://spbc-bot.onrender.com/ping
    # Expected: HTTP/1.1 200 OK (pong)
    ```
 3. Query diagnostics endpoint:
    ```bash
-   curl https://spbc-staging.onrender.com/api/diagnostics
+   curl https://spbc-bot.onrender.com/api/diagnostics
    # Expected: { "status": "healthy", "database": { "status": "connected" } }
    ```
 

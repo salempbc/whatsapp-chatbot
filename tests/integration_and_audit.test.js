@@ -307,14 +307,14 @@ test("Integration: homeScreen dynamically configures WebApp URL without generati
 
   try {
     // 1. With explicit HTTPS WEBAPP_URL
-    process.env.WEBAPP_URL = "https://spbc-staging.onrender.com";
+    process.env.WEBAPP_URL = "https://spbc-bot.onrender.com";
     delete process.env.RENDER_EXTERNAL_URL;
     const screenWithUrl = homeScreen();
     const webAppRow = screenWithUrl.keyboard.find(row => row.some(b => b.web_app));
     const parsedUrl = new URL(webAppRow[0].web_app.url);
     assert.equal(
       parsedUrl.origin,
-      "https://spbc-staging.onrender.com",
+      "https://spbc-bot.onrender.com",
       "WebApp URL must match configured origin"
     );
 
