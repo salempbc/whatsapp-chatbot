@@ -13,3 +13,4 @@ todo-app/**/.next
 todo-app/**/.env.local
 backups/
 *.gz
+*.pdf

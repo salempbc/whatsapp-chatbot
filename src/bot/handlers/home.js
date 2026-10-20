@@ -135,7 +135,7 @@ export const helpScreen = (topicKey = "overview") => {
 };
 
 export const homeScreen = () => {
-  let webAppUrl = process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "");
+  let webAppUrl = process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || "";
   if (webAppUrl && !webAppUrl.startsWith("http")) webAppUrl = "https://" + webAppUrl;
 
   const keyboard = [

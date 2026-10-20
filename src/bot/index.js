@@ -42,7 +42,7 @@ export const initTelegram = () => {
     return;
   }
 
-  let domain = process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? "https://" + process.env.RAILWAY_PUBLIC_DOMAIN : "");
+  let domain = process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || "";
   if (domain && !domain.startsWith("http")) domain = "https://" + domain;
   
   if (domain) {
