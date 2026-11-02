@@ -6,28 +6,41 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Run Automated Tests & Integrity Scan
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20.x
+      - name: Setup Node.js ${{ matrix.node }}
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Dependency vulnerability audit
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Run automated test suite
         run: npm test
 
-      - name: Run code syntax and character encoding check
+      - name: Run lint, syntax and character encoding check
         run: npm run check
 
   deploy-staging:
