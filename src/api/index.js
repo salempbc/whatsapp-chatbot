@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import mongoose from "mongoose";
 import fs from "fs";
@@ -8,10 +9,13 @@ import GreetingLog from "../models/GreetingLog.js";
 import ChurchEvent from "../models/ChurchEvent.js";
 import Task from "../models/Task.js";
 import { handleWebhook, getWebhookSecret, getBotInstance } from "../bot/index.js";
-import { verifyTelegramWebAppData, requirePermission } from "./middleware.js";
+import { verifyTelegramWebAppData, requirePermission, parseCookies } from "./middleware.js";
+import { createSession, destroySession, getSession, validateCsrfToken } from "../services/sessionService.js";
+import { getDefaultPermissions } from "../services/userService.js";
 import { exportMembersToCSV } from "../services/exportService.js";
 import { getSetting, setSetting } from "../models/Settings.js";
 import { restartScheduler, triggerNow } from "../scheduler/dailyJob.js";
+import { verifyBackupIntegrity } from "../services/backupService.js";
 import { sendAdminMessage } from "../bot/index.js";
 import { getUpcomingEvents, generateTemplateMessage } from "../services/eventService.js";
 import {
@@ -74,8 +78,7 @@ import {
   toggleUserStatus,
   approveUser,
   revokeUser,
-  createInviteToken,
-  getDefaultPermissions
+  createInviteToken
 } from "../services/userService.js";
 import {
   getErrorLogs,
@@ -186,47 +189,226 @@ router.get("/diagnostics", async (req, res) => {
   });
 });
 
+/* Dedicated rate limiters for public endpoints */
+export const clientErrorLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 15, // max 15 telemetry submissions per IP per 5 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many telemetry requests, please try again later." }
+});
+
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // max 5 failed attempts per 15 min per IP
+  skipSuccessfulRequests: true, // successful logins do not count towards the 5 attempts
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many failed login attempts. Please try again after 15 minutes." }
+});
+
+export const authVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15, // max 15 failed attempts per 15 min per IP
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many failed verification attempts. Please try again after 15 minutes." }
+});
+
+export const inviteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // max 20 invite link creations per hour per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Invite rate limit exceeded. Please try again later." }
+});
+
 /* Client-side telemetry & error reporting endpoint (Accessible without auth to report frontend crashes) */
-router.post("/client-error", async (req, res) => {
-  try {
-    const { message, stack, info, userAgent, url } = req.body || {};
-    const msgStr = typeof message === "string" ? message : (message?.message || String(message || ""));
-    if (msgStr.includes("WebAppMethodUnsupported")) {
-      return res.json({ success: true, ignored: true });
-    }
-    let cleanEndpoint = "webapp:client";
-    if (url) {
-      try {
-        const parsed = new URL(url);
-        cleanEndpoint = parsed.pathname || "/";
-      } catch (_) {
-        cleanEndpoint = String(url).split("#")[0].split("?")[0] || "webapp:client";
+router.post(
+  "/client-error",
+  clientErrorLimiter,
+  express.json({ limit: "16kb" }),
+  async (req, res) => {
+    try {
+      if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+        return res.status(400).json({ error: "Invalid payload format" });
       }
+
+      const { message, stack, info, userAgent, url } = req.body;
+      if (!message && !stack) {
+        return res.status(400).json({ error: "Missing required error message or stack trace" });
+      }
+      const msgStr = typeof message === "string" ? message : (message?.message || String(message || ""));
+      if (msgStr.includes("WebAppMethodUnsupported")) {
+        return res.json({ success: true, ignored: true });
+      }
+
+      let cleanEndpoint = "webapp:client";
+      if (url && typeof url === "string") {
+        try {
+          const parsed = new URL(url);
+          cleanEndpoint = (parsed.pathname || "/").slice(0, 200);
+        } catch (_) {
+          cleanEndpoint = String(url).split("#")[0].split("?")[0].slice(0, 200) || "webapp:client";
+        }
+      }
+
+      // Sanitize context: strip any authorization tokens, passwords, secrets, cookies
+      const cleanInfo = typeof info === "string" ? info.slice(0, 500) : (info && typeof info === "object" ? JSON.stringify(info).slice(0, 500) : "");
+      const cleanUserAgent = typeof userAgent === "string" ? userAgent.slice(0, 300) : "";
+      const cleanUrl = typeof url === "string" ? url.split("?")[0].slice(0, 500) : "";
+
+      await captureError({
+        error: {
+          message: String(msgStr || "Unknown WebApp client error").slice(0, 500),
+          stack: String(stack || "").slice(0, 2000)
+        },
+        source: "client",
+        endpoint: cleanEndpoint,
+        statusCode: 500,
+        userId: String(req.headers["x-telegram-user-id"] || "client-user").slice(0, 100),
+        context: { info: cleanInfo, userAgent: cleanUserAgent, url: cleanUrl }
+      });
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(200).json({ ok: false });
     }
-    await captureError({
-      error: { message: msgStr || "Unknown WebApp client error", stack: stack || "" },
-      source: "client",
-      endpoint: cleanEndpoint,
-      statusCode: 500,
-      userId: req.headers["x-telegram-user-id"] || "client-user",
-      context: { info, userAgent, url }
-    });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(200).json({ ok: false });
   }
+);
+
+/* ========================================================= */
+/* STANDALONE SESSION AUTHENTICATION & LOGIN / LOGOUT        */
+/* ========================================================= */
+
+/* Public Standalone Login endpoint: exchanges ADMIN_SECRET for a server-validated session cookie */
+router.post("/auth/login", loginLimiter, async (req, res) => {
+  const secret = req.body?.secret || (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7).trim() : null);
+  if (!secret || !process.env.ADMIN_SECRET || process.env.ADMIN_SECRET.length < 8) {
+    return res.status(401).json({ error: "Invalid administrator credentials" });
+  }
+
+  const cleanSecret = String(secret).trim();
+  const envSecret = String(process.env.ADMIN_SECRET).trim();
+
+  if (
+    cleanSecret.length !== envSecret.length ||
+    !crypto.timingSafeEqual(Buffer.from(cleanSecret), Buffer.from(envSecret))
+  ) {
+    return res.status(401).json({ error: "Invalid administrator credentials" });
+  }
+
+  const session = await createSession({
+    userId: process.env.ADMIN_ID || "admin",
+    role: "superadmin",
+    userAgent: req.headers["user-agent"],
+    ip: req.ip
+  });
+
+  res.cookie("spbc_session", session.sessionId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 12 * 3600 * 1000,
+    path: "/"
+  });
+
+  res.json({
+    success: true,
+    user: { id: session.userId, role: "superadmin", permissions: getDefaultPermissions("superadmin") },
+    csrfToken: session.csrfToken
+  });
+});
+
+/* Public Standalone Logout endpoint: requires CSRF token if cookie session is present, invalidates session and clears cookie */
+router.post("/auth/logout", async (req, res) => {
+  const cookies = parseCookies(req.headers.cookie);
+  const cookieSessionId = cookies.spbc_session;
+
+  if (cookieSessionId) {
+    const session = await getSession(cookieSessionId);
+    if (session) {
+      const csrfHeader = req.headers["x-csrf-token"];
+      if (!validateCsrfToken(session.csrfToken, csrfHeader)) {
+        return res.status(403).json({ error: "Invalid or missing CSRF token" });
+      }
+      await destroySession(cookieSessionId);
+    }
+  }
+
+  res.setHeader(
+    "Set-Cookie",
+    "spbc_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT"
+  );
+  res.json({ success: true, message: "Logged out" });
+});
+
+/* Auth verification ping / login fallback for WebApp sessions (Supports GET & POST) */
+router.all("/auth/verify", authVerifyLimiter, async (req, res, next) => {
+  // If request contains credentials (secret), delegate to login logic
+  const candidateSecret = req.body?.secret || (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7).trim() : null);
+  if (candidateSecret && process.env.ADMIN_SECRET && candidateSecret.length === process.env.ADMIN_SECRET.length) {
+    if (crypto.timingSafeEqual(Buffer.from(candidateSecret), Buffer.from(process.env.ADMIN_SECRET))) {
+      const session = await createSession({
+        userId: process.env.ADMIN_ID || "admin",
+        role: "superadmin",
+        userAgent: req.headers["user-agent"],
+        ip: req.ip
+      });
+
+      res.cookie("spbc_session", session.sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 12 * 3600 * 1000,
+        path: "/"
+      });
+
+      return res.json({
+        success: true,
+        user: { id: session.userId, role: "superadmin", permissions: getDefaultPermissions("superadmin") },
+        csrfToken: session.csrfToken
+      });
+    }
+  }
+
+  // Otherwise, verify session or TMA token
+  return verifyTelegramWebAppData(req, res, async () => {
+    let sessionCsrf = req.csrfToken || null;
+    const cookies = parseCookies(req.headers.cookie);
+    if (!cookies.spbc_session && req.user) {
+      try {
+        const session = await createSession({
+          userId: String(req.user.telegramId || req.user.id || req.user._id || "admin"),
+          role: req.user.role || "admin",
+          userAgent: req.headers["user-agent"],
+          ip: req.ip
+        });
+        sessionCsrf = session.csrfToken;
+        res.cookie("spbc_session", session.sessionId, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 12 * 3600 * 1000,
+          path: "/"
+        });
+      } catch (_) {}
+    }
+
+    res.json({
+      success: true,
+      user: req.user || { role: "admin" },
+      csrfToken: sessionCsrf
+    });
+  });
 });
 
 /* 2. PROTECTED ADMIN ROUTES */
 router.use(verifyTelegramWebAppData);
 
-/* Auth verification ping for WebApp standalone browser sessions */
-router.post("/auth/verify", (req, res) => {
-  res.json({ success: true, user: req.user || { role: "admin" } });
-});
-
-/* Member Photo Proxy & Upload */
-router.get("/members/:id/photo", async (req, res) => {
+/* Member Photo Proxy (Authenticated avatar serving with strict timeout & size checks) */
+router.get("/members/:id/photo", requirePermission(["canManageMembers", "canSendGreetings"]), async (req, res) => {
   const m = await Member.findById(req.params.id).catch(() => null);
   if (!m || !m.photo) return res.status(404).send("No photo");
 
@@ -235,27 +417,67 @@ router.get("/members/:id/photo", async (req, res) => {
     const parts = m.photo.split(",");
     const mimeMatch = parts[0].match(/:(.*?);/);
     const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mime.toLowerCase())) {
+      return res.status(415).send("Unsupported image format");
+    }
     const imgBuffer = Buffer.from(parts[1], "base64");
+    if (imgBuffer.length > 10 * 1024 * 1024) {
+      return res.status(413).send("Image too large");
+    }
     res.setHeader("Content-Type", mime);
     return res.send(imgBuffer);
   }
 
   const cached = photoCache.get(m.photo);
-  if (cached && Date.now() < cached.expires) return res.redirect(cached.url);
+  if (cached && Date.now() < cached.expires) {
+    res.setHeader("Content-Type", cached.contentType || "image/jpeg");
+    return res.send(cached.buffer);
+  }
 
-  const resp = await fetch(
-    `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${encodeURIComponent(m.photo)}`
-  );
-  const data = await resp.json();
-  if (!data.ok || !data.result?.file_path) return res.status(404).send("No photo");
+  try {
+    const timeoutSignal = AbortSignal.timeout(6000);
+    const resp = await fetch(
+      `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${encodeURIComponent(m.photo)}`,
+      { signal: timeoutSignal }
+    );
+    const data = await resp.json().catch(() => ({}));
+    if (!data.ok || !data.result?.file_path) return res.status(404).send("No photo");
 
-  const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${data.result.file_path}`;
-  photoCache.set(m.photo, { url, expires: Date.now() + PHOTO_CACHE_TTL });
-  prunePhotoCache();
-  res.redirect(url);
+    const filePath = String(data.result.file_path).replace(/\\/g, "/");
+    if (filePath.includes("..")) return res.status(400).send("Invalid file path");
+
+    const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`;
+    const imgResp = await fetch(url, { signal: timeoutSignal });
+    if (!imgResp.ok) return res.status(404).send("No photo");
+
+    const contentLength = Number(imgResp.headers.get("content-length"));
+    if (contentLength && contentLength > 5 * 1024 * 1024) {
+      return res.status(413).send("Photo exceeds 5MB size limit");
+    }
+
+    const contentType = imgResp.headers.get("content-type") || "image/jpeg";
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(contentType.toLowerCase())) {
+      return res.status(415).send("Unsupported upstream image format");
+    }
+
+    const arrayBuffer = await imgResp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    if (buffer.length > 5 * 1024 * 1024) {
+      return res.status(413).send("Photo exceeds 5MB size limit");
+    }
+
+    photoCache.set(m.photo, { buffer, contentType, expires: Date.now() + PHOTO_CACHE_TTL });
+    prunePhotoCache();
+
+    res.setHeader("Content-Type", contentType);
+    return res.send(buffer);
+  } catch (err) {
+    return res.status(err?.name === "TimeoutError" ? 504 : 502).send("Photo unavailable");
+  }
 });
 
-router.post("/members/:id/photo", express.json({ limit: "10mb" }), async (req, res) => {
+/* Member Photo Upload */
+router.post("/members/:id/photo", requirePermission("canManageMembers"), express.json({ limit: "10mb" }), async (req, res) => {
   const { photo } = req.body;
   if (!photo || typeof photo !== "string") {
     return res.status(400).json({ error: "Invalid photo payload" });
@@ -271,7 +493,7 @@ router.post("/members/:id/photo", express.json({ limit: "10mb" }), async (req, r
 /* ========================================================= */
 /* MODULE A: MEMBER LIFECYCLE MANAGEMENT                     */
 /* ========================================================= */
-router.get("/members", async (req, res) => {
+router.get("/members", requirePermission("canManageMembers"), async (req, res) => {
   const { status, includeArchived, search } = req.query;
   const filter = {};
 
@@ -303,7 +525,7 @@ router.get("/members", async (req, res) => {
   res.json(normalized);
 });
 
-router.post("/members/check-duplicate", async (req, res) => {
+router.post("/members/check-duplicate", requirePermission("canManageMembers"), async (req, res) => {
   const duplicates = await checkDuplicates(req.body);
   res.json({ duplicates });
 });
@@ -361,7 +583,7 @@ const sanitizeMemberPayload = (body = {}) => {
   return data;
 };
 
-router.post("/members", async (req, res) => {
+router.post("/members", requirePermission("canManageMembers"), async (req, res) => {
   try {
     const cleanData = sanitizeMemberPayload(req.body);
     if (!cleanData.name || typeof cleanData.name !== "string") {
@@ -391,7 +613,7 @@ router.post("/members", async (req, res) => {
   }
 });
 
-router.put("/members/:id", async (req, res) => {
+router.put("/members/:id", requirePermission("canManageMembers"), async (req, res) => {
   try {
     const m = await Member.findById(req.params.id);
     if (!m) return res.status(404).json({ error: "Member not found" });
@@ -435,17 +657,17 @@ router.put("/members/:id", async (req, res) => {
   }
 });
 
-router.post("/members/:id/archive", async (req, res) => {
+router.post("/members/:id/archive", requirePermission("canDeleteMembers"), async (req, res) => {
   const m = await archiveMember(req.params.id);
   res.json({ success: true, member: m });
 });
 
-router.post("/members/:id/restore", async (req, res) => {
+router.post("/members/:id/restore", requirePermission("canDeleteMembers"), async (req, res) => {
   const m = await restoreMember(req.params.id);
   res.json({ success: true, member: m });
 });
 
-router.post("/members/merge", async (req, res) => {
+router.post("/members/merge", requirePermission("canDeleteMembers"), async (req, res) => {
   const { targetId, sourceId } = req.body || {};
   const cleanTargetId = typeof targetId === "string" ? targetId.trim() : String(targetId || "");
   const cleanSourceId = typeof sourceId === "string" ? sourceId.trim() : String(sourceId || "");
@@ -457,7 +679,7 @@ router.post("/members/merge", async (req, res) => {
 });
 
 /* Export Roster to CSV */
-router.get("/export", async (req, res) => {
+router.get("/export", requirePermission("canExportData"), async (req, res) => {
   const members = await Member.find({ isDeleted: { $ne: true } }).sort({ name: 1 });
   const filePath = await exportMembersToCSV(members, "all");
   res.download(filePath, "church_database.csv", () => {
@@ -466,7 +688,7 @@ router.get("/export", async (req, res) => {
 });
 
 /* Church Directory HTML */
-router.get("/directory", async (req, res) => {
+router.get("/directory", requirePermission("canExportData"), async (req, res) => {
   const members = await Member.find({ isDeleted: { $ne: true } }).sort({ familyName: 1, name: 1 });
   
   const families = {};
@@ -531,7 +753,7 @@ router.get("/directory", async (req, res) => {
 });
 
 /* Bulk Member Import with validation */
-router.post("/members/import", async (req, res) => {
+router.post("/members/import", requirePermission("canManageMembers"), async (req, res) => {
   const { members } = req.body;
   if (!Array.isArray(members) || !members.length) {
     return res.status(400).json({ error: "Please provide an array of members to import." });
@@ -587,7 +809,7 @@ router.post("/members/import", async (req, res) => {
 });
 
 /* Bulk Member Actions */
-router.post("/members/bulk", async (req, res) => {
+router.post("/members/bulk", requirePermission("canManageMembers"), async (req, res) => {
   const { ids, action, payload } = req.body;
   if (!Array.isArray(ids) || !ids.length) {
     return res.status(400).json({ error: "No ids provided" });
@@ -624,7 +846,7 @@ router.post("/members/bulk", async (req, res) => {
 /* ========================================================= */
 /* MODULE B: UNIFIED CHURCH CALENDAR & EVENTS                */
 /* ========================================================= */
-router.get("/events", async (req, res) => {
+router.get("/events", requirePermission("canManageEvents"), async (req, res) => {
   const { startDate, endDate, category } = req.query;
   const filter = { status: { $ne: "cancelled" } };
   if (typeof startDate === "string" && typeof endDate === "string" && startDate.trim() && endDate.trim()) {
@@ -637,22 +859,22 @@ router.get("/events", async (req, res) => {
   res.json(events);
 });
 
-router.post("/events", async (req, res) => {
+router.post("/events", requirePermission("canManageEvents"), async (req, res) => {
   const event = await createChurchEvent(req.body);
   res.json(event);
 });
 
-router.put("/events/:id", async (req, res) => {
+router.put("/events/:id", requirePermission("canManageEvents"), async (req, res) => {
   const event = await updateChurchEvent(req.params.id, req.body);
   res.json(event);
 });
 
-router.delete("/events/:id", async (req, res) => {
+router.delete("/events/:id", requirePermission("canManageEvents"), async (req, res) => {
   const event = await cancelChurchEvent(req.params.id);
   res.json({ success: true, event });
 });
 
-router.get("/events/export/ics", async (req, res) => {
+router.get("/events/export/ics", requirePermission("canManageEvents"), async (req, res) => {
   const events = await ChurchEvent.find({ status: { $ne: "cancelled" } }).sort({ startDate: 1 });
   const ics = exportEventsToICS(events);
   res.setHeader("Content-Type", "text/calendar; charset=utf-8");
@@ -663,7 +885,7 @@ router.get("/events/export/ics", async (req, res) => {
 /* ========================================================= */
 /* MODULE C: ADMINISTRATIVE TASK & FOLLOW-UP MANAGEMENT      */
 /* ========================================================= */
-router.get("/tasks", async (req, res) => {
+router.get("/tasks", requirePermission("canManageTasks"), async (req, res) => {
   const { status, category, priority, tag, search, sortField, sortOrder } = req.query;
   const tasks = await getTasks({
     status: typeof status === "string" ? status.trim() : undefined,
@@ -677,17 +899,17 @@ router.get("/tasks", async (req, res) => {
   res.json(tasks);
 });
 
-router.get("/tasks/stats", async (req, res) => {
+router.get("/tasks/stats", requirePermission("canManageTasks"), async (req, res) => {
   const stats = await getTaskStats();
   res.json(stats);
 });
 
-router.get("/tasks/overdue", async (req, res) => {
+router.get("/tasks/overdue", requirePermission("canManageTasks"), async (req, res) => {
   const tasks = await getTasksDueTodayOrOverdue();
   res.json(tasks);
 });
 
-router.post("/tasks", async (req, res) => {
+router.post("/tasks", requirePermission("canManageTasks"), async (req, res) => {
   let taskData = { ...req.body };
   if (req.body.quickAdd || (!req.body.title && req.body.text)) {
     const parsed = parseQuickAddTask(req.body.text || req.body.title || "");
@@ -706,22 +928,22 @@ router.post("/tasks", async (req, res) => {
   res.json(task);
 });
 
-router.post("/tasks/bulk", async (req, res) => {
+router.post("/tasks/bulk", requirePermission("canManageTasks"), async (req, res) => {
   const result = await bulkActionTasks(req.body, req.user?.name || "Admin");
   res.json(result);
 });
 
-router.post("/tasks/reorder", async (req, res) => {
+router.post("/tasks/reorder", requirePermission("canManageTasks"), async (req, res) => {
   await reorderTasks(req.body.orderedIds);
   res.json({ success: true });
 });
 
-router.put("/tasks/:id", async (req, res) => {
+router.put("/tasks/:id", requirePermission("canManageTasks"), async (req, res) => {
   const task = await updateTask(req.params.id, req.body, req.user?.name || "Admin");
   res.json(task);
 });
 
-router.delete("/tasks/:id", async (req, res) => {
+router.delete("/tasks/:id", requirePermission("canManageTasks"), async (req, res) => {
   try {
     const task = await deleteTask(req.params.id, req.user?.name || "Admin");
     res.json({ success: true, task });
@@ -730,7 +952,7 @@ router.delete("/tasks/:id", async (req, res) => {
   }
 });
 
-router.post("/tasks/:id/toggle", async (req, res) => {
+router.post("/tasks/:id/toggle", requirePermission("canManageTasks"), async (req, res) => {
   try {
     const task = await toggleTaskComplete(req.params.id, req.user?.name || "Admin");
     res.json(task);
@@ -739,7 +961,7 @@ router.post("/tasks/:id/toggle", async (req, res) => {
   }
 });
 
-router.post("/tasks/:id/pin", async (req, res) => {
+router.post("/tasks/:id/pin", requirePermission("canManageTasks"), async (req, res) => {
   try {
     const task = await toggleTaskPin(req.params.id, req.user?.name || "Admin");
     res.json(task);
@@ -748,7 +970,7 @@ router.post("/tasks/:id/pin", async (req, res) => {
   }
 });
 
-router.post("/tasks/:id/subtasks", async (req, res) => {
+router.post("/tasks/:id/subtasks", requirePermission("canManageTasks"), async (req, res) => {
   try {
     const task = await addSubtask(req.params.id, req.body.text);
     res.json(task);
@@ -757,7 +979,7 @@ router.post("/tasks/:id/subtasks", async (req, res) => {
   }
 });
 
-router.post("/tasks/:id/subtasks/:subId/toggle", async (req, res) => {
+router.post("/tasks/:id/subtasks/:subId/toggle", requirePermission("canManageTasks"), async (req, res) => {
   try {
     const task = await toggleSubtask(req.params.id, req.params.subId);
     res.json(task);
@@ -766,7 +988,7 @@ router.post("/tasks/:id/subtasks/:subId/toggle", async (req, res) => {
   }
 });
 
-router.delete("/tasks/:id/subtasks/:subId", async (req, res) => {
+router.delete("/tasks/:id/subtasks/:subId", requirePermission("canManageTasks"), async (req, res) => {
   try {
     const task = await deleteSubtask(req.params.id, req.params.subId);
     res.json(task);
@@ -775,7 +997,7 @@ router.delete("/tasks/:id/subtasks/:subId", async (req, res) => {
   }
 });
 
-router.post("/tasks/:id/notes", async (req, res) => {
+router.post("/tasks/:id/notes", requirePermission("canManageTasks"), async (req, res) => {
   try {
     const task = await addNote(req.params.id, {
       text: req.body.text,
@@ -787,7 +1009,7 @@ router.post("/tasks/:id/notes", async (req, res) => {
   }
 });
 
-router.delete("/tasks/:id/notes/:noteId", async (req, res) => {
+router.delete("/tasks/:id/notes/:noteId", requirePermission("canManageTasks"), async (req, res) => {
   try {
     const task = await deleteNote(req.params.id, req.params.noteId);
     res.json(task);
@@ -796,16 +1018,17 @@ router.delete("/tasks/:id/notes/:noteId", async (req, res) => {
   }
 });
 
-router.post("/tasks/:id/attachments", async (req, res) => {
+router.post("/tasks/:id/attachments", requirePermission("canManageTasks"), async (req, res) => {
   try {
     const task = await addAttachment(req.params.id, req.body);
     res.json(task);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    const status = err.message.includes("exceeds maximum limit") ? 413 : 400;
+    res.status(status).json({ error: err.message });
   }
 });
 
-router.delete("/tasks/:id/attachments/:attId", async (req, res) => {
+router.delete("/tasks/:id/attachments/:attId", requirePermission("canManageTasks"), async (req, res) => {
   try {
     const task = await deleteAttachment(req.params.id, req.params.attId);
     res.json(task);
@@ -817,28 +1040,28 @@ router.delete("/tasks/:id/attachments/:attId", async (req, res) => {
 /* ========================================================= */
 /* MODULE D: ADVANCED CHURCH STATISTICS & DATA QUALITY       */
 /* ========================================================= */
-router.get("/reports/stats", async (req, res) => {
+router.get("/reports/stats", requirePermission("canViewAnalytics"), async (req, res) => {
   const stats = await getChurchStatistics();
   res.json(stats);
 });
 
-router.get("/reports/data-quality", async (req, res) => {
+router.get("/reports/data-quality", requirePermission("canViewAnalytics"), async (req, res) => {
   const report = await getDataQualityReport();
   res.json(report);
 });
 
 /* Templates */
-router.get("/templates", async (req, res) => {
+router.get("/templates", requirePermission("canManageTemplates"), async (req, res) => {
   const templates = await Template.find().sort({ type: 1, category: 1 }).lean();
   res.json(templates);
 });
 
-router.post("/templates", async (req, res) => {
+router.post("/templates", requirePermission("canManageTemplates"), async (req, res) => {
   const t = await Template.create(req.body);
   res.json(t);
 });
 
-router.put("/templates/:id", async (req, res) => {
+router.put("/templates/:id", requirePermission("canManageTemplates"), async (req, res) => {
   const cleanId = typeof req.params.id === "string" ? req.params.id.trim() : String(req.params.id || "");
   if (!mongoose.Types.ObjectId.isValid(cleanId)) {
     return res.status(400).json({ error: "Invalid template ID" });
@@ -857,7 +1080,7 @@ router.put("/templates/:id", async (req, res) => {
   res.json(t);
 });
 
-router.delete("/templates/:id", async (req, res) => {
+router.delete("/templates/:id", requirePermission("canManageTemplates"), async (req, res) => {
   const cleanId = typeof req.params.id === "string" ? req.params.id.trim() : String(req.params.id || "");
   if (!mongoose.Types.ObjectId.isValid(cleanId)) {
     return res.status(400).json({ error: "Invalid template ID" });
@@ -868,7 +1091,7 @@ router.delete("/templates/:id", async (req, res) => {
 });
 
 /* Settings */
-router.get("/settings", async (req, res) => {
+router.get("/settings", requirePermission("canEditSettings"), async (req, res) => {
   const sendTime = await getSetting("sendTime", "06:00");
   const reminderTime = await getSetting("reminderTime", "20:00");
   const customFields = await getSetting("customFields", []);
@@ -887,7 +1110,7 @@ router.get("/settings", async (req, res) => {
 
 const isHHMM = (v) => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
-router.post("/settings", async (req, res) => {
+router.post("/settings", requirePermission("canEditSettings"), async (req, res) => {
   const { sendTime, reminderTime, customFields, enableBirthdays, enableWeddings, geminiApiKey } = req.body;
 
   if (sendTime !== undefined && !isHHMM(sendTime)) {
@@ -913,8 +1136,27 @@ router.post("/settings", async (req, res) => {
   res.json({ success: true });
 });
 
+/* Disaster Recovery & Automated Backup Health */
+router.get("/backup/health", requirePermission("canEditSettings"), async (req, res) => {
+  try {
+    const health = await verifyBackupIntegrity();
+    res.json({ success: true, health });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post("/backup/verify", requirePermission("canEditSettings"), async (req, res) => {
+  try {
+    const health = await verifyBackupIntegrity();
+    res.json({ success: true, health, message: "Backup archive integrity verified healthy." });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 /* Test Gemini API Key connectivity directly */
-router.post("/actions/test-gemini", async (req, res) => {
+router.post("/actions/test-gemini", requirePermission("canEditSettings"), async (req, res) => {
   try {
     const { apiKey } = req.body || {};
     let keyToTest = apiKey;
@@ -930,7 +1172,9 @@ router.post("/actions/test-gemini", async (req, res) => {
     // 1. First, query Google's ModelService to see which models this key has access to
     let availableModels = [];
     try {
-      const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`);
+      const listResp = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
+        headers: { "x-goog-api-key": cleanKey }
+      });
       if (listResp.ok) {
         const listData = await listResp.json();
         if (Array.isArray(listData.models)) {
@@ -962,10 +1206,13 @@ router.post("/actions/test-gemini", async (req, res) => {
     for (const model of uniqueCandidates) {
       try {
         const resp = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": cleanKey
+            },
             body: JSON.stringify({
               contents: [{ parts: [{ text: "Respond only with: Connected" }] }],
               generationConfig: { maxOutputTokens: 10 }
@@ -994,7 +1241,7 @@ router.post("/actions/test-gemini", async (req, res) => {
 });
 
 /* Upcoming Celebrations */
-router.get("/upcoming", async (req, res) => {
+router.get("/upcoming", requirePermission("canSendGreetings"), async (req, res) => {
   try {
     const days = Number(req.query.days) || 30;
     const data = await getUpcomingEvents(days);
@@ -1005,7 +1252,7 @@ router.get("/upcoming", async (req, res) => {
 });
 
 /* Greetings Review API for Dashboard */
-router.get("/greetings/today", async (req, res) => {
+router.get("/greetings/today", requirePermission("canSendGreetings"), async (req, res) => {
   try {
     const logs = await prepareTodayGreetings();
     res.json(logs);
@@ -1014,7 +1261,7 @@ router.get("/greetings/today", async (req, res) => {
   }
 });
 
-router.post("/greetings/:id/regenerate", async (req, res) => {
+router.post("/greetings/:id/regenerate", requirePermission("canSendGreetings"), async (req, res) => {
   try {
     const log = await regenerateGreeting(req.params.id, req.body);
     res.json({ success: true, greeting: log });
@@ -1023,7 +1270,7 @@ router.post("/greetings/:id/regenerate", async (req, res) => {
   }
 });
 
-router.post("/greetings/:id/shared", async (req, res) => {
+router.post("/greetings/:id/shared", requirePermission("canSendGreetings"), async (req, res) => {
   try {
     const log = await markGreetingAsShared(req.params.id);
     res.json({ success: true, greeting: log });
@@ -1032,7 +1279,7 @@ router.post("/greetings/:id/shared", async (req, res) => {
   }
 });
 
-router.post("/greetings/:id/skip", async (req, res) => {
+router.post("/greetings/:id/skip", requirePermission("canSendGreetings"), async (req, res) => {
   try {
     const log = await skipGreeting(req.params.id);
     res.json({ success: true, greeting: log });
@@ -1041,7 +1288,7 @@ router.post("/greetings/:id/skip", async (req, res) => {
   }
 });
 
-router.put("/greetings/:id/text", async (req, res) => {
+router.put("/greetings/:id/text", requirePermission("canSendGreetings"), async (req, res) => {
   try {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Text required" });
@@ -1053,7 +1300,7 @@ router.put("/greetings/:id/text", async (req, res) => {
 });
 
 /* User Management (Church Leaders & Staff - Full Access Control CRUD) */
-router.get("/users", async (req, res) => {
+router.get("/users", requirePermission("canManageUsers"), async (req, res) => {
   const users = await getAllUsers();
   res.json({
     superAdminId: process.env.ADMIN_ID || null,
@@ -1130,7 +1377,7 @@ router.post("/users/:telegramId/toggle-status", requirePermission("canManageUser
   }
 });
 
-router.post("/users/invite", requirePermission("canManageUsers"), async (req, res) => {
+router.post("/users/invite", inviteLimiter, requirePermission("canManageUsers"), async (req, res) => {
   const { role = "admin", permissions = null, hoursValid = 72 } = req.body || {};
   let botUsername = process.env.BOT_USERNAME || "";
   if (!botUsername) {
@@ -1165,7 +1412,7 @@ router.post("/users/approve", requirePermission("canManageUsers"), async (req, r
 });
 
 /* Actions */
-router.post("/actions/ping", async (req, res) => {
+router.post("/actions/ping", requirePermission("canEditSettings"), async (req, res) => {
   try {
     await sendAdminMessage("🔔 <b>CMS Ping Test</b>\n<i>If you see this, the Web App is successfully connected to the Admin Telegram channel.</i>");
     res.json({ success: true });
@@ -1174,7 +1421,7 @@ router.post("/actions/ping", async (req, res) => {
   }
 });
 
-router.post("/actions/trigger-today", async (req, res) => {
+router.post("/actions/trigger-today", requirePermission("canSendGreetings"), async (req, res) => {
   try {
     const count = await triggerNow();
     res.json({ success: true, count });
@@ -1184,7 +1431,7 @@ router.post("/actions/trigger-today", async (req, res) => {
 });
 
 /* Live Wish Preview & Regenerate */
-router.post("/actions/preview-wish", async (req, res) => {
+router.post("/actions/preview-wish", requirePermission("canSendGreetings"), async (req, res) => {
   try {
     const { memberId, type = "birthday" } = req.body || {};
     const cleanMemberId = typeof memberId === "string" ? memberId.trim() : String(memberId || "");
@@ -1222,7 +1469,7 @@ router.post("/actions/preview-wish", async (req, res) => {
 /* ========================================================================= */
 /* --- SYSTEM ERROR LOGS & AUDIT TRAIL ------------------------------------- */
 /* ========================================================================= */
-router.get("/errors", requirePermission("view_analytics"), async (req, res) => {
+router.get("/errors", requirePermission("canViewAnalytics"), async (req, res) => {
   try {
     const { source, resolved, search, page, limit } = req.query;
     const result = await getErrorLogs({
@@ -1238,7 +1485,7 @@ router.get("/errors", requirePermission("view_analytics"), async (req, res) => {
   }
 });
 
-router.post("/errors/:id/resolve", requirePermission("edit_settings"), async (req, res) => {
+router.post("/errors/:id/resolve", requirePermission("canEditSettings"), async (req, res) => {
   try {
     const user = req.user?.username || req.user?.first_name || "Admin";
     const updated = await resolveErrorLog(req.params.id, user);
@@ -1249,7 +1496,7 @@ router.post("/errors/:id/resolve", requirePermission("edit_settings"), async (re
   }
 });
 
-router.delete("/errors/:id", requirePermission("edit_settings"), async (req, res) => {
+router.delete("/errors/:id", requirePermission("canEditSettings"), async (req, res) => {
   try {
     const deleted = await deleteErrorLog(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Error log not found" });
@@ -1259,7 +1506,7 @@ router.delete("/errors/:id", requirePermission("edit_settings"), async (req, res
   }
 });
 
-router.post("/errors/clear", requirePermission("edit_settings"), async (req, res) => {
+router.post("/errors/clear", requirePermission("canEditSettings"), async (req, res) => {
   try {
     const { onlyResolved = true } = req.body;
     const count = await clearErrorLogs(onlyResolved);

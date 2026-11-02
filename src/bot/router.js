@@ -13,6 +13,8 @@ import { eventsCallbacks, eventsStateHandlers } from "./handlers/events.js";
 import { tasksCallbacks, tasksStateHandlers } from "./handlers/tasks.js";
 import { bulletinCallbacks } from "./handlers/bulletin.js";
 import { usersCallbacks } from "./handlers/users.js";
+import { bibleCallbacks } from "./handlers/bible.js";
+import { memorialCallbacks } from "./handlers/memorial.js";
 
 const callbackRoutes = {
   ...homeCallbacks,
@@ -27,7 +29,9 @@ const callbackRoutes = {
   ...eventsCallbacks,
   ...tasksCallbacks,
   ...bulletinCallbacks,
-  ...usersCallbacks
+  ...usersCallbacks,
+  ...bibleCallbacks,
+  ...memorialCallbacks
 };
 
 const stateRoutes = {
@@ -148,7 +152,7 @@ export const registerRouter = (bot) => {
       }).catch(() => {});
 
       clearState(chatId);
-      bot.sendMessage(chatId, "❌ Something went wrong processing input.");
+      bot.sendMessage(chatId, "❌ Something went wrong processing input.").catch(() => {});
     }
   });
 
@@ -174,7 +178,7 @@ export const registerRouter = (bot) => {
       }).catch(() => {});
 
       clearState(chatId);
-      bot.sendMessage(chatId, "❌ Could not save photo");
+      bot.sendMessage(chatId, "❌ Could not save photo").catch(() => {});
     }
   });
 };

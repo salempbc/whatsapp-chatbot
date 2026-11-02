@@ -1,5 +1,7 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 import AuthorizedUser from "../models/AuthorizedUser.js";
+import { destroyUserSessions } from "./sessionService.js";
 
 /* In-memory synchronous cache for O(1) performance in guard checks */
 const authorizedUsersCache = new Map();
@@ -19,7 +21,9 @@ export const getDefaultPermissions = (role = "admin") => {
         canManageEvents: true,
         canManageTasks: true,
         canExportData: true,
-        canManageUsers: true
+        canManageUsers: true,
+        canViewAnalytics: true,
+        canEditSettings: true
       };
     case "pastor":
       return {
@@ -30,7 +34,9 @@ export const getDefaultPermissions = (role = "admin") => {
         canManageEvents: true,
         canManageTasks: true,
         canExportData: true,
-        canManageUsers: false
+        canManageUsers: false,
+        canViewAnalytics: true,
+        canEditSettings: false
       };
     case "staff":
       return {
@@ -41,7 +47,9 @@ export const getDefaultPermissions = (role = "admin") => {
         canManageEvents: true,
         canManageTasks: true,
         canExportData: false,
-        canManageUsers: false
+        canManageUsers: false,
+        canViewAnalytics: true,
+        canEditSettings: false
       };
     case "volunteer":
       return {
@@ -52,7 +60,9 @@ export const getDefaultPermissions = (role = "admin") => {
         canManageEvents: false,
         canManageTasks: false,
         canExportData: false,
-        canManageUsers: false
+        canManageUsers: false,
+        canViewAnalytics: false,
+        canEditSettings: false
       };
     default:
       return {
@@ -63,9 +73,46 @@ export const getDefaultPermissions = (role = "admin") => {
         canManageEvents: true,
         canManageTasks: true,
         canExportData: false,
-        canManageUsers: false
+        canManageUsers: false,
+        canViewAnalytics: false,
+        canEditSettings: false
       };
   }
+};
+
+export const ALL_PERMISSION_KEYS = [
+  "canManageMembers",
+  "canDeleteMembers",
+  "canSendGreetings",
+  "canManageTemplates",
+  "canManageEvents",
+  "canManageTasks",
+  "canExportData",
+  "canManageUsers",
+  "canViewAnalytics",
+  "canEditSettings"
+];
+
+/**
+ * Resolves permissions for a user document, preserving custom boolean overrides
+ * while filling in missing/undefined fields according to the role default matrix.
+ * Fails closed (false) for unknown keys or missing permissions.
+ */
+export const resolveUserPermissions = (role = "admin", existingPermissions = {}) => {
+  const defaults = getDefaultPermissions(role);
+  const resolved = {};
+
+  for (const key of ALL_PERMISSION_KEYS) {
+    if (existingPermissions && typeof existingPermissions[key] === "boolean") {
+      // Explicit override preserved
+      resolved[key] = existingPermissions[key];
+    } else {
+      // Missing or non-boolean falls back to role default
+      resolved[key] = Boolean(defaults[key]);
+    }
+  }
+
+  return resolved;
 };
 
 /**
@@ -83,10 +130,7 @@ export const loadAuthorizedUsersCache = async () => {
           username: u.username || "",
           role: u.role || "admin",
           status: "active",
-          permissions: {
-            ...getDefaultPermissions(u.role || "admin"),
-            ...(u.permissions || {})
-          },
+          permissions: resolveUserPermissions(u.role || "admin", u.permissions),
           notes: u.notes || ""
         });
       }
@@ -132,7 +176,72 @@ export const getCachedUserPermissions = (id) => {
   }
   const cached = authorizedUsersCache.get(key);
   if (!cached || cached.status !== "active") return null;
-  return cached.permissions || getDefaultPermissions(cached.role);
+  return cached.permissions || resolveUserPermissions(cached.role);
+};
+
+/**
+ * Asynchronously verifies the authoritative status and permissions of a user.
+ * Queries MongoDB directly when connected to prevent stale cache authorization bypasses.
+ * Fails closed on database errors or non-active accounts.
+ */
+export const getAuthoritativeUser = async (id) => {
+  if (!id && id !== 0) return null;
+  const key = String(id).trim();
+
+  // Primary Super Admin from ENV
+  const superAdminId = process.env.ADMIN_ID ? String(process.env.ADMIN_ID).trim() : null;
+  if (superAdminId && (key === superAdminId || key === "admin")) {
+    return {
+      id: key,
+      telegramId: key,
+      name: "Primary Super Admin",
+      role: "superadmin",
+      permissions: getDefaultPermissions("superadmin"),
+      status: "active",
+      isSuperAdmin: true
+    };
+  }
+
+  // Authoritative check via MongoDB when connected
+  if (mongoose.connection?.readyState === 1) {
+    try {
+      const user = await AuthorizedUser.findOne({ telegramId: key }).lean();
+      if (!user || user.status !== "active") {
+        setAuthorizedUserCache(key, null);
+        return null;
+      }
+      const role = user.role || "admin";
+      const permissions = resolveUserPermissions(role, user.permissions);
+      setAuthorizedUserCache(key, user);
+      return {
+        id: key,
+        telegramId: key,
+        name: user.name,
+        role,
+        permissions,
+        status: user.status,
+        isSuperAdmin: false
+      };
+    } catch (err) {
+      console.error("❌ [USER_SERVICE] Authoritative user lookup failed:", err.message);
+      throw err; // Fail closed on DB error
+    }
+  }
+
+  // Fallback when MongoDB is offline / disconnected (e.g. testing)
+  const cached = authorizedUsersCache.get(key);
+  if (!cached || cached.status !== "active") {
+    return null;
+  }
+  return {
+    id: key,
+    telegramId: key,
+    name: cached.name,
+    role: cached.role || "admin",
+    permissions: cached.permissions || resolveUserPermissions(cached.role || "admin"),
+    status: cached.status,
+    isSuperAdmin: false
+  };
 };
 
 /**
@@ -140,6 +249,10 @@ export const getCachedUserPermissions = (id) => {
  */
 export const hasUserPermission = (id, permissionKey) => {
   if (!id && id !== 0) return false;
+  if (!permissionKey || !ALL_PERMISSION_KEYS.includes(permissionKey)) {
+    return false; // Unknown or missing permission key fails closed for all callers
+  }
+
   const key = String(id).trim();
   const superAdminId = process.env.ADMIN_ID ? String(process.env.ADMIN_ID).trim() : null;
   if (superAdminId && key === superAdminId) return true;
@@ -150,7 +263,7 @@ export const hasUserPermission = (id, permissionKey) => {
   // Superadmin role in cache also grants all permissions
   if (cached.role === "superadmin") return true;
 
-  const perms = cached.permissions || getDefaultPermissions(cached.role);
+  const perms = cached.permissions || resolveUserPermissions(cached.role);
   return Boolean(perms[permissionKey]);
 };
 
@@ -168,10 +281,7 @@ export const setAuthorizedUserCache = (telegramId, userData) => {
       username: userData.username || "",
       role,
       status: "active",
-      permissions: {
-        ...getDefaultPermissions(role),
-        ...(userData.permissions || {})
-      },
+      permissions: resolveUserPermissions(role, userData.permissions),
       notes: userData.notes || ""
     });
   } else {
@@ -222,10 +332,7 @@ export const createUser = async ({
   const tid = String(telegramId).trim();
   const resolvedRole = ["superadmin", "admin", "pastor", "staff", "volunteer"].includes(role) ? role : "admin";
   const resolvedStatus = ["active", "pending", "suspended", "revoked"].includes(status) ? status : "active";
-  const resolvedPermissions = {
-    ...getDefaultPermissions(resolvedRole),
-    ...(permissions || {})
-  };
+  const resolvedPermissions = resolveUserPermissions(resolvedRole, permissions);
 
   const existing = await AuthorizedUser.findOne({ telegramId: tid });
   if (existing) {
@@ -286,16 +393,19 @@ export const updateUser = async (telegramId, updates = {}) => {
   if (updates.notes !== undefined) user.notes = String(updates.notes).trim();
 
   if (updates.permissions) {
-    user.permissions = {
-      ...(user.permissions ? user.permissions.toObject?.() || user.permissions : getDefaultPermissions(user.role)),
-      ...updates.permissions
-    };
+    const current = user.permissions ? (user.permissions.toObject ? user.permissions.toObject() : { ...user.permissions }) : {};
+    user.permissions = resolveUserPermissions(user.role, { ...current, ...updates.permissions });
   }
 
   user.updatedAt = new Date();
   await user.save();
 
-  setAuthorizedUserCache(tid, user);
+  if (user.status !== "active") {
+    setAuthorizedUserCache(tid, null);
+    await destroyUserSessions(tid);
+  } else {
+    setAuthorizedUserCache(tid, user);
+  }
   return user;
 };
 
@@ -312,6 +422,7 @@ export const deleteUser = async (telegramId) => {
 
   const user = await AuthorizedUser.findOneAndDelete({ telegramId: tid });
   setAuthorizedUserCache(tid, null);
+  await destroyUserSessions(tid);
   return user;
 };
 
@@ -333,7 +444,12 @@ export const toggleUserStatus = async (telegramId) => {
   user.updatedAt = new Date();
   await user.save();
 
-  setAuthorizedUserCache(tid, user);
+  if (user.status !== "active") {
+    setAuthorizedUserCache(tid, null);
+    await destroyUserSessions(tid);
+  } else {
+    setAuthorizedUserCache(tid, user);
+  }
   return user;
 };
 
@@ -379,10 +495,7 @@ export const approveUser = async ({
 }) => {
   const tid = String(telegramId).trim();
   const resolvedRole = ["superadmin", "admin", "pastor", "staff", "volunteer"].includes(role) ? role : "admin";
-  const resolvedPermissions = {
-    ...getDefaultPermissions(resolvedRole),
-    ...(permissions || {})
-  };
+  const resolvedPermissions = resolveUserPermissions(resolvedRole, permissions);
 
   const user = await AuthorizedUser.findOneAndUpdate(
     { telegramId: tid },
@@ -429,6 +542,7 @@ export const revokeUser = async (telegramId) => {
     { new: true }
   );
   setAuthorizedUserCache(tid, null);
+  await destroyUserSessions(tid);
   return user;
 };
 

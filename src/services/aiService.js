@@ -416,7 +416,9 @@ export const generateGreetingPrayer = async ({
     // 1. Try to discover supported models for this key dynamically
     let discoveredModels = [];
     try {
-      const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey.trim())}`);
+      const listResp = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
+        headers: { "x-goog-api-key": apiKey.trim() }
+      });
       if (listResp.ok) {
         const listData = await listResp.json();
         if (Array.isArray(listData.models)) {
@@ -456,10 +458,13 @@ export const generateGreetingPrayer = async ({
         const timeout = setTimeout(() => controller.abort(), 12000);
 
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey.trim())}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey.trim()
+            },
             body: JSON.stringify({
               systemInstruction: {
                 parts: [{ text: systemPrompt }]
@@ -537,7 +542,7 @@ export const formatGreetingCard = ({
   const name = member?.name || "";
   const spouse = member?.spouseName || "";
 
-  let header = "";
+  let header;
   if (isWedding) {
     header = `💐 *இனிய திருமண நாள் நல்வாழ்த்துகள்!* 💐\n💍 *${name}${spouse ? ` & ${spouse}` : ""}*`;
   } else {

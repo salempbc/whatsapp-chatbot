@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import ErrorLog from "../models/ErrorLog.js";
 
 /**
@@ -57,6 +58,10 @@ export const captureError = async ({
   context = {}
 } = {}) => {
   try {
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      return null;
+    }
+
     const message = error?.message || (typeof error === "string" ? error : "Unknown error");
     const stack = error?.stack || "";
     const cleanContext = sanitizeContext(context);
@@ -74,6 +79,15 @@ export const captureError = async ({
       context: cleanContext,
       resolved: false
     });
+
+    // Bounded storage strategy: maintain a maximum cap of 2,500 logs to prevent disk exhaustion
+    const count = await ErrorLog.countDocuments().catch(() => 0);
+    if (count > 2500) {
+      const excess = await ErrorLog.find().sort({ createdAt: 1 }).limit(count - 2000).select("_id").lean().catch(() => []);
+      if (excess.length) {
+        await ErrorLog.deleteMany({ _id: { $in: excess.map((d) => d._id) } }).catch(() => {});
+      }
+    }
 
     return logEntry;
   } catch (err) {

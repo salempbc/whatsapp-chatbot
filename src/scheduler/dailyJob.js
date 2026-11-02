@@ -81,7 +81,7 @@ const runMorningJob = async () => {
     return preparedLogs.length;
   } catch (err) {
     console.error("❌ Morning job error:", err.message);
-    throw err;
+    return 0;
   }
 };
 
@@ -119,6 +119,10 @@ const runReminderJob = async () => {
 
 export const triggerNow = async () => {
   return await runMorningJob();
+};
+
+export const stopScheduler = () => {
+  stopAll();
 };
 
 const stopAll = () => {

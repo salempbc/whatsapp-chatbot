@@ -200,14 +200,23 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
+        <button @click="openCommandPalette" class="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors shadow-sm flex items-center gap-1.5" title="Search Everything (Ctrl+K)">
+          <span>🔍</span>
+          <span class="hidden sm:inline">Search</span>
+          <kbd class="hidden sm:inline-block px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-[9px] text-slate-400 font-mono border border-slate-200 dark:border-slate-700">⌘K</kbd>
+        </button>
         <button @click="toggleTheme" class="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm flex items-center justify-center transition-colors shadow-sm" title="Toggle Light/Dark Theme">
           <span>{{ isDark ? '☀️' : '🌙' }}</span>
         </button>
-        <button v-if="authToken" @click="logoutStandalone" class="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-rose-500 transition-colors shadow-sm flex items-center gap-1" title="Lock Admin Session">
+        <button v-if="!authModalOpen && !isInTelegram()" @click="logoutStandalone" class="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-rose-500 transition-colors shadow-sm flex items-center gap-1" title="Lock Admin Session">
           <span>🔒</span>
           <span>Lock</span>
         </button>
-        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+        <div v-if="isOfflineMode" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold" :title="'Running offline using cached directory' + (offlineCacheTime ? ' (' + offlineCacheTime + ')' : '')">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+          <span>Offline</span>
+        </div>
+        <div v-else class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           <span>Online</span>
         </div>
@@ -249,6 +258,17 @@
     <!-- ========================================== -->
     <main v-if="currentTab === 'members'" class="space-y-4">
       
+      <!-- Offline Notice Banner in Members View -->
+      <div v-if="isOfflineMode" class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs flex items-center justify-between shadow-sm">
+        <div class="flex items-center gap-2">
+          <span class="text-base flex-shrink-0">📶</span>
+          <span><b>Offline Directory:</b> Displaying {{ members.length }} cached church contacts for pastoral visits{{ offlineCacheTime ? ' (cached at ' + offlineCacheTime + ')' : '' }}.</span>
+        </div>
+        <button @click="loadData" class="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] transition-colors flex-shrink-0 ml-2">
+          🔄 Sync
+        </button>
+      </div>
+
       <!-- Metrics Overview Cards (High Contrast) -->
       <div class="grid grid-cols-4 gap-2">
         <div class="p-2.5 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 text-center shadow-sm">
@@ -327,6 +347,21 @@
         </select>
       </div>
 
+      <!-- Shimmering Skeleton Loader for Member Cards -->
+      <div v-if="loading && !filteredMembers.length" class="space-y-2.5">
+        <div v-for="sk in 4" :key="'skel-' + sk" class="p-3.5 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 flex items-center gap-3 animate-pulse">
+          <div class="w-11 h-11 rounded-2xl bg-slate-200 dark:bg-slate-800 flex-shrink-0"></div>
+          <div class="flex-1 space-y-2">
+            <div class="h-4 bg-slate-200 dark:bg-slate-700/60 rounded-md w-2/5"></div>
+            <div class="flex gap-2">
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md w-14"></div>
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md w-16"></div>
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md w-24"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- VIEW A: MEMBER CARDS GRID (Pure High Contrast) -->
       <div v-if="memberView === 'cards'" class="space-y-2.5">
         <div v-for="m in filteredMembers" :key="m._id" class="p-3.5 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 flex items-center gap-3 transition-all hover:border-slate-300 dark:hover:border-slate-700 shadow-sm">
@@ -364,9 +399,29 @@
           </div>
         </div>
 
-        <div v-if="!filteredMembers.length" class="text-center py-12 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800">
-          <div class="text-3xl mb-2">🔍</div>
-          <p class="text-slate-500 dark:text-slate-400 font-medium text-sm">No members found matching your search.</p>
+        <div v-if="!filteredMembers.length" class="text-center py-12 px-6 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+          <div class="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center text-3xl shadow-inner">
+            <span>{{ memberSearch ? '🔍' : '👥' }}</span>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-slate-800 dark:text-slate-100">
+              {{ memberSearch ? 'No matching members found' : 'No Church Members Yet' }}
+            </h4>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+              {{ memberSearch ? `We couldn't find any member matching "${memberSearch}". Try adjusting your keywords or clearing the filter.` : 'Start building your church directory by adding your first church member or importing a CSV roster.' }}
+            </p>
+          </div>
+          <div class="flex items-center justify-center gap-2 pt-1">
+            <button v-if="memberSearch" @click="memberSearch = ''" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all">
+              ✕ Clear Search
+            </button>
+            <button v-else @click="openMemberForm()" class="btn-brand px-4 py-2 text-xs font-bold shadow-md">
+              ➕ Add First Member
+            </button>
+            <button v-if="!members.length" @click="openImportModal" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+              📥 Import CSV
+            </button>
+          </div>
         </div>
       </div>
 
@@ -750,11 +805,22 @@
       </div>
 
       <!-- Events List -->
-      <div v-if="filteredChurchEvents.length === 0" class="text-center py-12 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800">
-        <div class="text-3xl mb-2">📅</div>
-        <p class="text-sm font-bold text-slate-700 dark:text-slate-300">No Church Events Found</p>
-        <p class="text-xs text-slate-500 mt-1">Add worship services, prayer meetings, or fellowship programs.</p>
-        <button @click="openEventForm()" class="btn-brand mt-3 px-4 py-2 text-xs font-bold">➕ Create First Event</button>
+      <div v-if="filteredChurchEvents.length === 0" class="text-center py-12 px-6 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center text-3xl shadow-inner">
+          📅
+        </div>
+        <div>
+          <h4 class="text-base font-bold text-slate-800 dark:text-slate-100">No Church Events Scheduled</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+            Schedule worship services, prayer meetings, youth fellowships, or special church programs.
+          </p>
+        </div>
+        <div class="pt-1">
+          <button @click="openEventForm()" class="btn-brand px-5 py-2.5 text-xs font-bold shadow-md inline-flex items-center gap-1.5">
+            <span>➕</span>
+            <span>Schedule First Event</span>
+          </button>
+        </div>
       </div>
 
       <div v-else class="space-y-3">
@@ -1027,16 +1093,27 @@
       </div>
 
       <!-- TASK LIST -->
-      <div v-if="filteredTasks.length === 0" class="text-center py-12 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-        <div class="text-4xl">📋</div>
-        <p class="text-base font-bold text-slate-700 dark:text-slate-300">No Tasks Found</p>
-        <p class="text-xs text-slate-500 max-w-sm mx-auto">
-          {{ taskSearch ? 'No tasks match your search filter.' : 'All church administration and pastoral follow-ups are up to date.' }}
-        </p>
-        <button @click="openTaskForm()" class="btn-brand mt-2 px-4 py-2 text-xs font-bold inline-flex items-center gap-1.5">
-          <span>➕</span>
-          <span>Create Task</span>
-        </button>
+      <div v-if="filteredTasks.length === 0" class="text-center py-12 px-6 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+        <div class="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center text-3xl shadow-inner">
+          {{ taskSearch ? '🔍' : '🎉' }}
+        </div>
+        <div>
+          <h4 class="text-base font-bold text-slate-800 dark:text-slate-100">
+            {{ taskSearch ? 'No tasks match your filter' : 'All Ministry Tasks Up To Date!' }}
+          </h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+            {{ taskSearch ? `No tasks found matching "${taskSearch}". Try searching for another keyword or tag.` : 'There are no pending pastoral follow-ups or administrative items right now. Excellent work!' }}
+          </p>
+        </div>
+        <div class="flex items-center justify-center gap-2 pt-1">
+          <button v-if="taskSearch" @click="taskSearch = ''" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all">
+            ✕ Clear Search
+          </button>
+          <button @click="openTaskForm()" class="btn-brand px-4 py-2 text-xs font-bold inline-flex items-center gap-1.5 shadow-md">
+            <span>➕</span>
+            <span>Create Task</span>
+          </button>
+        </div>
       </div>
 
       <!-- TASK CARDS -->
@@ -1757,6 +1834,59 @@
         </div>
       </section>
 
+      <!-- Disaster Recovery & Automated Backup Health Card -->
+      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
+              🛡️
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Disaster Recovery & Backup Health</h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Automated integrity checks on database dump archives</p>
+            </div>
+          </div>
+          <span v-if="backupHealth" class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+            ● 100% Restorable
+          </span>
+        </div>
+
+        <div v-if="backupHealth" class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
+          <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Total Records</div>
+            <div class="text-sm font-black text-slate-900 dark:text-white mt-0.5">{{ backupHealth.totalRecords }} docs</div>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Collections</div>
+            <div class="text-sm font-black text-slate-900 dark:text-white mt-0.5">{{ backupHealth.collectionsCount }} tracked</div>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Archive Size</div>
+            <div class="text-sm font-black text-slate-900 dark:text-white mt-0.5">{{ backupHealth.archiveSizeKb }} KB</div>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Integrity</div>
+            <div class="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">Verified OK</div>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1">
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+            <span v-if="backupHealth">Archive: <code class="font-mono text-[10px]">{{ backupHealth.archiveName }}</code></span>
+            <span v-else>No backup verification run yet in this session.</span>
+          </div>
+          <button
+            type="button"
+            @click="runBackupVerificationAction"
+            :disabled="backupVerifying"
+            class="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all"
+          >
+            <span v-if="backupVerifying">⏳ Inspecting Archive...</span>
+            <span v-else>⚡ Verify Backup Integrity Now</span>
+          </button>
+        </div>
+      </section>
+
       <!-- Authorized Leaders & User Management Section -->
       <!-- Authorized Leaders & User Access Control (RBAC & CRUD) Section -->
       <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
@@ -1935,8 +2065,9 @@
     <!-- MODAL 1: LIVE WISH PREVIEW & SENDER       -->
     <!-- ========================================== -->
     <transition name="fade">
-      <div v-if="wishModal.open" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="w-full max-w-md p-5 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl" @click.stop>
+      <div v-if="wishModal.open" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+        <div class="w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl transition-all duration-300" @click.stop>
+          <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
               <span class="text-xl">✨</span>
@@ -1964,20 +2095,36 @@
                   <div class="text-[10px] text-slate-400">WhatsApp / Telegram Ready Preview</div>
                 </div>
               </div>
-              <textarea v-model="wishModal.text" rows="8" class="w-full text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-sans bg-transparent resize-none focus:outline-none"></textarea>
+              <textarea v-model="wishModal.text" rows="6" class="w-full text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-sans bg-transparent resize-none focus:outline-none"></textarea>
             </div>
 
-            <div class="flex flex-col gap-2">
-              <button @click="openWhatsAppWish" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all">
-                <span>📲 Open in WhatsApp</span>
+            <!-- WhatsApp Status Poster Preview -->
+            <div v-if="wishModal.cardDataUrl" class="rounded-2xl overflow-hidden border border-amber-500/40 shadow-xl relative bg-slate-950 p-1">
+              <img :src="wishModal.cardDataUrl" class="w-full max-h-56 object-contain rounded-xl" alt="Celebration Card Poster" />
+              <button @click="downloadStatusCardAction" class="w-full mt-1.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow flex items-center justify-center gap-1.5 transition-transform active:scale-98">
+                <span>📥 Download High-Res Poster (PNG)</span>
               </button>
+            </div>
+
+            <div class="flex flex-col gap-2 pt-1">
+              <div class="grid grid-cols-2 gap-2">
+                <button @click="openWhatsAppWish" class="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all">
+                  <span>📲 Share WhatsApp</span>
+                </button>
+                <button @click="generateStatusCardAction" :disabled="wishModal.cardGenerating" class="py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50">
+                  <span v-if="wishModal.cardGenerating" class="animate-spin text-xs">⏳</span>
+                  <span v-else>🎨</span>
+                  <span>{{ wishModal.cardDataUrl ? 'Regenerate Poster' : 'Create Status Poster' }}</span>
+                </button>
+              </div>
+
               <div class="flex gap-2">
                 <button type="button" @click="regenerateWish()" class="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
                   <span>🔄</span>
-                  <span>Regenerate Wish</span>
+                  <span>Regenerate Text</span>
                 </button>
                 <button @click="copyWishToClipboard" class="btn-brand flex-1 py-2.5 text-xs font-bold shadow-md flex items-center justify-center gap-1.5">
-                  <span>📋 Copy Message</span>
+                  <span>📋 Copy Text</span>
                 </button>
               </div>
             </div>
@@ -1990,8 +2137,9 @@
     <!-- MODAL 2: BULK CSV SPREADSHEET IMPORT       -->
     <!-- ========================================== -->
     <transition name="fade">
-      <div v-if="importModal.open" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="w-full max-w-md p-5 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl" @click.stop>
+      <div v-if="importModal.open" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+        <div class="w-full max-w-md p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl transition-all duration-300" @click.stop>
+          <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
               <span class="text-xl">📤</span>
@@ -2027,8 +2175,9 @@
     <!-- MODAL 3: CHURCH EVENT FORM MODAL           -->
     <!-- ========================================== -->
     <transition name="fade">
-      <div v-if="eventModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="w-full max-w-md p-5 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto" @click.stop>
+      <div v-if="eventModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+        <div class="w-full max-w-md p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300" @click.stop>
+          <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
               <span class="text-xl">📅</span>
@@ -2104,8 +2253,9 @@
     <!-- MODAL 4: TASK FORM MODAL                   -->
     <!-- ========================================== -->
     <transition name="fade">
-      <div v-if="taskModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="w-full max-w-lg p-5 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto" @click.stop>
+      <div v-if="taskModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+        <div class="w-full max-w-lg p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300" @click.stop>
+          <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
               <span class="text-xl">📋</span>
@@ -2271,8 +2421,9 @@
     <!-- MODAL 5: ADD / EDIT LEADER & ACCESS CONTROL -->
     <!-- ========================================== -->
     <transition name="fade">
-      <div v-if="userModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div class="w-full max-w-lg p-5 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl my-8" @click.stop>
+      <div v-if="userModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 overflow-y-auto">
+        <div class="w-full max-w-lg p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300 my-0 md:my-8" @click.stop>
+          <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
               <span class="text-xl">{{ isEditingUser ? '✏️' : '➕' }}</span>
@@ -2287,7 +2438,7 @@
             <!-- Telegram ID -->
             <div>
               <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Telegram User ID <span class="text-rose-500">*</span></label>
-              <input v-model="userForm.telegramId" :disabled="isEditingUser" type="text" placeholder="Numeric ID, e.g. 7018241155" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-indigo-500 disabled:opacity-60" />
+              <input v-model="userForm.telegramId" :disabled="isEditingUser" type="text" placeholder="Numeric ID, e.g. 123456789" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-indigo-500 disabled:opacity-60" />
               <p class="text-[10px] text-slate-400 mt-1">💡 Ask user to forward any message to @userinfobot or @raw_data_bot on Telegram to get their numeric ID.</p>
             </div>
 
@@ -2416,8 +2567,9 @@
     <!-- MODAL 6: CONFIGURE & GENERATE INVITE LINK -->
     <!-- ========================================== -->
     <transition name="fade">
-      <div v-if="inviteModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="w-full max-w-md p-5 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl" @click.stop>
+      <div v-if="inviteModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 overflow-y-auto">
+        <div class="w-full max-w-md p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300 my-0 md:my-8" @click.stop>
+          <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
               <span class="text-xl">🔗</span>
@@ -2851,8 +3003,108 @@
       <option value="Member"></option>
     </datalist>
 
+    <!-- ========================================== -->
+    <!-- GLOBAL COMMAND PALETTE (Ctrl+K / ⌘K)        -->
+    <!-- ========================================== -->
+    <transition name="fade">
+      <div v-if="commandPaletteOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[120] flex items-start justify-center pt-12 md:pt-20 p-4" @click="closeCommandPalette">
+        <div class="w-full max-w-lg bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] transition-all" @click.stop>
+          <!-- Input Bar -->
+          <div class="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+            <span class="text-lg text-slate-400">🔍</span>
+            <input
+              id="command-palette-input"
+              v-model="commandPaletteQuery"
+              @keydown.down.prevent="navigateCommandPalette(1)"
+              @keydown.up.prevent="navigateCommandPalette(-1)"
+              @keydown.enter.prevent="commandPaletteResults[commandPaletteSelectedIndex] && executeCommandPaletteItem(commandPaletteResults[commandPaletteSelectedIndex])"
+              type="text"
+              placeholder="Search members, events, tasks, or type an action..."
+              class="w-full bg-transparent text-sm font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none"
+            />
+            <kbd class="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-500 font-mono">ESC</kbd>
+          </div>
+
+          <!-- Results List -->
+          <div class="overflow-y-auto p-2 space-y-1 divide-y divide-slate-100 dark:divide-slate-800/40">
+            <div v-if="commandPaletteResults.length === 0" class="py-8 text-center text-xs text-slate-400">
+              No matching members, tasks, or actions found.
+            </div>
+
+            <div
+              v-for="(item, idx) in commandPaletteResults"
+              :key="item.id || idx"
+              @click="executeCommandPaletteItem(item)"
+              @mouseenter="commandPaletteSelectedIndex = idx"
+              class="flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-colors text-xs"
+              :class="commandPaletteSelectedIndex === idx ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-900 dark:text-indigo-200' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="text-base flex-shrink-0">{{ item.icon }}</span>
+                <div class="truncate">
+                  <div class="font-bold text-slate-900 dark:text-white">{{ item.title }}</div>
+                  <div class="text-[10px] text-slate-400 truncate">{{ item.subtitle }}</div>
+                </div>
+              </div>
+              <span class="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 flex-shrink-0">
+                {{ item.category }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Footer Hints -->
+          <div class="px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span>↑↓ Navigate</span>
+              <span>↵ Open</span>
+              <span>ESC Close</span>
+            </div>
+            <span>SPBC Quick Command</span>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Standalone Admin Authentication Modal -->
+    <transition name="fade">
+      <div v-if="authModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
+        <div class="bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 rounded-t-3xl md:rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
+          <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
+          <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center text-3xl shadow-sm">
+            🔒
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Admin Session Required</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Please enter your Administrator Passcode or Secret Key to unlock SPBC Church CMS.
+            </p>
+          </div>
+          <div class="space-y-2 text-left">
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">Admin Secret / Passcode</label>
+            <input
+              v-model="authInputKey"
+              type="password"
+              @keyup.enter="verifyAndSavePasscode"
+              placeholder="Enter ADMIN_SECRET"
+              autocomplete="current-password"
+              class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-indigo-500"
+            />
+            <p v-if="authError" class="text-xs text-rose-500 font-semibold mt-1">{{ authError }}</p>
+          </div>
+          <button
+            @click="verifyAndSavePasscode"
+            :disabled="authVerifying || !authInputKey.trim()"
+            class="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+          >
+            <span v-if="authVerifying">Verifying...</span>
+            <span v-else>Unlock CMS</span>
+          </button>
+        </div>
+      </div>
+    </transition>
+
     <!-- Floating Island Bottom Navigation (High Contrast Dark/Light Island) -->
-    <nav v-if="!loading && !['memberForm', 'templateForm', 'fastEntry'].includes(currentTab)" class="fixed bottom-3 left-3 right-3 max-w-xl mx-auto bg-white/95 dark:bg-[#151c28]/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl flex justify-between p-1.5 z-50 transition-colors">
+    <nav v-if="!loading && !['memberForm', 'templateForm', 'fastEntry'].includes(currentTab)" style="bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);" class="fixed left-3 right-3 max-w-xl mx-auto bg-white/95 dark:bg-[#151c28]/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl flex justify-between p-1.5 z-50 transition-colors">
       <button class="flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-bold transition-all" :class="currentTab === 'members' ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'" @click="currentTab = 'members'">
         <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
         <span>Members</span>
@@ -2887,6 +3139,6 @@
 
   </div>
 
-  <script src="/app.js?v=2.6.1"></script>
+  <script src="/app.js?v=2.6.2"></script>
 </body>
 </html>

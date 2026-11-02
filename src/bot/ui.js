@@ -38,22 +38,24 @@ export const stripHtml = (input) => {
  * e.g. it was a photo).
  */
 export const renderScreen = async (bot, chatId, messageId, screen) => {
+  if (!screen) return;
+  const screenText = screen.text || "";
   const opts = { 
-    reply_markup: { inline_keyboard: screen.keyboard },
+    reply_markup: { inline_keyboard: Array.isArray(screen.keyboard) ? screen.keyboard : [] },
     parse_mode: "HTML" 
   };
   let parseFailed = false;
 
   if (messageId) {
     try {
-      await bot.editMessageText(screen.text, { chat_id: chatId, message_id: messageId, ...opts });
+      await bot.editMessageText(screenText, { chat_id: chatId, message_id: messageId, ...opts });
       return;
     } catch (err) {
       if (/message is not modified/i.test(err.message)) return;
       if (/can't parse entities/i.test(err.message)) {
         parseFailed = true;
         try {
-          const plainText = stripHtml(screen.text);
+          const plainText = stripHtml(screenText);
           await bot.editMessageText(plainText, { chat_id: chatId, message_id: messageId, reply_markup: opts.reply_markup });
           return;
         } catch (_) {}
@@ -62,14 +64,14 @@ export const renderScreen = async (bot, chatId, messageId, screen) => {
     }
   }
 
-  const textToSend = parseFailed ? stripHtml(screen.text) : screen.text;
+  const textToSend = parseFailed ? stripHtml(screenText) : screenText;
   const sendOpts = parseFailed ? { reply_markup: opts.reply_markup } : opts;
 
   try {
     await bot.sendMessage(chatId, textToSend, sendOpts);
   } catch (err) {
     if (/can't parse entities/i.test(err.message)) {
-      const plainText = stripHtml(screen.text);
+      const plainText = stripHtml(screenText);
       await bot.sendMessage(chatId, plainText, { reply_markup: opts.reply_markup }).catch((e) => console.error("renderScreen fallback failed:", e.message));
     } else {
       console.error("renderScreen sendMessage failed:", err.message);

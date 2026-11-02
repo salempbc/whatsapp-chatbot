@@ -33,7 +33,16 @@ app.get("/ping", (req, res) => res.status(200).send("pong"));
 
 /* --- 1. SECURITY & OPTIMIZATION MIDDLEWARE --- */
 app.use(compression());
-app.use(cors());
+/* The admin UI is served from the same origin, so cross-origin access is only
+   granted to the configured WEBAPP_URL; everything else is same-origin only. */
+const allowedOrigin = (() => {
+  try {
+    return process.env.WEBAPP_URL ? new URL(process.env.WEBAPP_URL).origin : false;
+  } catch (_) {
+    return false;
+  }
+})();
+app.use(cors({ origin: allowedOrigin, credentials: true }));
 
 // Helmet for security headers with Content Security Policy and iframe compatibility for Telegram WebApp
 app.use(helmet({
@@ -94,16 +103,9 @@ const pageLimiter = rateLimit({
 
 /* --- 2. ROUTES --- */
 
-/* Convenience admin shortcut — bookmark /admin to skip the auth modal in standalone browser.
-   Redirects to the CMS SPA with the ADMIN_ID pre-filled as auth token via query param.
-   Never expose ADMIN_SECRET via URL; ADMIN_ID is already shown in .env and used as passcode. */
+/* Admin route — redirects cleanly to SPA root without credential exposure */
 app.get("/admin", (req, res) => {
-  const adminId = process.env.ADMIN_ID || "";
-  if (!adminId) {
-    return res.status(503).send("ADMIN_ID not configured in server environment.");
-  }
-  // Redirect to the SPA root with auth token pre-set — the frontend reads ?auth= and stores it
-  return res.redirect(`/?auth=${encodeURIComponent(adminId)}`);
+  return res.redirect("/");
 });
 
 /* Force no-cache on app.js and sw.js — these change with every deploy and must NEVER be served stale.
@@ -156,7 +158,11 @@ app.use((err, req, res, next) => {
   }).catch(() => {});
 
   if (res.headersSent) return next(err);
-  res.status(err.status || 500).json({ error: err.message || "Internal server error" });
+  const statusCode = Number(err.status) || 500;
+  const clientMessage = (statusCode >= 500 && process.env.NODE_ENV === "production")
+    ? "Internal server error"
+    : (err.message || "Internal server error");
+  res.status(statusCode).json({ error: clientMessage });
 });
 
 /* --- 3. SERVER BOOTSTRAP --- */

@@ -1,7 +1,7 @@
 import ChurchEvent from "../../models/ChurchEvent.js";
 import { getUnifiedEventsForRange, createChurchEvent, cancelChurchEvent } from "../../services/churchCalendarService.js";
 import { renderScreen } from "../ui.js";
-import { setState, clearState } from "../session.js";
+import { setState, getState, clearState } from "../session.js";
 import { adminOnly } from "../guard.js";
 
 const escapeHtml = (str = "") => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -60,6 +60,15 @@ export const eventsCallbacks = {
     setState(chatId, { type: "events.addTitle", draft: {} });
     await bot.sendMessage(chatId, "<b>➕ Add New Church Event</b>\n\nEnter event title (e.g. 'Youth Revival Meeting'):", { parse_mode: "HTML" });
     return "Enter event title";
+  },
+  "events:date": async ({ bot, chatId, args }) => {
+    const dateStr = args[0];
+    const state = getState(chatId);
+    if (!state || state.type !== "events.addDate") return;
+    state.draft.startDate = dateStr;
+    state.type = "events.addTime";
+    setState(chatId, state);
+    await bot.sendMessage(chatId, `📅 Date selected: <b>${dateStr}</b>\n\nEnter event time as <code>HH:MM</code> (24-hour e.g. 18:30) or send /skip for default 09:30:`, { parse_mode: "HTML" });
   }
 };
 
@@ -68,7 +77,26 @@ export const eventsStateHandlers = {
     state.draft.title = text;
     state.type = "events.addDate";
     setState(chatId, state);
-    await bot.sendMessage(chatId, `Event: <b>${escapeHtml(text)}</b>\n\nEnter event date as <code>YYYY-MM-DD</code>:`, { parse_mode: "HTML" });
+
+    const today = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })).toISOString().slice(0, 10);
+    const tom = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const d = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const diff = (7 - d.getDay()) % 7 || 7;
+    d.setDate(d.getDate() + diff);
+    const sun = d.toISOString().slice(0, 10);
+
+    const replyMarkup = {
+      inline_keyboard: [
+        [
+          { text: `📅 Today (${today.slice(5)})`, callback_data: `events:date:${today}` },
+          { text: `📅 Tomorrow (${tom.slice(5)})`, callback_data: `events:date:${tom}` }
+        ],
+        [
+          { text: `⛪ This Sunday (${sun.slice(5)})`, callback_data: `events:date:${sun}` }
+        ]
+      ]
+    };
+    await bot.sendMessage(chatId, `Event: <b>${escapeHtml(text)}</b>\n\nChoose a date below or enter <code>YYYY-MM-DD</code>:`, { parse_mode: "HTML", reply_markup: replyMarkup });
   },
   "events.addDate": async ({ bot, chatId, text, state }) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {

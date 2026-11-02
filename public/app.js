@@ -1,4 +1,4 @@
-const { createApp, ref, computed, onMounted, watch, onErrorCaptured } = window.Vue || Vue || {};
+const { createApp, ref, computed, onMounted, watch, onErrorCaptured, nextTick } = window.Vue || Vue || {};
 
 const rawTg = window.Telegram?.WebApp;
 
@@ -155,9 +155,9 @@ try {
   tg.ready();
 } catch (_) {}
 
-if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=13').then((reg) => {
+    navigator.serviceWorker.register('/sw.js?v=14').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });
@@ -203,6 +203,14 @@ const app = createApp({
     // Navigation State
     const currentTab = ref('members'); // 'members', 'upcoming', 'templates', 'settings', 'memberForm', 'templateForm'
     const memberView = ref('cards'); // 'cards' | 'families'
+
+    // Offline State & PWA Directory Cache
+    const isOfflineMode = ref(!navigator.onLine);
+    const offlineCacheTime = ref(null);
+
+    // Disaster Recovery & Backup Health
+    const backupHealth = ref(null);
+    const backupVerifying = ref(false);
 
     // Modal and Form States (declared early for BackButton tracking)
     const eventModalOpen = ref(false);
@@ -348,7 +356,10 @@ const app = createApp({
     const getTgInitData = () => {
       // 1. Direct from window.Telegram.WebApp.initData
       const direct = window.Telegram?.WebApp?.initData || tg.initData || '';
-      if (direct && direct.length > 5) return direct;
+      if (direct && direct.length > 5) {
+        try { sessionStorage.setItem('spbc_tg_init_data', direct); } catch (_) {}
+        return direct;
+      }
 
       // 2. Parse from location.hash if present (#tgWebAppData=...)
       try {
@@ -357,13 +368,18 @@ const app = createApp({
           const hashClean = hash.startsWith('#') ? hash.slice(1) : hash;
           const params = new URLSearchParams(hashClean);
           const fromHash = params.get('tgWebAppData');
-          if (fromHash && fromHash.length > 5) return fromHash;
+          if (fromHash && fromHash.length > 5) {
+            try { sessionStorage.setItem('spbc_tg_init_data', fromHash); } catch (_) {}
+            return fromHash;
+          }
         }
       } catch (_) {}
 
-      // 3. Fallback: Telegram User ID from initDataUnsafe if inside Telegram
-      const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-      if (uid) return String(uid);
+      // 3. Fallback to session-cached initData across reloads inside Telegram
+      try {
+        const cached = sessionStorage.getItem('spbc_tg_init_data');
+        if (cached && cached.length > 5) return cached;
+      } catch (_) {}
 
       return '';
     };
@@ -393,40 +409,16 @@ const app = createApp({
     };
 
     const getStoredToken = () => {
-      // 1. URL query parameter (?auth=... or ?token=...)
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlToken = urlParams.get('auth') || urlParams.get('token');
-      if (urlToken) {
-        localStorage.setItem('spbc_auth_token', urlToken);
-        return urlToken;
-      }
-
-      // 2. Telegram WebApp initData or fallback user ID
+      // Telegram WebApp cryptographically verifiable initData only
       const initData = getTgInitData();
       if (initData && initData.length > 5) {
-        localStorage.setItem('spbc_auth_token', initData);
         return initData;
       }
-
-      // 3. Cached token in localStorage
-      const stored = localStorage.getItem('spbc_auth_token') || '';
-      if (stored) return stored;
-
-      // 4. Telegram user ID from unsafe context
-      const uid = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-      if (uid) {
-        const uidStr = String(uid);
-        localStorage.setItem('spbc_auth_token', uidStr);
-        return uidStr;
-      }
-
-      // 5. Default Primary Admin ID fallback (guarantees instant seamless auth)
-      const defaultToken = '7018241155';
-      localStorage.setItem('spbc_auth_token', defaultToken);
-      return defaultToken;
+      return '';
     };
 
     const authToken = ref(getStoredToken());
+    const csrfToken = ref(sessionStorage.getItem('spbc_csrf_token') || '');
     const authModalOpen = ref(false);
     const authInputKey = ref('');
     const authError = ref('');
@@ -434,12 +426,20 @@ const app = createApp({
 
     // API Helper with network exception handling & request timeouts
     const apiCall = async (url, method = 'GET', body = null) => {
-      // Always re-read initData dynamically (weba populates it after load)
-      const token = authToken.value || getTgInitData() || sessionStorage.getItem('spbc_auth_session') || localStorage.getItem('spbc_auth_token') || '';
+      // Always re-read initData dynamically (webapp populates it after load)
+      const token = authToken.value || getTgInitData() || '';
+      const upperMethod = (method || 'GET').toUpperCase();
       const opts = {
-        method,
-        headers: { 'Authorization': `Bearer ${token}` }
+        method: upperMethod,
+        credentials: 'same-origin',
+        headers: {}
       };
+      if (token) {
+        opts.headers['Authorization'] = `Bearer ${token}`;
+      }
+      if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(upperMethod) && csrfToken.value) {
+        opts.headers['X-CSRF-Token'] = csrfToken.value;
+      }
       if (body) {
         opts.headers['Content-Type'] = 'application/json';
         opts.body = JSON.stringify(body);
@@ -462,10 +462,13 @@ const app = createApp({
         if (timeoutId) clearTimeout(timeoutId);
       }
 
-      if (res.status === 401 || res.status === 403) {
-        // Fallback to default Admin ID if dynamic token failed
-        authToken.value = '7018241155';
-        sessionStorage.setItem('spbc_auth_session', '7018241155');
+      if (res.status === 401) {
+        authToken.value = '';
+        csrfToken.value = '';
+        sessionStorage.removeItem('spbc_csrf_token');
+        sessionStorage.removeItem('spbc_auth_session');
+        localStorage.removeItem('spbc_auth_token');
+        authModalOpen.value = true;
       }
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
@@ -483,20 +486,25 @@ const app = createApp({
       authError.value = '';
       try {
         const candidate = authInputKey.value.trim();
-        const res = await fetch('/api/auth/verify', {
+        const res = await fetch('/api/auth/login', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: {
-            'Authorization': `Bearer ${candidate}`,
             'Content-Type': 'application/json'
-          }
+          },
+          body: JSON.stringify({ secret: candidate })
         });
         if (!res.ok) {
           throw new Error('Invalid Admin Passcode or Secret Key');
         }
-        sessionStorage.setItem('spbc_auth_session', candidate);
-        authToken.value = candidate;
-        authModalOpen.value = false;
+        const data = await res.json();
+        if (data.csrfToken) {
+          csrfToken.value = data.csrfToken;
+          sessionStorage.setItem('spbc_csrf_token', data.csrfToken);
+        }
+        // Never store secret in browser storage
         authInputKey.value = '';
+        authModalOpen.value = false;
         showToast('🔓 Admin Verified Successfully');
         await loadData();
       } catch (err) {
@@ -506,10 +514,21 @@ const app = createApp({
       }
     };
 
-    const logoutStandalone = () => {
+    const logoutStandalone = async () => {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: csrfToken.value ? { 'X-CSRF-Token': csrfToken.value } : {}
+        });
+      } catch (_) {}
+      sessionStorage.removeItem('spbc_csrf_token');
       sessionStorage.removeItem('spbc_auth_session');
+      sessionStorage.removeItem('spbc_tg_init_data');
       localStorage.removeItem('spbc_auth_token');
+      csrfToken.value = '';
       authToken.value = '';
+      currentUser.value = null;
       authModalOpen.value = true;
     };
 
@@ -678,7 +697,7 @@ const app = createApp({
 
     const saveUserAction = async () => {
       if (!userForm.value.telegramId || !String(userForm.value.telegramId).trim()) {
-        return tg.showAlert("Telegram ID is required (e.g. 7018241155)");
+        return tg.showAlert("Telegram ID is required (e.g. 123456789)");
       }
       if (!userForm.value.name || !userForm.value.name.trim()) {
         return tg.showAlert("Leader name is required");
@@ -813,6 +832,28 @@ const app = createApp({
         ]);
 
         members.value = Array.isArray(mRes) ? mRes : (mRes?.members || []);
+        if (members.value.length > 0) {
+          try {
+            localStorage.setItem('spbc_offline_members_cache', JSON.stringify({
+              timestamp: Date.now(),
+              data: members.value
+            }));
+            offlineCacheTime.value = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          } catch (_) {}
+        } else {
+          // If network returned empty, check offline cache
+          try {
+            const rawCache = localStorage.getItem('spbc_offline_members_cache');
+            if (rawCache) {
+              const parsed = JSON.parse(rawCache);
+              if (Array.isArray(parsed?.data) && parsed.data.length > 0) {
+                members.value = parsed.data;
+                isOfflineMode.value = true;
+                offlineCacheTime.value = new Date(parsed.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }
+            }
+          } catch (_) {}
+        }
         templates.value = Array.isArray(tRes) ? tRes : [];
         settings.value = {
           sendTime: '06:00',
@@ -834,23 +875,127 @@ const app = createApp({
         if (taskStatsRes) taskStats.value = taskStatsRes;
       } catch (err) {
         console.error("loadData critical catch:", err);
-        dataLoadError.value = "Unable to connect to server. Check your connection or tap Retry.";
-        showToast("⚠️ Could not load data.");
+        // Offline cache fallback
+        try {
+          const rawCache = localStorage.getItem('spbc_offline_members_cache');
+          if (rawCache) {
+            const parsed = JSON.parse(rawCache);
+            if (Array.isArray(parsed?.data) && parsed.data.length > 0) {
+              members.value = parsed.data;
+              isOfflineMode.value = true;
+              offlineCacheTime.value = new Date(parsed.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              showToast("📶 Offline Directory: Loaded " + members.value.length + " cached members");
+            }
+          }
+        } catch (_) {}
+        dataLoadError.value = isOfflineMode.value ? "" : "Unable to connect to server. Check your connection or tap Retry.";
+        if (!isOfflineMode.value) showToast("⚠️ Could not load data.");
       } finally {
         loading.value = false;
       }
     };
 
     onMounted(async () => {
-      authModalOpen.value = false;
+      // Clean any residual legacy secrets
+      sessionStorage.removeItem('spbc_auth_session');
+      localStorage.removeItem('spbc_auth_token');
+
       let token = getTgInitData();
-      if (!token || token.length <= 5) {
-        token = getStoredToken();
-      }
-      if (token) {
+      if (token && token.length > 5) {
         authToken.value = token;
+        try {
+          const vRes = await fetch('/api/auth/verify', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (vRes.ok) {
+            const vData = await vRes.json();
+            if (vData.csrfToken) {
+              csrfToken.value = vData.csrfToken;
+              sessionStorage.setItem('spbc_csrf_token', vData.csrfToken);
+            }
+          }
+        } catch (_) {}
+        await loadData();
+      } else {
+        // Standalone browser: verify if session cookie is already active
+        try {
+          const savedCsrf = sessionStorage.getItem('spbc_csrf_token');
+          const verifyHeaders = { 'Content-Type': 'application/json' };
+          if (savedCsrf) verifyHeaders['X-CSRF-Token'] = savedCsrf;
+
+          let vRes = await fetch('/api/auth/verify', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: verifyHeaders
+          });
+          if (!vRes.ok) {
+            vRes = await fetch('/api/auth/verify', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: verifyHeaders
+            });
+          }
+          if (vRes.ok) {
+            const vData = await vRes.json();
+            if (vData.csrfToken) {
+              csrfToken.value = vData.csrfToken;
+              sessionStorage.setItem('spbc_csrf_token', vData.csrfToken);
+            }
+            authModalOpen.value = false;
+            await loadData();
+            return;
+          }
+        } catch (_) {}
+        loading.value = false;
+        authModalOpen.value = true;
       }
-      await loadData();
+
+      import('/js/haptics.js').then(({ initPullToRefresh }) => {
+        initPullToRefresh(loadData);
+      }).catch(() => {});
+
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          if (commandPaletteOpen.value) {
+            closeCommandPalette();
+          } else {
+            openCommandPalette();
+          }
+        } else if (e.key === 'Escape' && commandPaletteOpen.value) {
+          closeCommandPalette();
+        }
+      });
+
+      // PWA Offline Connectivity Monitors
+      try {
+        const rawCache = localStorage.getItem('spbc_offline_members_cache');
+        if (rawCache) {
+          const parsed = JSON.parse(rawCache);
+          if (parsed?.timestamp) {
+            offlineCacheTime.value = new Date(parsed.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          }
+        }
+      } catch (_) {}
+
+      window.addEventListener('online', () => {
+        isOfflineMode.value = false;
+        showToast("🌐 Connection restored - syncing directory...");
+        loadData();
+      });
+
+      window.addEventListener('offline', () => {
+        isOfflineMode.value = true;
+        showToast("📶 Offline mode: Using cached church directory");
+      });
+
+      // Initialize automated backup health
+      loadBackupHealth().catch(() => {});
     });
 
     // Age Calculator
@@ -1483,9 +1628,29 @@ const app = createApp({
       });
     };
 
-    const exportICS = () => {
-      window.open(`/api/events/export/ics?auth=${encodeURIComponent(tg.initData)}`, '_blank');
-      showToast("📅 Calendar (.ics) export initiated");
+    const exportICS = async () => {
+      try {
+        const token = authToken.value || getTgInitData() || '';
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch('/api/events/export/ics', {
+          credentials: 'same-origin',
+          headers
+        });
+        if (!res.ok) throw new Error('Export failed');
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'spbc_church_calendar.ics';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        showToast("📅 Calendar (.ics) export downloaded");
+      } catch (err) {
+        tg.showAlert(err.message || 'Export failed');
+      }
     };
 
     const filteredChurchEvents = computed(() => {
@@ -2068,7 +2233,9 @@ const app = createApp({
         type,
         style,
         text: '',
-        photo: member.photo || null
+        photo: member.photo || null,
+        cardDataUrl: null,
+        cardGenerating: false
       };
 
       try {
@@ -2091,6 +2258,7 @@ const app = createApp({
       const style = newStyle || wishModal.value.style || 'pastoral';
       wishModal.value.style = style;
       wishModal.value.loading = true;
+      wishModal.value.cardDataUrl = null;
       try {
         const res = await apiCall('/actions/preview-wish', 'POST', {
           memberId: wishModal.value.member?._id,
@@ -2137,6 +2305,41 @@ const app = createApp({
       } else {
         window.open(url, '_blank');
       }
+    };
+
+    const generateStatusCardAction = async () => {
+      if (!wishModal.value.text) return;
+      wishModal.value.cardGenerating = true;
+      try {
+        const { generateCelebrationCard } = await import('/js/canvasCardGenerator.js');
+        const pUrl = wishModal.value.member?._id ? photoUrl(wishModal.value.member._id) : null;
+        const dataUrl = await generateCelebrationCard({
+          member: wishModal.value.member,
+          type: wishModal.value.type,
+          text: wishModal.value.text,
+          photoSrc: pUrl
+        });
+        wishModal.value.cardDataUrl = dataUrl;
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        showToast("🎨 Status card generated!");
+      } catch (err) {
+        showToast("⚠️ Could not generate card: " + (err.message || err));
+      } finally {
+        wishModal.value.cardGenerating = false;
+      }
+    };
+
+    const downloadStatusCardAction = () => {
+      if (!wishModal.value.cardDataUrl) return;
+      if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      const a = document.createElement('a');
+      a.href = wishModal.value.cardDataUrl;
+      const safeName = (wishModal.value.member?.name || 'celebrant').replace(/\s+/g, '_');
+      a.download = `SPBC_${safeName}_${wishModal.value.type}_Card.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast("📥 Celebratory Card downloaded!");
     };
 
     // Bulk CSV Import
@@ -2259,25 +2462,51 @@ const app = createApp({
 
     const exportCSV = async () => {
       try {
-        const token = authToken.value || getStoredToken();
-        const res = await fetch('/api/export', { headers: { 'Authorization': `Bearer ${token}` } });
+        const token = authToken.value || getTgInitData() || '';
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch('/api/export', {
+          credentials: 'same-origin',
+          headers
+        });
         if (!res.ok) throw new Error("Export failed");
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = "church_database.csv";
+        document.body.appendChild(a);
         a.click();
+        a.remove();
         window.URL.revokeObjectURL(url);
         showToast("📥 Database downloaded");
       } catch (e) {
-        tg.showAlert(e.message);
+        tg.showAlert(e.message || "Export failed");
       }
     };
 
-    const openDirectory = () => {
-      const token = authToken.value || getStoredToken();
-      window.open(`/api/directory?auth=${encodeURIComponent(token)}`, '_blank');
+    const openDirectory = async () => {
+      try {
+        const token = authToken.value || getTgInitData() || '';
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch('/api/directory', {
+          credentials: 'same-origin',
+          headers
+        });
+        if (!res.ok) throw new Error('Failed to load directory');
+        const html = await res.text();
+        const win = window.open('', '_blank');
+        if (win) {
+          win.document.open();
+          win.document.write(html);
+          win.document.close();
+        } else {
+          showToast('Popup blocked. Please allow popups.');
+        }
+      } catch (e) {
+        tg.showAlert(e.message || 'Failed to open directory');
+      }
     };
 
     // System Error Logs Management
@@ -2402,8 +2631,7 @@ const app = createApp({
     };
 
     const photoUrl = (id) => {
-      const token = authToken.value || getStoredToken();
-      return `/api/members/${id}/photo?auth=${encodeURIComponent(token)}`;
+      return `/api/members/${id}/photo`;
     };
 
     const getCelebrationPill = (mmdd, isToday) => {
@@ -2493,10 +2721,184 @@ const app = createApp({
       return ep.length > 35 ? ep.substring(0, 32) + '...' : ep;
     };
 
+    // ==========================================
+    // DISASTER RECOVERY & BACKUP INTEGRITY
+    // ==========================================
+    const loadBackupHealth = async () => {
+      try {
+        const res = await fetch('/api/backup/health', {
+          credentials: 'same-origin',
+          headers: authHeaders()
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.health) {
+            backupHealth.value = data.health;
+          }
+        }
+      } catch (_) {}
+    };
+
+    const runBackupVerificationAction = async () => {
+      backupVerifying.value = true;
+      try {
+        const res = await fetch('/api/backup/verify', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: authHeaders()
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.health) {
+            backupHealth.value = data.health;
+            showToast("🛡️ Backup Verified: 100% restorable & healthy");
+          }
+        } else {
+          showToast("⚠️ Backup verification notice received");
+        }
+      } catch (err) {
+        showToast("⚠️ Verification error: " + err.message);
+      } finally {
+        backupVerifying.value = false;
+      }
+    };
+
+    // ==========================================
+    // GLOBAL COMMAND PALETTE (Ctrl+K / ⌘K)
+    // ==========================================
+    const commandPaletteOpen = ref(false);
+    const commandPaletteQuery = ref('');
+    const commandPaletteSelectedIndex = ref(0);
+
+    const openCommandPalette = () => {
+      commandPaletteOpen.value = true;
+      commandPaletteQuery.value = '';
+      commandPaletteSelectedIndex.value = 0;
+      nextTick(() => {
+        const inp = document.getElementById('command-palette-input');
+        if (inp) inp.focus();
+      });
+    };
+
+    const closeCommandPalette = () => {
+      commandPaletteOpen.value = false;
+      commandPaletteQuery.value = '';
+      commandPaletteSelectedIndex.value = 0;
+    };
+
+    const commandPaletteResults = computed(() => {
+      const q = commandPaletteQuery.value.trim().toLowerCase();
+      const results = [];
+
+      // 1. Core Actions & Navigation
+      const actions = [
+        { id: 'act:add_member', title: 'Add New Member', subtitle: 'Add a new member to the church directory', icon: '👤', category: 'Action', action: () => openMemberForm() },
+        { id: 'act:fast_entry', title: 'Fast Member Entry', subtitle: 'Quickly batch-add family members with presets', icon: '⚡', category: 'Action', action: () => openFastEntry() },
+        { id: 'act:add_event', title: 'Schedule Church Event', subtitle: 'Add worship service, prayer vigil, or fellowship', icon: '📅', category: 'Action', action: () => openEventForm() },
+        { id: 'act:add_task', title: 'Create Ministry Task', subtitle: 'Add a new administrative follow-up task', icon: '📋', category: 'Action', action: () => openTaskForm() },
+        { id: 'act:import_csv', title: 'Import Members CSV', subtitle: 'Bulk import church member roster spreadsheet', icon: '📥', category: 'Action', action: () => openImportModal() },
+        { id: 'act:export_csv', title: 'Export Members CSV', subtitle: 'Download church directory as UTF-8 CSV', icon: '📤', category: 'Action', action: () => exportCSV() },
+        { id: 'act:export_ics', title: 'Export Church Calendar (.ics)', subtitle: 'Export RFC-compliant calendar feed', icon: '📆', category: 'Action', action: () => exportICS() },
+        { id: 'act:tab_wishes', title: 'Wishes & Celebrations', subtitle: 'View today & upcoming birthdays and anniversaries', icon: '✨', category: 'Navigation', action: () => { currentTab.value = 'upcoming'; } },
+        { id: 'act:tab_reports', title: 'Church Analytics & Reports', subtitle: 'Demographics, health score, and ratios', icon: '📊', category: 'Navigation', action: () => { currentTab.value = 'analytics'; } },
+        { id: 'act:tab_settings', title: 'Church Settings & Logs', subtitle: 'Configure notification times and error logs', icon: '⚙️', category: 'Navigation', action: () => { currentTab.value = 'settings'; } },
+        { id: 'act:toggle_theme', title: 'Toggle Light / Dark Mode', subtitle: 'Switch color theme', icon: isDark.value ? '☀️' : '🌙', category: 'Preference', action: () => toggleTheme() }
+      ];
+
+      if (!q) {
+        return actions;
+      }
+
+      // Filter actions
+      for (const act of actions) {
+        if (act.title.toLowerCase().includes(q) || act.subtitle.toLowerCase().includes(q)) {
+          results.push(act);
+        }
+      }
+
+      // Filter members
+      if (members.value && members.value.length > 0) {
+        let memberMatches = 0;
+        for (const m of members.value) {
+          if (memberMatches >= 6) break;
+          const nameMatch = m.name && m.name.toLowerCase().includes(q);
+          const phoneMatch = m.phone && m.phone.includes(q);
+          const familyMatch = m.familyName && m.familyName.toLowerCase().includes(q);
+          const roleMatch = m.role && m.role.toLowerCase().includes(q);
+
+          if (nameMatch || phoneMatch || familyMatch || roleMatch) {
+            results.push({
+              id: `mem:${m._id}`,
+              title: m.name,
+              subtitle: `${m.role || 'Member'}${m.phone ? ' • ' + m.phone : ''}${m.familyName ? ' • ' + m.familyName : ''}`,
+              icon: '👤',
+              category: 'Member',
+              action: () => openMemberForm(m)
+            });
+            memberMatches++;
+          }
+        }
+      }
+
+      // Filter church events
+      if (churchEvents.value && churchEvents.value.length > 0) {
+        let eventMatches = 0;
+        for (const ev of churchEvents.value) {
+          if (eventMatches >= 4) break;
+          if (ev.title?.toLowerCase().includes(q) || ev.category?.toLowerCase().includes(q) || ev.venue?.toLowerCase().includes(q)) {
+            results.push({
+              id: `ev:${ev._id}`,
+              title: ev.title,
+              subtitle: `📅 ${ev.startDate || 'Upcoming'}${ev.startTime ? ' at ' + ev.startTime : ''} • ${ev.category || 'Event'}`,
+              icon: '📅',
+              category: 'Event',
+              action: () => openEventForm(ev)
+            });
+            eventMatches++;
+          }
+        }
+      }
+
+      // Filter tasks
+      if (tasks.value && tasks.value.length > 0) {
+        let taskMatches = 0;
+        for (const t of tasks.value) {
+          if (taskMatches >= 4) break;
+          if (t.title?.toLowerCase().includes(q) || t.assignee?.toLowerCase().includes(q) || (t.tags && t.tags.some(tag => tag.toLowerCase().includes(q)))) {
+            results.push({
+              id: `task:${t._id}`,
+              title: t.title,
+              subtitle: `Priority: ${t.priority || 'medium'} • Due: ${t.dueDate || 'No date'} • Assignee: ${t.assignee || 'Admin'}`,
+              icon: '📋',
+              category: 'Task',
+              action: () => openTaskForm(t)
+            });
+            taskMatches++;
+          }
+        }
+      }
+
+      return results;
+    });
+
+    const executeCommandPaletteItem = (item) => {
+      if (!item) return;
+      closeCommandPalette();
+      if (typeof item.action === 'function') {
+        item.action();
+      }
+    };
+
+    const navigateCommandPalette = (delta) => {
+      const len = commandPaletteResults.value.length;
+      if (len === 0) return;
+      commandPaletteSelectedIndex.value = (commandPaletteSelectedIndex.value + delta + len) % len;
+    };
+
     return {
       loadData,
       isDark, toggleTheme,
-      authToken, authModalOpen, authInputKey, authError, authVerifying, verifyAndSavePasscode, logoutStandalone, goToAdminLogin, isInTelegram,
+      authToken, csrfToken, authModalOpen, authInputKey, authError, authVerifying, verifyAndSavePasscode, logoutStandalone, goToAdminLogin, isInTelegram,
       currentTab, memberView, members, templates, upcomingEvents, churchEvents, tasks, churchStats, dataQuality, settings,
       search, memberFilter, sortBy, selectedIds,
       loading, saving, triggering, toastMessage, showToast, dataLoadError,
@@ -2516,7 +2918,7 @@ const app = createApp({
       expandedAttachments, toggleAttachmentsExpanded, handleTaskAttachmentUpload, deleteTaskAttachmentAction,
       toggleTaskPinAction, loadTasks, addTagToForm, removeTagFromForm, addSubtaskToForm, removeSubtaskFromForm,
       formatEstimate, formatRelativeDue, allTags, progressPercentage,
-      openWishModal, regenerateWish, copyWishToClipboard, openWhatsAppWish,
+      openWishModal, regenerateWish, copyWishToClipboard, openWhatsAppWish, generateStatusCardAction, downloadStatusCardAction,
       openImportModal, parseCSVFile, executeBulkImport,
       handlePhotoFileInput, calendarMonth, calendarMonthDays, shiftCalendarMonth, mergeMemberAction,
       fastForm, retainHousehold, fastSessionMembers, fastSaving, existingFamilies, existingRoles,
@@ -2530,7 +2932,10 @@ const app = createApp({
       activeUsersCount, pendingUsersCount, suspendedUsersCount,
       openAddUserModal, openEditUserModal, onUserRoleChange, saveUserAction, deleteUserAction, toggleUserStatusAction, openInviteModal,
       loadUsers, generateInviteLink, copyInviteLink, shareInviteWhatsApp, approveUserAction, revokeUserAction,
-      getAge, computeAge, getInitials, avatarStyle, photoUrl, getCelebrationPill, getRoleBadge, formatEndpoint
+      getAge, computeAge, getInitials, avatarStyle, photoUrl, getCelebrationPill, getRoleBadge, formatEndpoint,
+      commandPaletteOpen, commandPaletteQuery, commandPaletteResults, commandPaletteSelectedIndex,
+      openCommandPalette, closeCommandPalette, executeCommandPaletteItem, navigateCommandPalette,
+      isOfflineMode, offlineCacheTime, backupHealth, backupVerifying, loadBackupHealth, runBackupVerificationAction
     };
   }
 });
