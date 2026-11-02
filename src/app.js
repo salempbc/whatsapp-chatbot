@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import compression from "compression";
 import cors from "cors";
+import crypto from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
@@ -30,6 +31,20 @@ app.set("trust proxy", 1);
 
 // Lightweight health check for uptime pingers (cron-job.org)
 app.get("/ping", (req, res) => res.status(200).send("pong"));
+
+/* Readiness probe: 200 only while the database connection is up, so the
+   platform stops routing traffic during a DB outage or shutdown. */
+app.get("/readyz", (req, res) => {
+  const ready = mongoose.connection.readyState === 1 && !shuttingDown;
+  res.status(ready ? 200 : 503).json({ ready });
+});
+
+/* Correlate logs and error reports with a per-request id (echoed to the client). */
+app.use((req, res, next) => {
+  req.id = crypto.randomUUID();
+  res.setHeader("X-Request-Id", req.id);
+  next();
+});
 
 /* --- 1. SECURITY & OPTIMIZATION MIDDLEWARE --- */
 app.use(compression());
@@ -153,6 +168,7 @@ app.use((err, req, res, next) => {
       params: req.params,
       query: req.query,
       ip: req.ip,
+      requestId: req.id,
       userAgent: req.headers["user-agent"]
     }
   }).catch(() => {});
