@@ -64,7 +64,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://unpkg.com", "https://telegram.org"],
+      scriptSrc: ["'self'", "https://telegram.org"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
@@ -123,23 +123,31 @@ app.get("/admin", (req, res) => {
   return res.redirect("/");
 });
 
-/* Force no-cache on app.js and sw.js — these change with every deploy and must NEVER be served stale.
-   A stale app.js can cause Vue template compilation failures (raw {{ }} showing in UI). */
-app.get(['/app.js', '/sw.js'], (req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+/* The frontend is built by Vite into dist/ (hashed, immutable assets). */
+const distDir = path.join(__dirname, "../dist");
+
+/* The service worker and HTML shell must never be served stale; hashed assets are immutable. */
+app.get("/sw.js", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   next();
 });
 
-app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.static(distDir, {
+  setHeaders: (res, filePath) => {
+    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    } else if (filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  }
+}));
 
 // Apply rate limiter specifically to /api
 /* /api/v1 is the stable versioned prefix; /api remains as a backwards-compatible alias. */
 app.use(["/api/v1", "/api"], apiLimiter, apiRouter);
 
 app.get("*", pageLimiter, (req, res) => {
-  res.sendFile(path.join(__dirname, "../public/index.html"));
+  res.sendFile(path.join(distDir, "index.html"));
 });
 
 /* Catch-all global Express error handler */

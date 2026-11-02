@@ -1,14 +1,11 @@
 // Service Worker for SPBC Church CMS Mini App (Offline PWA & Shell Caching)
-const CACHE_NAME = 'spbc-cms-shell-v15';
+const CACHE_NAME = 'spbc-cms-shell-v16';
 
 // Cache app shell and core UI helpers for hospital & home visits offline
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/vue.global.js',
-  '/tailwind.js',
-  '/js/haptics.js',
-  '/js/canvasCardGenerator.js'
+  '/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -56,7 +53,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Network-First with Offline Fallback for app shell
-  const isShellRequest = url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/admin' || url.pathname === '/app.js';
+  const isShellRequest = url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/admin';
   if (isShellRequest) {
     event.respondWith(
       fetch(event.request)
