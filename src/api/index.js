@@ -7,6 +7,7 @@ import { createSession, destroySession, getSession, validateCsrfToken } from "..
 import { getDefaultPermissions } from "../services/userService.js";
 import { captureError } from "../services/errorLogService.js";
 import { createRouter } from "./router.js";
+import { validateBody, loginSchema } from "./validate.js";
 import { clientErrorLimiter, loginLimiter, authVerifyLimiter } from "./limiters.js";
 import membersRoutes from "./routes/members.js";
 import eventsRoutes from "./routes/events.js";
@@ -132,7 +133,7 @@ router.post(
 /* ========================================================= */
 
 /* Public Standalone Login endpoint: exchanges ADMIN_SECRET for a server-validated session cookie */
-router.post("/auth/login", loginLimiter, async (req, res) => {
+router.post("/auth/login", loginLimiter, validateBody(loginSchema), async (req, res) => {
   const secret = req.body?.secret || (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7).trim() : null);
   if (!secret || !process.env.ADMIN_SECRET || process.env.ADMIN_SECRET.length < 8) {
     return res.status(401).json({ error: "Invalid administrator credentials" });

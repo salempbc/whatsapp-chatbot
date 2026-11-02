@@ -7,7 +7,7 @@ import GreetingLog from "../models/GreetingLog.js";
  * 📊 ADVANCED REPORTING & ANALYTICS SERVICE
  */
 export const getChurchStatistics = async () => {
-  const allMembers = await Member.find();
+  const allMembers = await Member.find().lean();
   const totalRecords = allMembers.length;
   const activeMembers = allMembers.filter(m => m.status === "active" && !m.isDeleted);
   const inactiveMembers = allMembers.filter(m => m.status === "inactive" && !m.isDeleted);
@@ -40,7 +40,7 @@ export const getChurchStatistics = async () => {
   }
 
   // Tasks analytics
-  const allTasks = await Task.find();
+  const allTasks = await Task.find().lean();
   const openTasks = allTasks.filter(t => ["todo", "in_progress", "waiting"].includes(t.status));
   const completedTasks = allTasks.filter(t => t.status === "completed");
   const cancelledTasks = allTasks.filter(t => t.status === "cancelled");
@@ -51,12 +51,12 @@ export const getChurchStatistics = async () => {
   const overdueTasks = openTasks.filter(t => t.dueDate && t.dueDate < todayStr);
 
   // Events analytics
-  const allEvents = await ChurchEvent.find();
+  const allEvents = await ChurchEvent.find().lean();
   const upcomingEvents = allEvents.filter(e => e.status !== "cancelled" && e.startDate >= todayStr);
 
   // Greetings analytics
   const currentYear = new Date().getFullYear();
-  const greetings = await GreetingLog.find({ year: currentYear });
+  const greetings = await GreetingLog.find({ year: currentYear }).lean();
   const greetingsShared = greetings.filter(g => g.status === "MARKED_AS_SHARED").length;
   const greetingsEdited = greetings.filter(g => g.status === "EDITED").length;
   const greetingsSkipped = greetings.filter(g => g.status === "SKIPPED").length;
@@ -104,7 +104,7 @@ export const getChurchStatistics = async () => {
  * 🛡️ DATA QUALITY AUDIT REPORT
  */
 export const getDataQualityReport = async () => {
-  const members = await Member.find({ isDeleted: { $ne: true } });
+  const members = await Member.find({ isDeleted: { $ne: true } }).lean();
   const issues = [];
 
   for (const m of members) {

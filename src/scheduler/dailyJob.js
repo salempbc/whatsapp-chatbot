@@ -4,6 +4,7 @@ import { prepareTodayGreetings } from "../services/greetingService.js";
 import { reviewSummaryScreen } from "../bot/handlers/review.js";
 import { renderScreen } from "../bot/ui.js";
 import cron from "node-cron";
+import { runWithLease } from "../services/jobLeaseService.js";
 import { sendAdminMessage, getBotInstance } from "../bot/index.js";
 import { getSetting } from "../models/Settings.js";
 
@@ -146,10 +147,13 @@ export const startScheduler = async () => {
   const morning = toCron(await getSetting("sendTime", "06:00"), "06:00");
   const reminder = toCron(await getSetting("reminderTime", "20:00"), "20:00");
 
-  morningTask = cron.schedule(morning.cron, runMorningJob, { timezone: "Asia/Kolkata" });
-  reminderTask = cron.schedule(reminder.cron, runReminderJob, { timezone: "Asia/Kolkata" });
+  const HOUR = 60 * 60 * 1000;
+  const leased = (key, ttl, job) => () => runWithLease(key, ttl, job);
+
+  morningTask = cron.schedule(morning.cron, leased("morning", 12 * HOUR, runMorningJob), { timezone: "Asia/Kolkata" });
+  reminderTask = cron.schedule(reminder.cron, leased("reminder", 12 * HOUR, runReminderJob), { timezone: "Asia/Kolkata" });
   // Runs on the 1st day of every month at 06:15 IST
-  monthlyBackupTask = cron.schedule("15 6 1 * *", runMonthlyBackupJob, { timezone: "Asia/Kolkata" });
+  monthlyBackupTask = cron.schedule("15 6 1 * *", leased("monthly-backup", 24 * HOUR, runMonthlyBackupJob), { timezone: "Asia/Kolkata" });
 
   console.log(`⏰ Scheduler started (${morning.time} IST daily + ${reminder.time} IST reminder + Monthly Backup)`);
 };

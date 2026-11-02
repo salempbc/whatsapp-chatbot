@@ -135,7 +135,8 @@ app.get(['/app.js', '/sw.js'], (req, res, next) => {
 app.use(express.static(path.join(__dirname, "../public")));
 
 // Apply rate limiter specifically to /api
-app.use("/api", apiLimiter, apiRouter);
+/* /api/v1 is the stable versioned prefix; /api remains as a backwards-compatible alias. */
+app.use(["/api/v1", "/api"], apiLimiter, apiRouter);
 
 app.get("*", pageLimiter, (req, res) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
