@@ -1,8 +1,10 @@
 import { requirePermission } from "../middleware.js";
 import { getChurchStatistics, getDataQualityReport } from "../../services/reportService.js";
 import { createRouter } from "../router.js";
+import { adminApiLimiter } from "../limiters.js";
 
 const router = createRouter();
+router.use(adminApiLimiter);
 
 /* ========================================================= */
 /* MODULE D: ADVANCED CHURCH STATISTICS & DATA QUALITY       */

@@ -2,8 +2,10 @@ import mongoose from "mongoose";
 import Template from "../../models/Template.js";
 import { requirePermission } from "../middleware.js";
 import { createRouter } from "../router.js";
+import { adminApiLimiter } from "../limiters.js";
 
 const router = createRouter();
+router.use(adminApiLimiter);
 
 /* Templates */
 router.get("/templates", requirePermission("canManageTemplates"), async (req, res) => {

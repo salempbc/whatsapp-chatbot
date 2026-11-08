@@ -4,8 +4,10 @@ import { restartScheduler } from "../../scheduler/dailyJob.js";
 import { verifyBackupIntegrity } from "../../services/backupService.js";
 import { sendAdminMessage } from "../../bot/index.js";
 import { createRouter } from "../router.js";
+import { adminApiLimiter } from "../limiters.js";
 
 const router = createRouter();
+router.use(adminApiLimiter);
 
 /* Settings */
 router.get("/settings", requirePermission("canEditSettings"), async (req, res) => {

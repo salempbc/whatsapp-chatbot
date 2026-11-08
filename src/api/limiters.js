@@ -35,3 +35,12 @@ export const inviteLimiter = rateLimit({
   message: { error: "Invite rate limit exceeded. Please try again later." }
 });
 
+
+/* Per-router ceiling for authenticated admin routes (the global /api limiter still applies on top). */
+export const adminApiLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." }
+});

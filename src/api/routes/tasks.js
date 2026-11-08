@@ -1,8 +1,10 @@
 import { requirePermission } from "../middleware.js";
 import { getTasks, getTaskStats, createTask, updateTask, deleteTask, toggleTaskComplete, toggleTaskPin, addSubtask, toggleSubtask, deleteSubtask, addNote, deleteNote, addAttachment, deleteAttachment, bulkActionTasks, reorderTasks, getTasksDueTodayOrOverdue, parseQuickAddTask } from "../../services/taskService.js";
 import { createRouter } from "../router.js";
+import { adminApiLimiter } from "../limiters.js";
 
 const router = createRouter();
+router.use(adminApiLimiter);
 
 /* ========================================================= */
 /* MODULE C: ADMINISTRATIVE TASK & FOLLOW-UP MANAGEMENT      */

@@ -2,8 +2,10 @@ import ChurchEvent from "../../models/ChurchEvent.js";
 import { requirePermission } from "../middleware.js";
 import { createChurchEvent, updateChurchEvent, cancelChurchEvent, exportEventsToICS } from "../../services/churchCalendarService.js";
 import { createRouter } from "../router.js";
+import { adminApiLimiter } from "../limiters.js";
 
 const router = createRouter();
+router.use(adminApiLimiter);
 
 /* ========================================================= */
 /* MODULE B: UNIFIED CHURCH CALENDAR & EVENTS                */

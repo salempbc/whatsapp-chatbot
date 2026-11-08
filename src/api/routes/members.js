@@ -6,8 +6,10 @@ import { requirePermission } from "../middleware.js";
 import { exportMembersToCSV } from "../../services/exportService.js";
 import { checkDuplicates, archiveMember, restoreMember, validateStatusTransition, mergeMembers } from "../../services/memberService.js";
 import { createRouter } from "../router.js";
+import { adminApiLimiter } from "../limiters.js";
 
 const router = createRouter();
+router.use(adminApiLimiter);
 
 const escapeHtml = (str = "") =>
   String(str)

@@ -6,8 +6,10 @@ import { getUpcomingEvents, generateTemplateMessage } from "../../services/event
 import { getCanonicalVerse, formatGreetingCard } from "../../services/aiService.js";
 import { prepareTodayGreetings, regenerateGreeting, markGreetingAsShared, skipGreeting, updateGreetingText } from "../../services/greetingService.js";
 import { createRouter } from "../router.js";
+import { adminApiLimiter } from "../limiters.js";
 
 const router = createRouter();
+router.use(adminApiLimiter);
 
 /* Upcoming Celebrations */
 router.get("/upcoming", requirePermission("canSendGreetings"), async (req, res) => {

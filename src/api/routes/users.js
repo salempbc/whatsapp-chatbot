@@ -1,10 +1,11 @@
 import { getBotInstance } from "../../bot/index.js";
 import { requirePermission } from "../middleware.js";
 import { getAllUsers, createUser, updateUser, deleteUser, toggleUserStatus, approveUser, revokeUser, createInviteToken } from "../../services/userService.js";
-import { inviteLimiter } from "../limiters.js";
 import { createRouter } from "../router.js";
+import { adminApiLimiter, inviteLimiter } from "../limiters.js";
 
 const router = createRouter();
+router.use(adminApiLimiter);
 
 /* User Management (Church Leaders & Staff - Full Access Control CRUD) */
 router.get("/users", requirePermission("canManageUsers"), async (req, res) => {

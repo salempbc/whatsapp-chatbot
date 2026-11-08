@@ -1,8 +1,10 @@
 import { requirePermission } from "../middleware.js";
 import { getErrorLogs, resolveErrorLog, deleteErrorLog, clearErrorLogs } from "../../services/errorLogService.js";
 import { createRouter } from "../router.js";
+import { adminApiLimiter } from "../limiters.js";
 
 const router = createRouter();
+router.use(adminApiLimiter);
 
 /* ========================================================================= */
 /* --- SYSTEM ERROR LOGS & AUDIT TRAIL ------------------------------------- */
