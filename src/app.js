@@ -3,6 +3,7 @@ import express from "express";
 import compression from "compression";
 import cors from "cors";
 import crypto from "crypto";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
@@ -147,7 +148,11 @@ app.use(express.static(distDir, {
 app.use(["/api/v1", "/api"], apiLimiter, apiRouter);
 
 app.get("*", pageLimiter, (req, res) => {
-  res.sendFile(path.join(distDir, "index.html"));
+  const indexFile = path.join(distDir, "index.html");
+  if (!fs.existsSync(indexFile)) {
+    return res.status(503).json({ error: "Frontend build missing. Run `npm run build` (dist/index.html not found)." });
+  }
+  res.sendFile(indexFile);
 });
 
 /* Catch-all global Express error handler */

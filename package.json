@@ -9,9 +9,12 @@
     "check": "node --check src/app.js && node tools/scan-encoding.cjs && node tools/verify-vue-keys.cjs && npm run lint",
     "lint": "eslint src scripts tests",
     "build": "vite build",
-    "dev:web": "vite"
+    "dev:web": "vite",
+    "postinstall": "vite build"
   },
   "dependencies": {
+    "@vitejs/plugin-vue": "^6.0.10",
+    "autoprefixer": "^10.6.2",
     "compression": "^1.7.5",
     "cors": "^2.8.5",
     "dotenv": "^17.4.0",
@@ -21,18 +24,16 @@
     "mongoose": "^9.3.3",
     "node-cron": "^4.2.1",
     "node-telegram-bot-api": "^0.66.0",
+    "postcss": "^8.5.32",
+    "tailwindcss": "^3.4.19",
+    "vite": "^7.3.7",
+    "vue": "^3.5.44",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@vitejs/plugin-vue": "^5.2.4",
-    "autoprefixer": "^10.6.2",
     "eslint": "^10.14.0",
-    "globals": "^17.14.0",
-    "postcss": "^8.5.32",
-    "tailwindcss": "^3.4.19",
-    "vite": "^5.4.21",
-    "vue": "^3.5.44"
+    "globals": "^17.14.0"
   },
   "engines": {
     "node": ">=20"
