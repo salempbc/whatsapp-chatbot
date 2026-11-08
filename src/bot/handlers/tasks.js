@@ -1,7 +1,7 @@
 import Task from "../../models/Task.js";
 import { createTask, updateTask, toggleTaskPin, getTasksDueTodayOrOverdue, parseQuickAddTask } from "../../services/taskService.js";
 import { renderScreen } from "../ui.js";
-import { setState, clearState } from "../session.js";
+import { setState, getState, clearState } from "../session.js";
 import { adminOnly } from "../guard.js";
 
 const escapeHtml = (str = "") => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -138,6 +138,25 @@ export const tasksCallbacks = {
     setState(chatId, { type: "tasks.addTitle", draft: {} });
     await bot.sendMessage(chatId, "<b>➕ Add New Task</b>\n\nEnter task description or title (supports smart tags and dates):", { parse_mode: "HTML" });
     return "Enter task title";
+  },
+  "tasks:date": async ({ bot, chatId, args, msg }) => {
+    const dateVal = args[0] === "skip" ? "" : args[0];
+    const state = getState(chatId);
+    if (!state || state.type !== "tasks.addDueDate") return;
+    state.draft.dueDate = dateVal;
+    state.draft.priority = "medium";
+    state.draft.status = "todo";
+
+    try {
+      const created = await createTask(state.draft, msg?.from?.first_name || "Admin");
+      clearState(chatId);
+      await bot.sendMessage(chatId, `✅ <b>Task Created!</b>\n\n<b>${escapeHtml(created.title)}</b>${created.dueDate ? `\n📅 Due: ${created.dueDate}` : ""}`, { parse_mode: "HTML" });
+      const screen = await taskListScreen();
+      await renderScreen(bot, chatId, null, screen);
+    } catch (err) {
+      clearState(chatId);
+      await bot.sendMessage(chatId, `❌ Failed to create task: ${err.message}`);
+    }
   }
 };
 
@@ -166,7 +185,27 @@ export const tasksStateHandlers = {
     state.draft.title = text;
     state.type = "tasks.addDueDate";
     setState(chatId, state);
-    await bot.sendMessage(chatId, `Task: <b>${escapeHtml(text)}</b>\n\nEnter due date as <code>YYYY-MM-DD</code> or send /skip:`, { parse_mode: "HTML" });
+
+    const today = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })).toISOString().slice(0, 10);
+    const tom = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const d = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const diff = (7 - d.getDay()) % 7 || 7;
+    d.setDate(d.getDate() + diff);
+    const sun = d.toISOString().slice(0, 10);
+
+    const replyMarkup = {
+      inline_keyboard: [
+        [
+          { text: `📅 Today (${today.slice(5)})`, callback_data: `tasks:date:${today}` },
+          { text: `📅 Tomorrow (${tom.slice(5)})`, callback_data: `tasks:date:${tom}` }
+        ],
+        [
+          { text: `⛪ This Sunday (${sun.slice(5)})`, callback_data: `tasks:date:${sun}` },
+          { text: `⏭️ Skip Due Date`, callback_data: `tasks:date:skip` }
+        ]
+      ]
+    };
+    await bot.sendMessage(chatId, `Task: <b>${escapeHtml(text)}</b>\n\nSelect a due date below or enter <code>YYYY-MM-DD</code> (or send /skip):`, { parse_mode: "HTML", reply_markup: replyMarkup });
   },
   "tasks.addDueDate": async ({ bot, chatId, text, state, msg }) => {
     if (text !== "/skip" && !/^\d{4}-\d{2}-\d{2}$/.test(text)) {

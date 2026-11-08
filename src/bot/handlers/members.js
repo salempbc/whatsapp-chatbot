@@ -191,6 +191,10 @@ const linkSpouses = async (id, spouseId, weddingDate) => {
   const m2 = await Member.findById(spouseId);
   if (!m1 || !m2) throw new Error("Member not found");
 
+  if (m1.gender && m2.gender && m1.gender === m2.gender) {
+    throw new Error("Invalid marriage: same gender pairing not allowed");
+  }
+
   m1.isMarried = true;
   m2.isMarried = true;
   m1.spouseName = m2.name;
@@ -466,11 +470,13 @@ export const membersCallbacks = {
   }
 };
 
+const escapeRegex = (s) => String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /* ================= TEXT-INPUT (STATE) ROUTES ================= */
 
 export const membersStateHandlers = {
   "members.search": async ({ bot, chatId, text }) => {
-    const rgx = new RegExp(text, "i");
+    const rgx = new RegExp(escapeRegex(text), "i");
     const members = await Member.find({
       $or: [
         { name: rgx },

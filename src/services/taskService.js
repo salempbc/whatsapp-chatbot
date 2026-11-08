@@ -399,18 +399,38 @@ export const deleteNote = async (taskId, noteId) => {
 };
 
 /**
- * Attachments management
+ * Attachments management (SEC-05: Enforce bounded size and count)
  */
+export const MAX_ATTACHMENT_BYTES = 1 * 1024 * 1024; // 1MB binary equivalent
+export const MAX_TASK_ATTACHMENTS = 10;
+
 export const addAttachment = async (taskId, { filename, mimeType, size, data }) => {
   if (!filename || !data) throw new Error("File attachment data required");
-  const task = await Task.findById(taskId);
+
+  const base64Data = String(data).replace(/^data:[^;]+;base64,/, "");
+  const estimatedByteSize = Math.floor((base64Data.length * 3) / 4);
+
+  if (estimatedByteSize > MAX_ATTACHMENT_BYTES || (Number(size) > MAX_ATTACHMENT_BYTES)) {
+    throw new Error("Attachment size exceeds maximum limit of 1MB");
+  }
+
+  const cleanTaskId = typeof taskId === "string" ? taskId.trim() : String(taskId || "");
+  if (!cleanTaskId || !mongoose.Types.ObjectId.isValid(cleanTaskId)) {
+    throw new Error("Invalid task ID format");
+  }
+
+  const task = await Task.findById(cleanTaskId);
   if (!task) throw new Error("Task not found");
+
+  if (task.attachments && task.attachments.length >= MAX_TASK_ATTACHMENTS) {
+    throw new Error(`Maximum limit of ${MAX_TASK_ATTACHMENTS} attachments per task reached`);
+  }
 
   const cleanFilename = String(filename).replace(/[/\\?%*:|"<>]/g, "_").slice(0, 200);
   task.attachments.push({
     filename: cleanFilename,
     mimeType: mimeType || "application/octet-stream",
-    size: size || 0,
+    size: estimatedByteSize || Number(size) || 0,
     data
   });
   await task.save();

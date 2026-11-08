@@ -66,7 +66,7 @@ const getBookId = (query) => {
 
 
 export const fetchVerseText = async (query) => {
-  const regex = /^(.+?)\s+(\d+)\s*[:\.]\s*(\d+)(?:\s*-\s*(\d+))?$/;
+  const regex = /^(.+?)\s+(\d+)\s*[:.]\s*(\d+)(?:\s*-\s*(\d+))?$/;
   const parts = query.match(regex);
   if (!parts) return null;
 
@@ -101,6 +101,59 @@ export const fetchVerseText = async (query) => {
   return `${text.trim()} (${citation})`;
 };
 
+export const buildVersesPage = async (type = null, page = 1) => {
+  const query = type && type !== "all" ? { type } : {};
+  const PAGE_SIZE = 5;
+  const total = await EventVerse.countDocuments(query);
+  const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+  const currentPage = Math.max(1, Math.min(page, totalPages));
+  const verses = await EventVerse.find(query)
+    .sort({ _id: 1 })
+    .skip((currentPage - 1) * PAGE_SIZE)
+    .limit(PAGE_SIZE);
+
+  let text = `📖 *Custom Verses Collection*` + (type && type !== "all" ? ` (_${type}_)` : ``) + `\n`;
+  text += `_Page ${currentPage} of ${totalPages} (${total} total)_\n\n`;
+
+  if (!verses.length) {
+    text += `_No custom verses found._`;
+  } else {
+    verses.forEach((v, i) => {
+      const idx = (currentPage - 1) * PAGE_SIZE + i + 1;
+      text += `${idx}. [${v.type}] ${v.reference} \`(ID: ${v._id})\`\n`;
+    });
+  }
+
+  const keyboard = [];
+  if (totalPages > 1) {
+    const navRow = [];
+    if (currentPage > 1) {
+      navRow.push({ text: "◀️ Prev", callback_data: `bible:page:${currentPage - 1}:${type || "all"}` });
+    }
+    navRow.push({ text: `Page ${currentPage}/${totalPages}`, callback_data: `bible:page:${currentPage}:${type || "all"}` });
+    if (currentPage < totalPages) {
+      navRow.push({ text: "Next ▶️", callback_data: `bible:page:${currentPage + 1}:${type || "all"}` });
+    }
+    keyboard.push(navRow);
+  }
+
+  return { text, keyboard };
+};
+
+export const bibleCallbacks = {
+  "bible:page": async ({ bot, chatId, messageId, args }) => {
+    const page = parseInt(args[0], 10) || 1;
+    const type = args[1] && args[1] !== "all" ? args[1] : null;
+    const { text, keyboard } = await buildVersesPage(type, page);
+    await bot.editMessageText(text, {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: keyboard }
+    }).catch(() => {});
+  }
+};
+
 export const registerBible = (bot) => {
   bot.onText(/^\/addverse\s+(birthday|wedding|youth|elder)\s+(.+)$/i, adminOnly(async (msg, match) => {
     const chatId = msg.chat.id;
@@ -109,27 +162,20 @@ export const registerBible = (bot) => {
 
     const text = await fetchVerseText(reference);
     if (!text) {
-      return bot.sendMessage(chatId, "⚠️ Could not resolve reference. Ensure it is formatted correctly (e.g. John 3:16)");
+      return await bot.sendMessage(chatId, "⚠️ Could not resolve reference. Ensure it is formatted correctly (e.g. John 3:16)").catch(() => {});
     }
 
     await EventVerse.create({ type, reference });
-    bot.sendMessage(chatId, `✅ Saved custom ${type} verse!\n\n${text}`);
+    await bot.sendMessage(chatId, `✅ Saved custom ${type} verse!\n\n${text}`).catch(() => {});
   }));
 
   bot.onText(/^\/listverses(?:\s+(birthday|wedding|youth|elder))?$/i, adminOnly(async (msg, match) => {
     const chatId = msg.chat.id;
     const type = match[1] ? match[1].toLowerCase() : null;
-    
-    const query = type ? { type } : {};
-    const verses = await EventVerse.find(query);
-
-    if (verses.length === 0) return bot.sendMessage(chatId, "No custom verses found.");
-
-    let out = "📖 *Custom Verses Collection*\n\n";
-    verses.forEach((v, i) => {
-      out += `${i + 1}. [${v.type}] ${v.reference} (ID: ${v._id})\n`;
-    });
-    bot.sendMessage(chatId, out, { parse_mode: "Markdown" });
+    const { text, keyboard } = await buildVersesPage(type, 1);
+    const opts = { parse_mode: "Markdown" };
+    if (keyboard.length > 0) opts.reply_markup = { inline_keyboard: keyboard };
+    await bot.sendMessage(chatId, text, opts).catch(() => {});
   }));
 
   bot.onText(/^\/delverse\s+([a-zA-Z0-9_]+)$/i, adminOnly(async (msg, match) => {
@@ -138,9 +184,9 @@ export const registerBible = (bot) => {
 
     try {
       await EventVerse.findByIdAndDelete(id);
-      bot.sendMessage(chatId, "✅ Verse deleted from collection.");
+      await bot.sendMessage(chatId, "✅ Verse deleted from collection.").catch(() => {});
     } catch {
-      bot.sendMessage(chatId, "⚠️ Invalid ID.");
+      await bot.sendMessage(chatId, "⚠️ Invalid ID.").catch(() => {});
     }
   }));
 
@@ -153,7 +199,7 @@ export const registerBible = (bot) => {
     }
 
     // Parse: Book Chapter:Verse or Book Chapter:Verse-EndVerse
-    const regex = /^(.+?)\s+(\d+)\s*[:\.]\s*(\d+)(?:\s*-\s*(\d+))?$/;
+    const regex = /^(.+?)\s+(\d+)\s*[:.]\s*(\d+)(?:\s*-\s*(\d+))?$/;
     const parts = query.match(regex);
 
     if (!parts) {
@@ -206,29 +252,31 @@ export const registerBible = (bot) => {
     }
   }));
 
+  const escapeRegex = (s) => String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
   bot.onText(/^\/genwish\s+(.+)$/i, adminOnly(async (msg, match) => {
     const chatId = msg.chat.id;
     const searchName = match[1].trim();
 
     const member = await Member.findOne({
-      name: { $regex: new RegExp(searchName, "i") },
+      name: { $regex: new RegExp(escapeRegex(searchName), "i") },
       isDeleted: { $ne: true }
     });
 
     if (!member) {
-      return bot.sendMessage(chatId, `⚠️ Member "${searchName}" not found.`);
+      return await bot.sendMessage(chatId, `⚠️ Member "${searchName}" not found.`).catch(() => {});
     }
 
-    bot.sendMessage(chatId, `⏳ Generating AI wish for *${member.name}*...`, { parse_mode: "Markdown" });
+    await bot.sendMessage(chatId, `⏳ Generating AI wish for *${member.name}*...`, { parse_mode: "Markdown" }).catch(() => {});
 
     try {
       const wish = await enhanceTamil(`இனிய பிறந்தநாள் வாழ்த்துகள், ${member.name}!`, {
         type: "birthday",
         member
       });
-      bot.sendMessage(chatId, `✨ *AI Wish Preview:* \n\n${wish}`, { parse_mode: "Markdown" });
+      await bot.sendMessage(chatId, `✨ *AI Wish Preview:* \n\n${wish}`, { parse_mode: "Markdown" }).catch(() => {});
     } catch (e) {
-      bot.sendMessage(chatId, `⚠️ AI Generation failed: ${e.message}`);
+      await bot.sendMessage(chatId, `⚠️ AI Generation failed: ${e.message}`).catch(() => {});
     }
   }));
 };

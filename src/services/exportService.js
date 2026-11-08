@@ -36,7 +36,8 @@ export const exportMembersToCSV = async (members, label = "export") => {
 
   const csv = [headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");
 
-  const fileName = `members_${label}_${Date.now()}.csv`;
+  const safeLabel = String(label || "export").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
+  const fileName = `members_${safeLabel}_${Date.now()}.csv`;
   const filePath = path.join(os.tmpdir(), fileName);
   fs.writeFileSync(filePath, "\uFEFF" + csv); // BOM for Excel UTF-8
 

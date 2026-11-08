@@ -49,7 +49,17 @@ export const adminOnly = (fn) => (msg, ...rest) => {
     console.warn(`⚠️ [SECURITY] Denied unauthorized interaction from user ID: ${userId || "unknown"}`);
     return;
   }
-  return fn(msg, ...rest);
+  try {
+    const res = fn(msg, ...rest);
+    if (res && typeof res.catch === "function") {
+      return res.catch((err) => {
+        console.error(`❌ Bot command error [User ${userId}]:`, err?.message || err);
+      });
+    }
+    return res;
+  } catch (err) {
+    console.error(`❌ Bot command error [User ${userId}]:`, err?.message || err);
+  }
 };
 
 /**
@@ -61,7 +71,17 @@ export const superAdminOnly = (fn) => (msg, ...rest) => {
     console.warn(`⚠️ [SECURITY] Denied non-superadmin interaction from user ID: ${userId || "unknown"}`);
     return;
   }
-  return fn(msg, ...rest);
+  try {
+    const res = fn(msg, ...rest);
+    if (res && typeof res.catch === "function") {
+      return res.catch((err) => {
+        console.error(`❌ Bot superadmin command error [User ${userId}]:`, err?.message || err);
+      });
+    }
+    return res;
+  } catch (err) {
+    console.error(`❌ Bot superadmin command error [User ${userId}]:`, err?.message || err);
+  }
 };
 
 /**
@@ -77,5 +97,15 @@ export const permissionOnly = (permissionKey) => (fn) => (msg, ...rest) => {
     console.warn(`⚠️ [SECURITY] Denied missing permission ${permissionKey} for user ID: ${userId || "unknown"}`);
     return;
   }
-  return fn(msg, ...rest);
+  try {
+    const res = fn(msg, ...rest);
+    if (res && typeof res.catch === "function") {
+      return res.catch((err) => {
+        console.error(`❌ Bot permission command error [User ${userId}]:`, err?.message || err);
+      });
+    }
+    return res;
+  } catch (err) {
+    console.error(`❌ Bot permission command error [User ${userId}]:`, err?.message || err);
+  }
 };

@@ -54,6 +54,12 @@ GEMINI_MODEL=gemini-1.5-flash
 # Install dependencies
 npm install
 
+# Build the Vue frontend (Vite -> dist/); required before `npm start`
+npm run build
+
+# Frontend dev server with API proxy to :3000
+npm run dev:web
+
 # Run automated test suite
 npm test
 

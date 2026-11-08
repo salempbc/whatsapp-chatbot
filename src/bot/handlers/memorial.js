@@ -1,5 +1,57 @@
-﻿import Memorial from "../../models/Memorial.js";
+import Memorial from "../../models/Memorial.js";
 import { adminOnly } from "../guard.js";
+
+export const buildMemorialsPage = async (page = 1) => {
+  const PAGE_SIZE = 5;
+  const total = await Memorial.countDocuments();
+  const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+  const currentPage = Math.max(1, Math.min(page, totalPages));
+  const memorials = await Memorial.find()
+    .sort({ date: 1 })
+    .skip((currentPage - 1) * PAGE_SIZE)
+    .limit(PAGE_SIZE);
+
+  let text = `🕊️ *Memorial Tracker*\n`;
+  text += `_Page ${currentPage} of ${totalPages} (${total} tracked)_\n\n`;
+
+  if (!memorials.length) {
+    text += `_No memorials tracked currently._`;
+  } else {
+    memorials.forEach((m) => {
+      text += `*${m.date}* - ${m.name}`;
+      if (m.relation) text += ` (${m.relation})`;
+      text += `\n_ID: ${m._id}_\n\n`;
+    });
+  }
+
+  const keyboard = [];
+  if (totalPages > 1) {
+    const navRow = [];
+    if (currentPage > 1) {
+      navRow.push({ text: "◀️ Prev", callback_data: `memorial:page:${currentPage - 1}` });
+    }
+    navRow.push({ text: `Page ${currentPage}/${totalPages}`, callback_data: `memorial:page:${currentPage}` });
+    if (currentPage < totalPages) {
+      navRow.push({ text: "Next ▶️", callback_data: `memorial:page:${currentPage + 1}` });
+    }
+    keyboard.push(navRow);
+  }
+
+  return { text, keyboard };
+};
+
+export const memorialCallbacks = {
+  "memorial:page": async ({ bot, chatId, messageId, args }) => {
+    const page = parseInt(args[0], 10) || 1;
+    const { text, keyboard } = await buildMemorialsPage(page);
+    await bot.editMessageText(text, {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: keyboard }
+    }).catch(() => {});
+  }
+};
 
 export const registerMemorial = (bot) => {
   bot.onText(/^\/addmemorial\s+(\d{2}-\d{2})\s+([^,]+)(?:,\s*(.+))?$/i, adminOnly(async (msg, match) => {
@@ -12,28 +64,18 @@ export const registerMemorial = (bot) => {
       await Memorial.create({ date, name, relation });
       let text = `✅ *Memorial Saved*\n\nName: ${name}\nDate: ${date}`;
       if (relation) text += `\nNote: ${relation}`;
-      bot.sendMessage(chatId, text, { parse_mode: "Markdown" });
+      await bot.sendMessage(chatId, text, { parse_mode: "Markdown" }).catch(() => {});
     } catch (err) {
-      bot.sendMessage(chatId, "⚠️ Failed to save memorial.");
+      await bot.sendMessage(chatId, "⚠️ Failed to save memorial.").catch(() => {});
     }
   }));
 
   bot.onText(/^\/listmemorials$/i, adminOnly(async (msg) => {
     const chatId = msg.chat.id;
-    const memorials = await Memorial.find().sort({ date: 1 });
-
-    if (memorials.length === 0) {
-      return bot.sendMessage(chatId, "No memorials tracked currently.");
-    }
-
-    let text = "🕊️ *Memorial Tracker*\n\n";
-    memorials.forEach((m) => {
-      text += `*${m.date}* - ${m.name}`;
-      if (m.relation) text += ` (${m.relation})`;
-      text += `\n_ID: ${m._id}_\n\n`;
-    });
-
-    bot.sendMessage(chatId, text, { parse_mode: "Markdown" });
+    const { text, keyboard } = await buildMemorialsPage(1);
+    const opts = { parse_mode: "Markdown" };
+    if (keyboard.length > 0) opts.reply_markup = { inline_keyboard: keyboard };
+    await bot.sendMessage(chatId, text, opts).catch(() => {});
   }));
 
   bot.onText(/^\/delmemorial\s+([a-zA-Z0-9_]+)$/i, adminOnly(async (msg, match) => {
@@ -42,9 +84,9 @@ export const registerMemorial = (bot) => {
 
     try {
       await Memorial.findByIdAndDelete(id);
-      bot.sendMessage(chatId, "✅ Memorial deleted.");
+      await bot.sendMessage(chatId, "✅ Memorial deleted.").catch(() => {});
     } catch {
-      bot.sendMessage(chatId, "⚠️ Invalid ID.");
+      await bot.sendMessage(chatId, "⚠️ Invalid ID.").catch(() => {});
     }
   }));
 };

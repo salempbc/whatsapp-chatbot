@@ -183,10 +183,16 @@ export const getUpcomingEvents = async (days = 30) => {
     }
   }
 
-  /* Sort by MM-DD so the list reads chronologically */
-  const byKey = (a, b) => a.mmdd.localeCompare(b.mmdd);
-  birthdays.sort(byKey);
-  weddings.sort(byKey);
+  /* Sort chronologically by distance from today (fixes SEC-07 lexical year-boundary defect) */
+  const keyOrderMap = new Map(keysArray.map((k, idx) => [k, idx]));
+  const byChronologicalOrder = (a, b) => {
+    const orderA = keyOrderMap.get(a.mmdd) ?? 999;
+    const orderB = keyOrderMap.get(b.mmdd) ?? 999;
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.member?.name || "").localeCompare(b.member?.name || "");
+  };
+  birthdays.sort(byChronologicalOrder);
+  weddings.sort(byChronologicalOrder);
 
   return { birthdays, weddings };
 };
@@ -234,7 +240,7 @@ export const generateTemplateMessage = async (m, type = "birthday", templateCont
     const age = getAge(m.dob);
     const suffix = (m.isChild || (age !== null && age < 25)) ? (m.gender === "male" ? "👦" : "👧") : "🎉🎂💐";
 
-    let nameAccusative = m.name;
+    let nameAccusative;
     if (age !== null && age < 30) {
       nameAccusative = m.name + " -ஐ";
     } else {

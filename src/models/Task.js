@@ -20,8 +20,8 @@ const attachmentSchema = new mongoose.Schema(
   {
     filename: { type: String, required: true, maxlength: 255 },
     mimeType: { type: String, required: true },
-    size: { type: Number, required: true },
-    data: { type: String, required: true } // Base64
+    size: { type: Number, required: true, max: 2 * 1024 * 1024 },
+    data: { type: String, required: true, maxlength: 2 * 1024 * 1024 } // Base64 (max ~1.5MB)
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

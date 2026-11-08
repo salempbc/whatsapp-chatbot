@@ -144,10 +144,7 @@ export const homeScreen = () => {
   ];
 
   if (webAppUrl && webAppUrl.length > 8) {
-    const authParam = process.env.ADMIN_ID && !webAppUrl.includes("auth=")
-      ? (webAppUrl.includes("?") ? `&auth=${process.env.ADMIN_ID}` : `?auth=${process.env.ADMIN_ID}`)
-      : "";
-    keyboard.push([{ text: "🌐 Open Web Admin Dashboard", web_app: { url: `${webAppUrl}${authParam}` } }]);
+    keyboard.push([{ text: "🌐 Open Web Admin Dashboard", web_app: { url: webAppUrl } }]);
   }
 
   keyboard.push(

@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import compression from "compression";
 import cors from "cors";
+import crypto from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
@@ -31,16 +32,39 @@ app.set("trust proxy", 1);
 // Lightweight health check for uptime pingers (cron-job.org)
 app.get("/ping", (req, res) => res.status(200).send("pong"));
 
+/* Readiness probe: 200 only while the database connection is up, so the
+   platform stops routing traffic during a DB outage or shutdown. */
+app.get("/readyz", (req, res) => {
+  const ready = mongoose.connection.readyState === 1 && !shuttingDown;
+  res.status(ready ? 200 : 503).json({ ready });
+});
+
+/* Correlate logs and error reports with a per-request id (echoed to the client). */
+app.use((req, res, next) => {
+  req.id = crypto.randomUUID();
+  res.setHeader("X-Request-Id", req.id);
+  next();
+});
+
 /* --- 1. SECURITY & OPTIMIZATION MIDDLEWARE --- */
 app.use(compression());
-app.use(cors());
+/* The admin UI is served from the same origin, so cross-origin access is only
+   granted to the configured WEBAPP_URL; everything else is same-origin only. */
+const allowedOrigin = (() => {
+  try {
+    return process.env.WEBAPP_URL ? new URL(process.env.WEBAPP_URL).origin : false;
+  } catch (_) {
+    return false;
+  }
+})();
+app.use(cors({ origin: allowedOrigin, credentials: true }));
 
 // Helmet for security headers with Content Security Policy and iframe compatibility for Telegram WebApp
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://unpkg.com", "https://telegram.org"],
+      scriptSrc: ["'self'", "https://telegram.org"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
@@ -94,34 +118,36 @@ const pageLimiter = rateLimit({
 
 /* --- 2. ROUTES --- */
 
-/* Convenience admin shortcut — bookmark /admin to skip the auth modal in standalone browser.
-   Redirects to the CMS SPA with the ADMIN_ID pre-filled as auth token via query param.
-   Never expose ADMIN_SECRET via URL; ADMIN_ID is already shown in .env and used as passcode. */
+/* Admin route — redirects cleanly to SPA root without credential exposure */
 app.get("/admin", (req, res) => {
-  const adminId = process.env.ADMIN_ID || "";
-  if (!adminId) {
-    return res.status(503).send("ADMIN_ID not configured in server environment.");
-  }
-  // Redirect to the SPA root with auth token pre-set — the frontend reads ?auth= and stores it
-  return res.redirect(`/?auth=${encodeURIComponent(adminId)}`);
+  return res.redirect("/");
 });
 
-/* Force no-cache on app.js and sw.js — these change with every deploy and must NEVER be served stale.
-   A stale app.js can cause Vue template compilation failures (raw {{ }} showing in UI). */
-app.get(['/app.js', '/sw.js'], (req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+/* The frontend is built by Vite into dist/ (hashed, immutable assets). */
+const distDir = path.join(__dirname, "../dist");
+
+/* The service worker and HTML shell must never be served stale; hashed assets are immutable. */
+app.get("/sw.js", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   next();
 });
 
-app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.static(distDir, {
+  setHeaders: (res, filePath) => {
+    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    } else if (filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  }
+}));
 
 // Apply rate limiter specifically to /api
-app.use("/api", apiLimiter, apiRouter);
+/* /api/v1 is the stable versioned prefix; /api remains as a backwards-compatible alias. */
+app.use(["/api/v1", "/api"], apiLimiter, apiRouter);
 
 app.get("*", pageLimiter, (req, res) => {
-  res.sendFile(path.join(__dirname, "../public/index.html"));
+  res.sendFile(path.join(distDir, "index.html"));
 });
 
 /* Catch-all global Express error handler */
@@ -151,12 +177,17 @@ app.use((err, req, res, next) => {
       params: req.params,
       query: req.query,
       ip: req.ip,
+      requestId: req.id,
       userAgent: req.headers["user-agent"]
     }
   }).catch(() => {});
 
   if (res.headersSent) return next(err);
-  res.status(err.status || 500).json({ error: err.message || "Internal server error" });
+  const statusCode = Number(err.status) || 500;
+  const clientMessage = (statusCode >= 500 && process.env.NODE_ENV === "production")
+    ? "Internal server error"
+    : (err.message || "Internal server error");
+  res.status(statusCode).json({ error: clientMessage });
 });
 
 /* --- 3. SERVER BOOTSTRAP --- */

@@ -9,7 +9,9 @@ const permissionsSchema = new mongoose.Schema(
     canManageEvents: { type: Boolean, default: true },
     canManageTasks: { type: Boolean, default: true },
     canExportData: { type: Boolean, default: false },
-    canManageUsers: { type: Boolean, default: false }
+    canManageUsers: { type: Boolean, default: false },
+    canViewAnalytics: { type: Boolean, default: false },
+    canEditSettings: { type: Boolean, default: false }
   },
   { _id: false }
 );

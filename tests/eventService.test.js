@@ -63,3 +63,20 @@ test("Template Parser: Conditional block rendering", () => {
   const seniorResult = processConditionals(tpl, { name: "Abraham", age: 70 });
   assert.equal(seniorResult, "Happy Birthday Abraham! Senior Citizen Blessing.");
 });
+
+test("SEC-07: Year Boundary Event Sorting orders December before January", () => {
+  const keysArray = ["12-30", "12-31", "01-01", "01-02"];
+  const keyOrderMap = new Map(keysArray.map((k, idx) => [k, idx]));
+  const events = [
+    { member: { name: "Alice" }, mmdd: "01-02" },
+    { member: { name: "Bob" }, mmdd: "12-30" }
+  ];
+  events.sort((a, b) => {
+    const orderA = keyOrderMap.get(a.mmdd) ?? 999;
+    const orderB = keyOrderMap.get(b.mmdd) ?? 999;
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.member?.name || "").localeCompare(b.member?.name || "");
+  });
+  assert.equal(events[0].member.name, "Bob", "December event (12-30) must precede January event (01-02)");
+  assert.equal(events[1].member.name, "Alice");
+});

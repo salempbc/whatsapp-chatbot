@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: max(120px, calc(95px + env(safe-area-inset-bottom)));
+    }
+    .btn-brand {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      color: #ffffff;
+      font-weight: 600;
+      border-radius: 0.85rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn-brand:active {
+      transform: scale(0.98);
+      opacity: 0.92;
+    }
+    .ios-switch {
+      appearance: none;
+      width: 48px;
+      height: 28px;
+      background: #475569;
+      border-radius: 30px;
+      position: relative;
+      cursor: pointer;
+      outline: none;
+      transition: background 0.3s ease;
+      flex-shrink: 0;
+    }
+    .ios-switch:checked {
+      background: #4f46e5;
+    }
+    .ios-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 24px;
+      height: 24px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      transition: transform 0.3s cubic-bezier(0.3, 1.05, 0.4, 1.05);
+    }
+    .ios-switch:checked::after {
+      transform: translateX(20px);
+    }
+    .toast-pill {
+      position: fixed;
+      top: 1.25rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: #ffffff;
+      border: 1px solid #334155;
+      padding: 0.65rem 1.25rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      z-index: 999;
+      box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.5);
+    }
+    .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+    .fade-enter-from, .fade-leave-to { opacity: 0; }
+    [v-cloak] { display: none; }
+
+    /* Modern Sleek Minimal Scrollbars */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+    }
+    .dark * {
+      scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 9999px;
+      border: 1px solid transparent;
+      background-clip: padding-box;
+      transition: background-color 0.2s ease;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.45);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(99, 102, 241, 0.65);
+    }
+    ::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
+    /* Completely hide scrollbars on horizontal filter pills / chips / segment rows */
+    .no-scrollbar, .scrollbar-hide {
+      -ms-overflow-style: none !important;
+      scrollbar-width: none !important;
+    }
+    .no-scrollbar::-webkit-scrollbar, .scrollbar-hide::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }

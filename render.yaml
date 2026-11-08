@@ -11,7 +11,7 @@ services:
     runtime: node
     plan: starter
     region: oregon
-    buildCommand: npm install
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /ping
     envVars:

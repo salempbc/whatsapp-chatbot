@@ -159,20 +159,10 @@ test("Integration: Member lifecycle status transitions and invariant enforcement
   assert.equal(validateStatusTransition("deceased", "transferred"), false);
 
   // Invariant simulation: status to flags
-  const simulateModelHooks = (status) => {
-    let isActive = false;
-    let isDeleted = false;
-    if (status === "active") {
-      isActive = true;
-      isDeleted = false;
-    } else {
-      isActive = false;
-      if (status === "archived") {
-        isDeleted = true;
-      }
-    }
-    return { isActive, isDeleted };
-  };
+  const simulateModelHooks = (status) => ({
+    isActive: status === "active",
+    isDeleted: status === "archived" && status !== "active"
+  });
 
   assert.deepEqual(simulateModelHooks("active"), { isActive: true, isDeleted: false });
   assert.deepEqual(simulateModelHooks("inactive"), { isActive: false, isDeleted: false });

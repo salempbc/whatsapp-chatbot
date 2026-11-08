@@ -1,12 +1,11 @@
 const fs = require("fs");
 
-const appJs = fs.readFileSync("public/app.js", "utf8");
-const indexHtml = fs.readFileSync("public/index.html", "utf8");
+const appJs = fs.readFileSync("web/src/App.vue", "utf8");
 
-// Extract returned properties from public/app.js
-const returnMatch = appJs.match(/return\s*\{([\s\S]*?)\};\s*\}\s*\}\);/);
+// Extract returned properties from web/src/App.vue
+const returnMatch = appJs.match(/return\s*\{([\s\S]*?)\};\s*\}\s*\};\s*<\/script>/);
 if (!returnMatch) {
-  console.error("Could not find setup return block in app.js");
+  console.error("Could not find setup return block in App.vue");
   process.exit(1);
 }
 
@@ -18,7 +17,7 @@ const returnedKeys = new Set(
     .map(k => k.split(/[\s:]/)[0])
 );
 
-console.log(`Found ${returnedKeys.size} exported properties in app.js`);
+console.log(`Found ${returnedKeys.size} exported properties in App.vue`);
 
 const expected = [
   "taskStats", "quickAddText", "quickAddPriority", "quickAddSubmitting", "executeQuickAdd",

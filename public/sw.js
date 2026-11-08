@@ -1,10 +1,11 @@
-// Service Worker for SPBC Church CMS Mini App (Network-First Strategy)
-const CACHE_NAME = 'spbc-cms-shell-v13';
+// Service Worker for SPBC Church CMS Mini App (Offline PWA & Shell Caching)
+const CACHE_NAME = 'spbc-cms-shell-v16';
 
-// Only cache truly static, rarely-changing assets (NOT app.js or index.html)
+// Cache app shell and core UI helpers for hospital & home visits offline
 const STATIC_ASSETS = [
-  '/vue.global.js',
-  '/tailwind.js'
+  '/',
+  '/index.html',
+  '/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -46,24 +47,40 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // Never intercept API, auth, or diagnostic calls
+  // Never intercept mutating API, auth, or diagnostic calls
   if (url.pathname.startsWith('/api') || url.pathname.startsWith('/ping')) {
     return;
   }
 
-  // Always fetch app.js, index.html, and SW itself fresh from network — never serve stale
-  const alwaysFresh = ['/app.js', '/index.html', '/sw.js', '/admin'];
-  if (alwaysFresh.some(p => url.pathname === p || url.pathname.startsWith(p + '?'))) {
+  // Network-First with Offline Fallback for app shell
+  const isShellRequest = url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/admin';
+  if (isShellRequest) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          const matched = await caches.match(event.request);
+          if (matched) return matched;
+          if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/admin' || url.pathname.endsWith('.html')) {
+            return caches.match('/index.html');
+          }
+          return new Response('Offline: Resource not available', { status: 503, statusText: 'Service Unavailable' });
+        })
     );
     return;
   }
 
-  // Network-First for everything else, update cache on success
+  // Cache-First with Network fallback for static vendor scripts
   event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -71,9 +88,13 @@ self.addEventListener('fetch', (event) => {
           }).catch(() => {});
         }
         return networkResponse;
-      })
-      .catch(() => {
-        return caches.match(event.request);
-      })
+      });
+    }).catch(() => {
+      // CRITICAL: Only return index.html for page navigation requests, NEVER for scripts or styles
+      if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+        return caches.match('/index.html');
+      }
+      return new Response('', { status: 404, statusText: 'Not Found' });
+    })
   );
 });
