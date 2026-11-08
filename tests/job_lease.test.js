@@ -43,7 +43,13 @@ test("Job lease: runWithLease skips when held and releases on failure", async ()
   installFakeStore();
   await acquireLease("daily", 60_000, "other-instance");
   let ran = false;
-  assert.equal(await runWithLease("daily", 60_000, async () => { ran = true; }), null);
+  const realLog = console.log;
+  console.log = () => {};
+  try {
+    assert.equal(await runWithLease("daily", 60_000, async () => { ran = true; }), null);
+  } finally {
+    console.log = realLog;
+  }
   assert.equal(ran, false);
 
   await assert.rejects(runWithLease("fresh", 60_000, async () => { throw new Error("boom"); }), /boom/);
