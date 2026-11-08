@@ -37,7 +37,7 @@ jobs:
           node scripts/run_backup.js
 
       - name: Upload Backup Artifact (30-day retention)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: spbc-database-backup-${{ env.BACKUP_DATE }}
           path: backups/*.json.gz
