@@ -10,14 +10,14 @@
     </transition>
 
     <!-- Top Church Brand Header -->
-    <header class="flex items-center justify-between pb-3.5 mb-3 border-b border-slate-200 dark:border-slate-800">
+    <header class="app-header flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white text-xl shadow-lg shadow-indigo-600/30 flex-shrink-0">
+        <div class="brand-mark w-10 h-10 rounded-2xl flex items-center justify-center text-white text-xl flex-shrink-0">
           ⛪
         </div>
         <div>
-          <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-none">Salem PBC</h1>
-          <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Church Operating System</p>
+          <h1 class="text-[1.05rem] font-extrabold tracking-tight text-slate-900 dark:text-white leading-none">Salem PBC</h1>
+          <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1 tracking-wide">Church Operating System</p>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -92,21 +92,21 @@
 
       <!-- Metrics Overview Cards (High Contrast) -->
       <div class="grid grid-cols-4 gap-2">
-        <div class="p-2.5 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 text-center shadow-sm">
-          <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total</div>
-          <div class="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5">{{ totalCount }}</div>
+        <div class="stat-tile" style="--tile:#64748b">
+          <div class="stat-label">Total</div>
+          <div class="stat-value">{{ totalCount }}</div>
         </div>
-        <div class="p-2.5 rounded-2xl bg-emerald-500/5 dark:bg-emerald-950/30 border border-emerald-500/20 dark:border-emerald-800/40 text-center shadow-sm">
-          <div class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Active</div>
-          <div class="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{{ activeCount }}</div>
+        <div class="stat-tile" style="--tile:#10b981">
+          <div class="stat-label">Active</div>
+          <div class="stat-value">{{ activeCount }}</div>
         </div>
-        <div class="p-2.5 rounded-2xl bg-rose-500/5 dark:bg-rose-950/30 border border-rose-500/20 dark:border-rose-800/40 text-center shadow-sm">
-          <div class="text-[10px] font-bold text-rose-500 dark:text-rose-400 uppercase tracking-wider">Married</div>
-          <div class="text-xl font-extrabold text-rose-500 dark:text-rose-400 mt-0.5">{{ marriedCount }}</div>
+        <div class="stat-tile" style="--tile:#f43f5e">
+          <div class="stat-label">Married</div>
+          <div class="stat-value">{{ marriedCount }}</div>
         </div>
-        <div class="p-2.5 rounded-2xl bg-indigo-500/5 dark:bg-indigo-950/30 border border-indigo-500/20 dark:border-indigo-800/40 text-center shadow-sm cursor-pointer hover:border-indigo-500 transition-colors" @click="currentTab = 'upcoming'">
-          <div class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Events</div>
-          <div class="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-0.5">{{ celebrationsCount }}</div>
+        <div class="stat-tile card-lift cursor-pointer" style="--tile:#6366f1" @click="currentTab = 'upcoming'">
+          <div class="stat-label">Events</div>
+          <div class="stat-value">{{ celebrationsCount }}</div>
         </div>
       </div>
 
@@ -116,7 +116,7 @@
           <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 dark:text-slate-500">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           </span>
-          <input type="text" v-model="search" placeholder="Search name, family, role..." class="w-full pl-10 pr-8 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#151c28] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors shadow-sm" />
+          <input type="text" v-model="search" placeholder="Search name, family, role..." class="w-full pl-10 pr-8 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors shadow-sm" />
           <button v-if="search" @click="search = ''" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
         </div>
 
@@ -170,7 +170,7 @@
 
       <!-- Shimmering Skeleton Loader for Member Cards -->
       <div v-if="loading && !filteredMembers.length" class="space-y-2.5">
-        <div v-for="sk in 4" :key="'skel-' + sk" class="p-3.5 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 flex items-center gap-3 animate-pulse">
+        <div v-for="sk in 4" :key="'skel-' + sk" class="p-3.5 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 flex items-center gap-3 animate-pulse">
           <div class="w-11 h-11 rounded-2xl bg-slate-200 dark:bg-slate-800 flex-shrink-0"></div>
           <div class="flex-1 space-y-2">
             <div class="h-4 bg-slate-200 dark:bg-slate-700/60 rounded-md w-2/5"></div>
@@ -185,7 +185,7 @@
 
       <!-- VIEW A: MEMBER CARDS GRID (Pure High Contrast) -->
       <div v-if="memberView === 'cards'" class="space-y-2.5">
-        <div v-for="m in filteredMembers" :key="m._id" class="p-3.5 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 flex items-center gap-3 transition-all hover:border-slate-300 dark:hover:border-slate-700 shadow-sm">
+        <div v-for="m in filteredMembers" :key="m._id" class="p-3.5 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 flex items-center gap-3 transition-all hover:border-slate-300 dark:hover:border-slate-700 shadow-sm">
           <input type="checkbox" :value="m._id" v-model="selectedIds" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0" />
           
           <div class="w-11 h-11 rounded-2xl relative overflow-hidden flex items-center justify-center font-bold text-white text-sm shadow-md cursor-pointer flex-shrink-0" :style="avatarStyle(m.name)" @click="openMemberForm(m)">
@@ -220,7 +220,7 @@
           </div>
         </div>
 
-        <div v-if="!filteredMembers.length" class="text-center py-12 px-6 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+        <div v-if="!filteredMembers.length" class="text-center py-12 px-6 rounded-3xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
           <div class="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center text-3xl shadow-inner">
             <span>{{ memberSearch ? '🔍' : '👥' }}</span>
           </div>
@@ -250,22 +250,22 @@
       <div v-if="memberView === 'families'" class="space-y-4">
         <!-- Household Analytics Header -->
         <div class="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 text-center">
-          <div class="p-2 rounded-xl bg-white dark:bg-[#151c28] border border-slate-100 dark:border-slate-700/50 shadow-xs">
+          <div class="p-2 rounded-xl bg-white dark:bg-surface-dark border border-slate-100 dark:border-slate-700/50 shadow-xs">
             <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Households</div>
             <div class="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5">🏡 {{ householdStats.totalHouseholds }}</div>
           </div>
-          <div class="p-2 rounded-xl bg-white dark:bg-[#151c28] border border-slate-100 dark:border-slate-700/50 shadow-xs">
+          <div class="p-2 rounded-xl bg-white dark:bg-surface-dark border border-slate-100 dark:border-slate-700/50 shadow-xs">
             <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">In Families</div>
             <div class="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">👨‍👩‍👧‍👦 {{ householdStats.totalInHouseholds }}</div>
           </div>
-          <div class="p-2 rounded-xl bg-white dark:bg-[#151c28] border border-slate-100 dark:border-slate-700/50 shadow-xs">
+          <div class="p-2 rounded-xl bg-white dark:bg-surface-dark border border-slate-100 dark:border-slate-700/50 shadow-xs">
             <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Avg. Size</div>
             <div class="text-lg font-black text-sky-600 dark:text-sky-400 mt-0.5">📊 {{ householdStats.avgSize }}</div>
           </div>
         </div>
 
         <!-- Household Units List -->
-        <div v-for="fam in structuredFamilies" :key="fam.name" class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
+        <div v-for="fam in structuredFamilies" :key="fam.name" class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
           
           <!-- Family Header -->
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
@@ -445,7 +445,7 @@
 
       <!-- Subtab Switcher: Celebrations vs Message Templates -->
       <div class="flex p-1 bg-slate-100 dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-slate-800">
-        <button type="button" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-white dark:bg-[#151c28] text-indigo-600 dark:text-indigo-400 shadow-sm">
+        <button type="button" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-white dark:bg-surface-dark text-indigo-600 dark:text-indigo-400 shadow-sm">
           🎂 Upcoming Celebrations ({{ (upcomingEvents.birthdays?.length || 0) + (upcomingEvents.weddings?.length || 0) }})
         </button>
         <button type="button" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200" @click="currentTab = 'templates'">
@@ -454,7 +454,7 @@
       </div>
 
       <!-- Birthdays Section -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
+      <section class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <div class="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-sm">
             <span>🎂</span>
@@ -486,7 +486,7 @@
       </section>
 
       <!-- Wedding Anniversaries Section -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
+      <section class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <div class="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-sm">
             <span>💍</span>
@@ -543,13 +543,13 @@
         <button type="button" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200" @click="currentTab = 'upcoming'">
           🎂 Upcoming Celebrations ({{ (upcomingEvents.birthdays?.length || 0) + (upcomingEvents.weddings?.length || 0) }})
         </button>
-        <button type="button" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-white dark:bg-[#151c28] text-indigo-600 dark:text-indigo-400 shadow-sm">
+        <button type="button" class="flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-white dark:bg-surface-dark text-indigo-600 dark:text-indigo-400 shadow-sm">
           📝 Message Templates ({{ templates.length }})
         </button>
       </div>
 
       <div class="space-y-3">
-        <div v-for="t in templates" :key="t._id" class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 cursor-pointer hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-sm" @click="openTemplateForm(t)">
+        <div v-for="t in templates" :key="t._id" class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 cursor-pointer hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-sm" @click="openTemplateForm(t)">
           <div class="flex items-center justify-between mb-2">
             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border" :class="t.type === 'birthday' ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'">
               <span>{{ t.type === 'birthday' ? '🎂' : '💍' }}</span>
@@ -593,7 +593,7 @@
       </div>
 
       <!-- INTERACTIVE MONTH CALENDAR GRID -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
           <h3 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
             <span>🗓️</span>
@@ -626,7 +626,7 @@
       </div>
 
       <!-- Events List -->
-      <div v-if="filteredChurchEvents.length === 0" class="text-center py-12 px-6 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+      <div v-if="filteredChurchEvents.length === 0" class="text-center py-12 px-6 rounded-3xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div class="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center text-3xl shadow-inner">
           📅
         </div>
@@ -645,7 +645,7 @@
       </div>
 
       <div v-else class="space-y-3">
-        <div v-for="ev in filteredChurchEvents" :key="ev._id" class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-2.5">
+        <div v-for="ev in filteredChurchEvents" :key="ev._id" class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-2.5">
           <div class="flex items-start justify-between gap-2">
             <div>
               <div class="flex items-center gap-2">
@@ -752,7 +752,7 @@
       </div>
 
       <!-- PROGRESS BAR -->
-      <div v-if="taskStats.total > 0" class="p-3 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-1.5 shadow-sm">
+      <div v-if="taskStats.total > 0" class="p-3 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-1.5 shadow-sm">
         <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
           <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-2.5 rounded-full transition-all duration-300" :style="{ width: progressPercentage + '%' }"></div>
         </div>
@@ -773,7 +773,7 @@
       </div>
 
       <!-- SMART QUICK ADD (NLP) -->
-      <div class="p-3.5 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-2.5">
+      <div class="p-3.5 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-2.5">
         <div class="flex items-center gap-2">
           <span class="text-base text-indigo-500">⚡</span>
           <input
@@ -914,7 +914,7 @@
       </div>
 
       <!-- TASK LIST -->
-      <div v-if="filteredTasks.length === 0" class="text-center py-12 px-6 rounded-3xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+      <div v-if="filteredTasks.length === 0" class="text-center py-12 px-6 rounded-3xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div class="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center text-3xl shadow-inner">
           {{ taskSearch ? '🔍' : '🎉' }}
         </div>
@@ -942,7 +942,7 @@
         <div
           v-for="t in filteredTasks"
           :key="t._id"
-          class="p-4 rounded-3xl bg-white dark:bg-[#151c28] border transition-all shadow-sm space-y-3"
+          class="p-4 rounded-3xl bg-white dark:bg-surface-dark border transition-all shadow-sm space-y-3"
           :class="[
             t.pinned ? 'border-amber-400/60 dark:border-amber-500/40 bg-amber-500/[0.02]' : 'border-slate-200 dark:border-slate-800',
             isTaskSelected(t._id) ? 'ring-2 ring-indigo-500' : ''
@@ -1212,7 +1212,7 @@
       </div>
 
       <!-- Demographics Breakdown -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">📊 Member Demographics</h3>
         <div class="grid grid-cols-2 gap-2 text-xs">
           <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex justify-between items-center">
@@ -1274,7 +1274,7 @@
       </div>
 
       <!-- Task Completion Stats -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">✅ Administrative Task Execution</h3>
         <div class="grid grid-cols-3 gap-2 text-center text-xs">
           <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60">
@@ -1293,7 +1293,7 @@
       </div>
 
       <!-- Data Quality Audit Inconsistencies -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div class="flex items-center justify-between">
           <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">🛡️ Data Quality Audit</h3>
           <span class="text-xs text-indigo-600 dark:text-indigo-400 font-bold">{{ dataQuality?.inconsistencies?.length || 0 }} Issues</span>
@@ -1317,7 +1317,7 @@
       </div>
 
       <!-- Quick Duplicate Member Merger Tool -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div class="flex items-center justify-between">
           <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">🔀 Member Profile Merger</h3>
           <span class="text-[10px] text-slate-400">Reconcile Duplicates</span>
@@ -1351,7 +1351,7 @@
       </div>
 
       <!-- System Error Logs & Audit Management Section -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">🚨 System Error Log & Diagnostics</h3>
@@ -1425,7 +1425,7 @@
             class="p-3 rounded-xl border transition-all text-xs space-y-2 min-w-0 overflow-hidden"
             :class="err.resolved
               ? 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-75'
-              : 'bg-white dark:bg-[#1a2232] border-rose-200/80 dark:border-rose-900/40 shadow-xs'"
+              : 'bg-white dark:bg-surface-2 border-rose-200/80 dark:border-rose-900/40 shadow-xs'"
           >
             <!-- Header Row -->
             <div class="flex items-start justify-between gap-2 min-w-0">
@@ -1558,7 +1558,7 @@
       </section>
 
       <!-- Feature Automation Toggles -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
+      <section class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
         <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Automations</h3>
         <label class="flex items-center justify-between py-1 cursor-pointer">
           <div>
@@ -1578,7 +1578,7 @@
       </section>
 
       <!-- Message Templates Studio Direct Card -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm cursor-pointer hover:border-indigo-500/50 transition-all" @click="currentTab = 'templates'">
+      <section class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm cursor-pointer hover:border-indigo-500/50 transition-all" @click="currentTab = 'templates'">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg">📝</div>
@@ -1592,7 +1592,7 @@
       </section>
 
       <!-- Broadcast Schedule -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
+      <section class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
         <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Daily Schedule (IST)</h3>
         <div class="flex items-center justify-between py-1">
           <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">Daily Morning Post</span>
@@ -1606,7 +1606,7 @@
       </section>
 
       <!-- Dynamic Custom Fields Builder -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
+      <section class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
         <div class="flex items-center justify-between">
           <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Custom Member Attributes</h3>
           <button @click="settings.customFields.push({ id: 'custom_' + Date.now(), label: '', type: 'text' })" class="text-indigo-600 dark:text-indigo-400 font-bold text-xs">+ Add Attribute</button>
@@ -1629,7 +1629,7 @@
       </button>
 
       <!-- Tools & Database Operations -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-2 shadow-sm">
+      <section class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-2 shadow-sm">
         <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Operations & Backups</h3>
         <div class="grid grid-cols-2 gap-2">
           <button @click="openImportModal" class="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 hover:bg-blue-50 border border-blue-200 dark:border-blue-900 text-left transition-colors">
@@ -1656,7 +1656,7 @@
       </section>
 
       <!-- Disaster Recovery & Automated Backup Health Card -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
+      <section class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2.5">
             <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
@@ -1710,7 +1710,7 @@
 
       <!-- Authorized Leaders & User Management Section -->
       <!-- Authorized Leaders & User Access Control (RBAC & CRUD) Section -->
-      <section class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
+      <section class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div>
             <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
@@ -1887,7 +1887,7 @@
     <!-- ========================================== -->
     <transition name="fade">
       <div v-if="wishModal.open" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-        <div class="w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl transition-all duration-300" @click.stop>
+        <div class="w-full max-w-md max-h-[92vh] overflow-y-auto p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-surface-dark border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl transition-all duration-300" @click.stop>
           <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
@@ -1959,7 +1959,7 @@
     <!-- ========================================== -->
     <transition name="fade">
       <div v-if="importModal.open" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-        <div class="w-full max-w-md p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl transition-all duration-300" @click.stop>
+        <div class="w-full max-w-md p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-surface-dark border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl transition-all duration-300" @click.stop>
           <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
@@ -1997,7 +1997,7 @@
     <!-- ========================================== -->
     <transition name="fade">
       <div v-if="eventModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-        <div class="w-full max-w-md p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300" @click.stop>
+        <div class="w-full max-w-md p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-surface-dark border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300" @click.stop>
           <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
@@ -2075,7 +2075,7 @@
     <!-- ========================================== -->
     <transition name="fade">
       <div v-if="taskModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-        <div class="w-full max-w-lg p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300" @click.stop>
+        <div class="w-full max-w-lg p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-surface-dark border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300" @click.stop>
           <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
@@ -2243,7 +2243,7 @@
     <!-- ========================================== -->
     <transition name="fade">
       <div v-if="userModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 overflow-y-auto">
-        <div class="w-full max-w-lg p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300 my-0 md:my-8" @click.stop>
+        <div class="w-full max-w-lg p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-surface-dark border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300 my-0 md:my-8" @click.stop>
           <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
@@ -2389,7 +2389,7 @@
     <!-- ========================================== -->
     <transition name="fade">
       <div v-if="inviteModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 overflow-y-auto">
-        <div class="w-full max-w-md p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300 my-0 md:my-8" @click.stop>
+        <div class="w-full max-w-md p-5 rounded-t-3xl md:rounded-3xl bg-white dark:bg-surface-dark border-t md:border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto transition-all duration-300 my-0 md:my-8" @click.stop>
           <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
             <div class="flex items-center gap-2">
@@ -2469,7 +2469,7 @@
       </div>
 
       <!-- Main Input Card -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
         
         <!-- Field 1: Full Name with Prefix Shortcuts -->
         <div>
@@ -2581,7 +2581,7 @@
       </div>
 
       <!-- Live Session Tray: Members Added in This Session -->
-      <div v-if="fastSessionMembers.length > 0" class="p-3.5 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-2.5 shadow-sm">
+      <div v-if="fastSessionMembers.length > 0" class="p-3.5 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-2.5 shadow-sm">
         <div class="flex items-center justify-between">
           <div class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
             <span>✅</span>
@@ -2620,7 +2620,7 @@
         <button @click="currentTab = 'members'" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
       </div>
 
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
         <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">👤 Personal Information</h3>
         <div>
           <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Full Name *</label>
@@ -2687,7 +2687,7 @@
       </div>
 
       <!-- Marriage Section -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
         <label class="flex items-center justify-between cursor-pointer">
           <div>
             <div class="text-sm font-bold text-slate-900 dark:text-white">💍 Married?</div>
@@ -2720,7 +2720,7 @@
       </div>
 
       <!-- Lifecycle Status & Archive Section -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm">
         <h3 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">🏷️ Lifecycle Status</h3>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -2763,7 +2763,7 @@
         <button @click="currentTab = 'templates'" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-200 flex items-center justify-center">✕</button>
       </div>
 
-      <div class="p-4 rounded-2xl bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
+      <div class="p-4 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 space-y-3.5 shadow-sm">
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Event Type</label>
@@ -2829,7 +2829,7 @@
     <!-- ========================================== -->
     <transition name="fade">
       <div v-if="commandPaletteOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[120] flex items-start justify-center pt-12 md:pt-20 p-4" @click="closeCommandPalette">
-        <div class="w-full max-w-lg bg-white dark:bg-[#151c28] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] transition-all" @click.stop>
+        <div class="w-full max-w-lg bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] transition-all" @click.stop>
           <!-- Input Bar -->
           <div class="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
             <span class="text-lg text-slate-400">🔍</span>
@@ -2889,7 +2889,7 @@
     <!-- Standalone Admin Authentication Modal -->
     <transition name="fade">
       <div v-if="authModalOpen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
-        <div class="bg-white dark:bg-[#151c28] border-t md:border border-slate-200 dark:border-slate-800 rounded-t-3xl md:rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
+        <div class="bg-white dark:bg-surface-dark border-t md:border border-slate-200 dark:border-slate-800 rounded-t-3xl md:rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
           <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-1 md:hidden"></div>
           <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center text-3xl shadow-sm">
             🔒
@@ -2925,34 +2925,34 @@
     </transition>
 
     <!-- Floating Island Bottom Navigation (High Contrast Dark/Light Island) -->
-    <nav v-if="!loading && !['memberForm', 'templateForm', 'fastEntry'].includes(currentTab)" style="bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);" class="fixed left-3 right-3 max-w-xl mx-auto bg-white/95 dark:bg-[#151c28]/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl flex justify-between p-1.5 z-50 transition-colors">
-      <button class="flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-bold transition-all" :class="currentTab === 'members' ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'" @click="currentTab = 'members'">
+    <nav v-if="!loading && !['memberForm', 'templateForm', 'fastEntry'].includes(currentTab)" style="bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);" class="tabbar fixed left-3 right-3 max-w-xl mx-auto rounded-3xl flex justify-between p-1.5 z-50">
+      <button class="tab-item flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl text-[10px] font-bold text-slate-500 dark:text-slate-400" :class="{ 'is-active': currentTab === 'members' }" @click="currentTab = 'members'">
         <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
         <span>Members</span>
       </button>
 
-      <button class="flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-bold transition-all" :class="currentTab === 'events' ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'" @click="currentTab = 'events'">
+      <button class="tab-item flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl text-[10px] font-bold text-slate-500 dark:text-slate-400" :class="{ 'is-active': currentTab === 'events' }" @click="currentTab = 'events'">
         <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
         <span>Events</span>
       </button>
 
-      <button class="flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-bold transition-all relative" :class="currentTab === 'tasks' ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'" @click="currentTab = 'tasks'">
+      <button class="tab-item flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl text-[10px] font-bold text-slate-500 dark:text-slate-400" :class="{ 'is-active': currentTab === 'tasks' }" @click="currentTab = 'tasks'">
         <span v-if="overdueTasksCount > 0" class="absolute top-1 right-2 w-2 h-2 rounded-full bg-rose-500"></span>
         <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
         <span>Tasks</span>
       </button>
 
-      <button class="flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-bold transition-all" :class="currentTab === 'analytics' ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'" @click="currentTab = 'analytics'">
+      <button class="tab-item flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl text-[10px] font-bold text-slate-500 dark:text-slate-400" :class="{ 'is-active': currentTab === 'analytics' }" @click="currentTab = 'analytics'">
         <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
         <span>Reports</span>
       </button>
 
-      <button class="flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-bold transition-all" :class="['upcoming', 'templates'].includes(currentTab) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'" @click="currentTab = 'upcoming'">
+      <button class="tab-item flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl text-[10px] font-bold text-slate-500 dark:text-slate-400" :class="{ 'is-active': ['upcoming', 'templates'].includes(currentTab) }" @click="currentTab = 'upcoming'">
         <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15.546c-.523 0-1.046.151-1.5.454a2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-1.5-.454M9 6v2m3-2v2m3-2v2M9 3h.01M12 3h.01M15 3h.01M21 21v-7a2 2 0 00-2-2H5a2 2 0 00-2 2v7h16z"></path></svg>
         <span>Wishes</span>
       </button>
 
-      <button class="flex flex-col items-center py-1 px-2 rounded-xl text-[10px] font-bold transition-all" :class="currentTab === 'settings' ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'" @click="currentTab = 'settings'">
+      <button class="tab-item flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl text-[10px] font-bold text-slate-500 dark:text-slate-400" :class="{ 'is-active': currentTab === 'settings' }" @click="currentTab = 'settings'">
         <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         <span>Settings</span>
       </button>
