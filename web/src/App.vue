@@ -90,82 +90,58 @@
         </button>
       </div>
 
-      <!-- Metrics Overview Cards (High Contrast) -->
-      <div class="grid grid-cols-4 gap-2">
-        <div class="stat-tile" style="--tile:#64748b">
-          <div class="stat-label">Total</div>
-          <div class="stat-value">{{ totalCount }}</div>
+      <!-- Title + live summary -->
+      <section class="pt-1">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="text-[1.75rem] font-extrabold tracking-tight leading-none text-slate-900 dark:text-white">Members</h2>
+            <p class="text-[13px] text-slate-500 dark:text-slate-400 mt-2 font-medium">
+              <b class="text-slate-800 dark:text-slate-100">{{ totalCount }}</b> people ·
+              <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{{ activeCount }} active</span> ·
+              {{ marriedCount }} married
+            </p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <div class="seg">
+              <button @click="memberView = 'cards'" :class="{ on: memberView === 'cards' }" title="List view">☰</button>
+              <button @click="memberView = 'families'" :class="{ on: memberView === 'families' }" title="Families view">🏡</button>
+            </div>
+            <button @click="openMemberForm()" class="fab btn-brand" title="Add member" aria-label="Add member">+</button>
+          </div>
         </div>
-        <div class="stat-tile" style="--tile:#10b981">
-          <div class="stat-label">Active</div>
-          <div class="stat-value">{{ activeCount }}</div>
+        <div class="ratio-bar mt-3.5" :title="activeCount + ' of ' + totalCount + ' active'">
+          <span :style="{ width: (totalCount ? Math.round(activeCount / totalCount * 100) : 0) + '%' }"></span>
         </div>
-        <div class="stat-tile" style="--tile:#f43f5e">
-          <div class="stat-label">Married</div>
-          <div class="stat-value">{{ marriedCount }}</div>
-        </div>
-        <div class="stat-tile card-lift cursor-pointer" style="--tile:#6366f1" @click="currentTab = 'upcoming'">
-          <div class="stat-label">Events</div>
-          <div class="stat-value">{{ celebrationsCount }}</div>
-        </div>
-      </div>
+      </section>
 
-      <!-- Search, View Switcher & Add Actions -->
-      <div class="flex items-center gap-2">
-        <div class="relative flex-1">
-          <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 dark:text-slate-500">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          </span>
-          <input type="text" v-model="search" placeholder="Search name, family, role..." class="w-full pl-10 pr-8 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-surface-dark text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors shadow-sm" />
-          <button v-if="search" @click="search = ''" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
-        </div>
+      <!-- Celebrations nudge -->
+      <button v-if="celebrationsCount > 0" @click="currentTab = 'upcoming'" class="nudge card-lift w-full text-left">
+        <span class="nudge-ico">🎉</span>
+        <span class="flex-1 min-w-0">
+          <span class="block text-[13px] font-extrabold text-slate-900 dark:text-white">{{ celebrationsCount }} celebration{{ celebrationsCount === 1 ? '' : 's' }} coming up</span>
+          <span class="block text-[11px] text-slate-500 dark:text-slate-400 font-medium">Birthdays &amp; anniversaries ready to wish</span>
+        </span>
+        <span class="text-slate-400 text-lg">›</span>
+      </button>
 
-        <!-- View Switcher (Cards vs Family Tree) -->
-        <div class="flex items-center p-1 rounded-xl bg-slate-200/70 dark:bg-slate-800/80 border border-slate-300/60 dark:border-slate-700/60">
-          <button @click="memberView = 'cards'" :class="['p-1.5 rounded-lg text-xs transition-all', memberView === 'cards' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400']" title="Cards View">
-            📇
-          </button>
-          <button @click="memberView = 'families'" :class="['p-1.5 rounded-lg text-xs transition-all', memberView === 'families' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400']" title="Families View">
-            🏡
-          </button>
-        </div>
-
-        <button @click="openFastEntry()" class="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all" title="Speed continuous registration">
-          <span>⚡</span>
-          <span>Fast Entry</span>
-        </button>
-
-        <button @click="openMemberForm()" class="btn-brand px-3 py-2.5 text-xs flex items-center gap-1 shadow-sm">
-          <span>➕</span>
-          <span>Add</span>
-        </button>
-      </div>
-
-      <!-- Segmented Filters & Sort Row -->
-      <div class="flex items-center justify-between gap-1 overflow-x-auto pb-1 scrollbar-hide text-xs font-semibold">
-        <div class="flex items-center gap-1.5">
-          <button @click="memberFilter = 'active'" :class="['px-3 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'active' ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-300/50 dark:border-slate-700/50']">
-            Active
-          </button>
-          <button @click="memberFilter = 'all'" :class="['px-3 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'all' ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-300/50 dark:border-slate-700/50']">
-            All
-          </button>
-          <button @click="memberFilter = 'married'" :class="['px-3 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'married' ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-300/50 dark:border-slate-700/50']">
-            💍 Married
-          </button>
-          <button @click="memberFilter = 'youth'" :class="['px-3 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'youth' ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-300/50 dark:border-slate-700/50']">
-            Youth
-          </button>
-          <button @click="memberFilter = 'pastor'" :class="['px-3 py-1.5 rounded-xl transition-all whitespace-nowrap', memberFilter === 'pastor' ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-300/50 dark:border-slate-700/50']">
-            Pastors
-          </button>
-        </div>
-
-        <select v-model="sortBy" class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold focus:outline-none ml-2 shadow-sm">
-          <option value="name">Sort: A-Z</option>
-          <option value="birthday">Sort: Birthday</option>
-          <option value="wedding">Sort: Wedding</option>
+      <!-- Search -->
+      <div class="searchbar">
+        <svg class="w-[18px] h-[18px] text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <input type="text" v-model="search" placeholder="Search name, family, role…" class="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400" />
+        <button v-if="search" @click="search = ''" class="text-slate-400 hover:text-slate-600 text-sm px-1" aria-label="Clear search">✕</button>
+        <select v-model="sortBy" class="sort-select" aria-label="Sort members">
+          <option value="name">A–Z</option>
+          <option value="birthday">Birthday</option>
+          <option value="wedding">Wedding</option>
         </select>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="tabs-row scrollbar-hide">
+        <button v-for="f in [{ k: 'active', l: 'Active' }, { k: 'all', l: 'All' }, { k: 'married', l: 'Married' }, { k: 'youth', l: 'Youth' }, { k: 'pastor', l: 'Pastors' }]" :key="f.k" @click="memberFilter = f.k" :class="{ on: memberFilter === f.k }" class="tab-pill">{{ f.l }}</button>
+        <span class="flex-1"></span>
+        <button @click="selectMode = !selectMode; selectedIds = selectMode ? selectedIds : []" :class="{ on: selectMode }" class="tab-pill">Select</button>
+        <button @click="openFastEntry()" class="tab-pill warn">⚡ Fast entry</button>
       </div>
 
       <!-- Shimmering Skeleton Loader for Member Cards -->
@@ -185,37 +161,37 @@
 
       <!-- VIEW A: MEMBER CARDS GRID (Pure High Contrast) -->
       <div v-if="memberView === 'cards'" class="space-y-2.5">
-        <div v-for="m in filteredMembers" :key="m._id" class="p-3.5 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 flex items-center gap-3 transition-all hover:border-slate-300 dark:hover:border-slate-700 shadow-sm">
-          <input type="checkbox" :value="m._id" v-model="selectedIds" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0" />
-          
-          <div class="w-11 h-11 rounded-2xl relative overflow-hidden flex items-center justify-center font-bold text-white text-sm shadow-md cursor-pointer flex-shrink-0" :style="avatarStyle(m.name)" @click="openMemberForm(m)">
-            <img v-if="m.photo" :src="photoUrl(m._id)" class="w-full h-full object-cover absolute inset-0" />
-            <span v-if="!m.photo">{{ getInitials(m.name) }}</span>
-          </div>
+        <div v-for="g in memberGroups" :key="g.letter || 'all'" class="space-y-1.5">
+          <div v-if="g.letter" class="letter-head">{{ g.letter }}</div>
+          <div class="list-group">
+            <div v-for="m in g.items" :key="m._id" class="member-row">
+              <label v-if="selectMode || selectedIds.length" class="pick">
+                <input type="checkbox" :value="m._id" v-model="selectedIds" />
+                <span></span>
+              </label>
 
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-1">
-              <h3 class="font-bold text-slate-900 dark:text-white text-base leading-tight truncate cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400" @click="openMemberForm(m)">
-                {{ m.name }}
-              </h3>
-              <div class="flex items-center gap-1 flex-shrink-0">
-                <button @click="openWishModal(m, 'birthday')" class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 border border-indigo-200/50 dark:border-indigo-800/60 font-bold text-xs flex items-center gap-1 transition-colors" title="Live AI Wish Preview">
-                  <span>✨</span>
-                  <span>Wish</span>
-                </button>
+              <button class="avatar" :style="avatarStyle(m.name)" @click="openMemberForm(m)" :aria-label="'Open ' + m.name">
+                <img v-if="m.photo" :src="photoUrl(m._id)" class="w-full h-full object-cover absolute inset-0" />
+                <span v-if="!m.photo">{{ getInitials(m.name) }}</span>
+                <i class="dot" :class="(m.status === 'active' || (m.isActive !== false && m.status !== 'inactive')) ? 'on' : 'off'"></i>
+              </button>
+
+              <button class="flex-1 min-w-0 text-left" @click="openMemberForm(m)">
+                <span class="flex items-center gap-1.5 min-w-0">
+                  <span class="font-bold text-[15px] leading-tight text-slate-900 dark:text-white truncate">{{ m.name }}</span>
+                  <span v-if="getRoleBadge(m)" :class="['px-1.5 py-px rounded-md font-extrabold text-[9px] uppercase border flex-shrink-0', getRoleBadge(m).class]">{{ getRoleBadge(m).label }}</span>
+                </span>
+                <span class="block text-[12px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate">
+                  {{ [m.familyName ? m.familyName + ' family' : '', (m.status === 'active' || (m.isActive !== false && m.status !== 'inactive')) ? '' : 'Inactive'].filter(Boolean).join(' · ') || (m.role || 'Member') }}
+                </span>
+              </button>
+
+              <div class="dates">
+                <span v-if="m.dob || m.birthday" class="date-chip bd">🎂 {{ monthDay(m.dob || m.birthday) }}</span>
+                <span v-if="m.isMarried && (m.weddingDate || m.wedding)" class="date-chip wd">💍 {{ monthDay(m.weddingDate || m.wedding) }}</span>
               </div>
-            </div>
 
-            <div class="flex flex-wrap items-center gap-1.5 mt-1.5 text-xs">
-              <span v-if="getRoleBadge(m)" :class="['px-1.5 py-0.5 rounded-md font-extrabold text-[10px] uppercase border', getRoleBadge(m).class]">
-                {{ getRoleBadge(m).label }}
-              </span>
-              <span :class="['px-1.5 py-0.5 rounded-md font-semibold text-[11px] border', (m.status === 'active' || (m.isActive !== false && m.status !== 'inactive')) ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700']">
-                {{ (m.status === 'active' || (m.isActive !== false && m.status !== 'inactive')) ? 'Active' : 'Inactive' }}
-              </span>
-              <span v-if="m.dob || m.birthday" class="text-amber-700 dark:text-amber-300 font-semibold bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60 text-[11px]">🎂 {{ m.dob ? m.dob.substring(5) : m.birthday }}</span>
-              <span v-if="m.isMarried && (m.weddingDate || m.wedding)" class="text-rose-700 dark:text-rose-300 font-semibold bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.5 rounded-md border border-rose-200 dark:border-rose-800/60 text-[11px]">💍 {{ m.weddingDate ? m.weddingDate.substring(5) : m.wedding }}</span>
-              <span v-if="m.familyName" class="text-slate-400 dark:text-slate-500 text-[11px]">🏡 {{ m.familyName }}</span>
+              <button @click="openWishModal(m, 'birthday')" class="wish-btn" title="Live AI Wish Preview" aria-label="Wish">✨</button>
             </div>
           </div>
         </div>
@@ -3974,6 +3950,27 @@ export default {
       return age;
     };
 
+    // Contacts-style grouping: A-Z sections when sorting by name, one flat group otherwise
+    const selectMode = ref(false);
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthDay = (v) => {
+      const mmdd = String(v || '').slice(-5);
+      const [mm, dd] = mmdd.split('-').map(Number);
+      return mm >= 1 && mm <= 12 && dd ? `${MONTHS[mm - 1]} ${dd}` : String(v || '');
+    };
+    const memberGroups = computed(() => {
+      const list = filteredMembers.value;
+      if (sortBy.value !== 'name') return list.length ? [{ letter: '', items: list }] : [];
+      const map = new Map();
+      for (const m of list) {
+        const ch = (m.name || '#').trim().charAt(0).toUpperCase();
+        const key = /[A-Z\u0B80-\u0BFF]/.test(ch) ? ch : '#';
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(m);
+      }
+      return [...map.entries()].map(([letter, items]) => ({ letter, items }));
+    });
+
     // Metrics Overview
     const totalCount = computed(() => members.value.length);
     const activeCount = computed(() => members.value.filter(m => m.isActive !== false).length);
@@ -5870,7 +5867,7 @@ export default {
       form, tplForm, wishModal, importModal, eventForm, taskForm,
       eventModalOpen, taskModalOpen, eventFilter, taskFilter,
       totalCount, activeCount, marriedCount, celebrationsCount, overdueTasksCount,
-      filteredMembers, groupedFamilies, structuredFamilies, householdStats, filteredChurchEvents, filteredTasks,
+      filteredMembers, memberGroups, selectMode, monthDay, groupedFamilies, structuredFamilies, householdStats, filteredChurchEvents, filteredTasks,
       selectAll, bulkAction, openMemberForm, addFamilyMember, openFamilyWhatsApp, saveMember, archiveMember, restoreMember,
       openTemplateForm, saveTemplate, deleteTemplate, insertVariable,
       openEventForm, saveEvent, deleteEvent, exportICS,
